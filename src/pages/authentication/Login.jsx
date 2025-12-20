@@ -34,15 +34,15 @@ const Login = () => {
 
   return (
     <div className="w-full max-w-md animate-fade-in">
-      <Card className="border-border shadow-sm">
-        <CardHeader className="text-center space-y-2">
+      <Card className="border-none shadow-none">
+        <CardHeader className="text-center space-y-3">
           <CardTitle className="text-2xl font-display">Log in to your account</CardTitle>
-          <CardDescription>
+          {/* <CardDescription>
             Enter your credentials to access your dashboard
-          </CardDescription>
+          </CardDescription> */}
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-7">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -81,16 +81,16 @@ const Login = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
+          <div className="mt-6 text-center space-y-2 text-md font-normal text-foreground">
+            <p className="">
               Don't have an account yet?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
+              <Link to="/signup" className=" hover:underline font-medium">
                 Sign up
               </Link>
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-md text-foreground">
               Can't log in?{" "}
-              <Link to="/help/login" className="text-primary hover:underline">
+              <Link to="/help/login" className=" hover:underline">
                 Visit our help center
               </Link>
             </p>

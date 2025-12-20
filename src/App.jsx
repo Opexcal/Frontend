@@ -17,6 +17,7 @@ import ForgotPassword from './pages/authentication/ForgotPassword';
 import  Dashboard  from "@/pages/dashboard/Dashboard";
 import  CalendarOverview  from "@/pages/dashboard/CalendarOverview";
 import  TaskLists  from "@/pages/dashboard/TaskLists";
+import Settings from './pages/settings/Settings';
 import  HelpCenter  from "@/pages/help/HelpCenter";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +49,8 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<CalendarOverview />} />
             <Route path="/tasks" element={<TaskLists />} />
+            <Route path="/settings" element={<Settings />} />
+            
           </Route>
 
           {/* Catch-all */}

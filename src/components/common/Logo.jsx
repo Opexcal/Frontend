@@ -1,6 +1,6 @@
 import { Asterisk } from "lucide-react";
 import { Link } from "react-router-dom";
-
+import Image from "../../../public/OpexCal.svg";
 export const Logo = ({ size = "md", showText = true, className = "" }) => {
   const sizeClasses = {
     sm: "h-6 w-6",
@@ -17,7 +17,7 @@ export const Logo = ({ size = "md", showText = true, className = "" }) => {
   return (
     <Link to="/" className={`flex items-center gap-2 ${className}`}>
       <div className="text-primary">
-        <Asterisk className={sizeClasses[size]} strokeWidth={2.5} />
+        <img src={Image} alt="" className='w-10' />
       </div>
       {showText && (
         <span className={`font-display font-semibold text-primary ${textSizes[size]}`}>

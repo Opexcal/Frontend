@@ -11,14 +11,14 @@ import { Logo } from "@/components/common/Logo";
 
 export const PublicNavbar = ({ showSignUp = true, showLogin = true }) => {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-10">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Logo size="md" />
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1">
+              <Button variant="ghost" size="sm" className="gap-1 border">
                 Support
                 <ChevronDown className="h-4 w-4" />
               </Button>

@@ -48,10 +48,10 @@ const Signup = () => {
 
   return (
     <div className="w-full max-w-md animate-fade-in py-8">
-      <Card className="border-border shadow-sm">
+      <Card className="border-none shadow-none">
         <CardHeader className="text-center space-y-2">
-          <CardTitle className="text-2xl font-display">Welcome to OpexCal</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-4xl font-display">Welcome to OpexCal</CardTitle>
+          <CardDescription className={`text-foreground text-md`}>
             Get started - it's free. No credit card needed.
           </CardDescription>
         </CardHeader>
