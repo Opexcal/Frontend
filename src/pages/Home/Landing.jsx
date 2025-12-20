@@ -56,7 +56,7 @@ const Landing = () => {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-semibold text-foreground leading-tight">
             Your organization's heartbeat,
             <br />
-            <span className="text-primary">on one calendar</span>
+            <span className="text-foreground">on one calendar</span>
           </h1>
           <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
             Manage tasks, track progress, and stay aligned — from meetings to milestones.
