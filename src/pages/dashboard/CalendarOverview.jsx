@@ -8,7 +8,7 @@ import  CreateEventForm from "../../components/forms/CreateEventForms";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Mock events data
+// Mock event data
 const mockEvents = [
   { id: 1, title: "Team Sync", date: 2, color: "bg-primary" },
   { id: 2, title: "Sprint Planning", date: 5, color: "bg-success" },
