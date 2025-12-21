@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
       id: "1",
       name: "John Doe",
       email: "john@example.com",
-      role: "admin", // 'manager' | 'admin' | 'staff' | 'wanderer'
+      role: "manager", // 'manager' | 'admin' | 'staff' | 'wanderer'
       groups: ["engineering"],
     };
   });

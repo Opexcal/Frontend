@@ -3,7 +3,7 @@ import React from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -44,6 +44,24 @@ import PendingAssignments from "./pages/assignments/PendingAssignments";
 import MassMessaging from "./pages/mass-operations/MassMessaging";
 import MassTaskCreation from "./pages/mass-operations/MassTaskCreation";
 import MassEventCreation from "./pages/mass-operations/MassEventCreation";
+import WandererDashboard from "./pages/dashboard/WandererDashboard";
+import StaffDashboard from "./pages/dashboard/StaffDashboard";
+import ManagerDashboard from "./pages/dashboard/ManagerDashboard";
+import PersonalCalendar from "./pages/calendar/PersonalCalendar";
+import GroupCalendar from "./pages/calendar/GroupCalendar";
+import DayView from "./pages/calendar/DayView";
+import MyTasks from "./pages/tasks/MyTasks";
+import AssignedToMe from "./pages/tasks/AssignedToMe";
+import AssignedByMe from "./pages/tasks/AssignedByMe";
+import TaskDetails from "./pages/tasks/TaskDetails";
+import TaskTimeline from "./pages/tasks/TaskTimeline";
+import EventDetails from "./pages/events/EventDetails";
+import EventRSVP from "./pages/events/EventRSVP";
+import RecurringEvents from "./pages/events/RecurringEvents";
+import TaskReports from "./pages/reports/TaskReports";
+import TeamProductivity from "./pages/reports/TeamProductivity";
+import EventAttendance from "./pages/reports/EventAttendance";
+import ExportData from "./pages/reports/ExportData";
 
 const queryClient = new QueryClient()
 
@@ -73,9 +91,29 @@ function App () {
 
           {/* Dashboard Routes */}
           <Route element={<DashboardLayout />}>
+            {/* Redirect /dashboard/admin to admin dashboard - must be before /dashboard */}
+            <Route path="/dashboard/admin" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/wanderer" element={<WandererDashboard />} />
+            <Route path="/dashboard/staff" element={<StaffDashboard />} />
+            <Route path="/dashboard/manager" element={<ManagerDashboard />} />
             <Route path="/calendar" element={<CalendarOverview />} />
+            <Route path="/calendar/personal" element={<PersonalCalendar />} />
+            <Route path="/calendar/group/:id" element={<GroupCalendar />} />
+            <Route path="/calendar/day" element={<DayView />} />
             <Route path="/tasks" element={<TaskLists />} />
+            <Route path="/tasks/my-tasks" element={<MyTasks />} />
+            <Route path="/tasks/assigned-to-me" element={<AssignedToMe />} />
+            <Route path="/tasks/assigned-by-me" element={<AssignedByMe />} />
+            <Route path="/tasks/:id" element={<TaskDetails />} />
+            <Route path="/tasks/:id/timeline" element={<TaskTimeline />} />
+            <Route path="/events/:id" element={<EventDetails />} />
+            <Route path="/events/:id/rsvp" element={<EventRSVP />} />
+            <Route path="/events/recurring/:id" element={<RecurringEvents />} />
+            <Route path="/reports/tasks" element={<TaskReports />} />
+            <Route path="/reports/productivity" element={<TeamProductivity />} />
+            <Route path="/reports/attendance" element={<EventAttendance />} />
+            <Route path="/reports/export" element={<ExportData />} />
             <Route path="/settings" element={<Settings />} />
 
             {/* Notifications (all authenticated users) */}

@@ -8,7 +8,15 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   if (!user) return <Navigate to="/login" replace />;
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
+    // Redirect to role-appropriate dashboard instead of generic /dashboard
+    const roleRoutes = {
+      manager: "/dashboard/manager",
+      admin: "/dashboard/staff",
+      staff: "/dashboard/staff",
+      wanderer: "/dashboard/wanderer"
+    };
+    const defaultRoute = roleRoutes[user?.role] || "/dashboard/staff";
+    return <Navigate to={defaultRoute} replace />;
   }
 
   // Support both direct children and nested routes (Outlet)

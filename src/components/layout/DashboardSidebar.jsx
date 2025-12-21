@@ -23,6 +23,7 @@ import {
   LogOut,
   ChevronDown,
   Plus,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -121,6 +122,40 @@ export const DashboardSidebar = () => {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Calendar</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive("/calendar/personal")}
+                  tooltip="Personal Calendar"
+                >
+                  <Link to="/calendar/personal">
+                    <Calendar className="h-4 w-4" />
+                    <span>Personal</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {user?.role !== "wanderer" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/calendar/day")}
+                    tooltip="Day View"
+                  >
+                    <Link to="/calendar/day">
+                      <Clock className="h-4 w-4" />
+                      <span>Day View</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
