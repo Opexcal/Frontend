@@ -2,6 +2,9 @@ import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/context/AuthContext";
 
 const mockUser = {
   id: "1",
@@ -18,9 +21,12 @@ const mockUser = {
 
 const UserDetails = () => {
   const { id } = useParams();
+  const { user: currentUser } = useAuth();
 
   // In real app fetch by id
   const user = mockUser;
+
+  const isSelf = currentUser && currentUser.id === user.id;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -31,7 +37,7 @@ const UserDetails = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <aside className="lg:col-span-1">
-          <Card className="p-4">
+          <Card className="p-4 space-y-4">
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-24 w-24">
                 <div className="bg-primary text-primary-foreground h-full w-full flex items-center justify-center">{user.name.split(" ").map(n=>n[0]).slice(0,2).join("")}</div>
@@ -40,6 +46,27 @@ const UserDetails = () => {
               <div className="text-sm text-muted-foreground">{user.email}</div>
               <div className="mt-3 text-sm text-muted-foreground">Role: {user.role}</div>
               <div className="text-sm text-muted-foreground">Status: {user.status}</div>
+            </div>
+            <div className="mt-4 flex justify-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isSelf}
+                      className={isSelf ? "cursor-not-allowed opacity-60" : ""}
+                    >
+                      Delete User
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isSelf && (
+                  <TooltipContent side="top">
+                    You cannot delete your own account.
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </Card>
         </aside>

@@ -20,6 +20,9 @@ const MassTaskCreation = () => {
   const [sending, setSending] = useState(false);
 
   const handleCreateTask = async () => {
+    // Guard against duplicate submissions
+    if (sending) return;
+
     setSending(true);
     try {
       await massOpsApi.createMassTasks({
@@ -30,12 +33,13 @@ const MassTaskCreation = () => {
           dueDate: taskData.dueDate,
         },
         assignees: {
-          groupIds: taskData.selectedGroups.map(g => g.id),
-          userIds: taskData.selectedUsers.map(u => u.id),
+          groupIds: taskData.selectedGroups.map((g) => g.id),
+          userIds: taskData.selectedUsers.map((u) => u.id),
         },
       });
-      // Success handling
+      // TODO: Replace with toast/success banner when global notifications are wired
     } catch (error) {
+      // TODO: Surface error to user once error handling/toast system is connected
       console.error(error);
     } finally {
       setSending(false);
@@ -44,7 +48,26 @@ const MassTaskCreation = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="relative max-w-4xl mx-auto p-6">
+      {/* High-end processing overlay for heavy mass task creation */}
+      {sending && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white/95 rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4 border border-slate-100">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-900">
+                Creating tasks for {recipientCount || "selected"} recipients
+              </p>
+              <p className="text-xs text-slate-500">
+                This may take a few seconds while we process everything in the
+                background.
+              </p>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-sky-400 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
       <h1 className="text-2xl font-bold mb-6">Mass Task Creation</h1>
 
       {/* Step 1: Assignees */}
@@ -124,18 +147,18 @@ const MassTaskCreation = () => {
       <div className="flex gap-4">
         <button
           onClick={() => setShowPreview(true)}
-          disabled={!taskData.title || recipientCount === 0}
-          className="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+          disabled={!taskData.title || recipientCount === 0 || sending}
+          className="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Preview Task
         </button>
         
         <button
           onClick={() => setShowPreview(true)}
-          disabled={!taskData.title || recipientCount === 0}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          disabled={!taskData.title || recipientCount === 0 || sending}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Assign to {recipientCount} Users
+          {sending ? "Processing…" : `Assign to ${recipientCount} Users`}
         </button>
       </div>
 
