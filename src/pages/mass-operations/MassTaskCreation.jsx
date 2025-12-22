@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import RecipientSelector from '../../components/RecipientSelector';
 import RichTextEditor from '../../components/RichTextEditor';
 import PreviewModal from '../../components/PreviewModal';
+import { toast } from "@/hooks/use-toast";
 
 const MassTaskCreation = () => {
   const { user } = useAuth();
@@ -37,10 +38,31 @@ const MassTaskCreation = () => {
           userIds: taskData.selectedUsers.map((u) => u.id),
         },
       });
-      // TODO: Replace with toast/success banner when global notifications are wired
+      toast({
+        title: "Mass tasks created",
+        description: `Successfully created tasks for ${recipientCount} assignees.`,
+      });
+
+      // Optionally reset form after success
+      setTaskData((prev) => ({
+        ...prev,
+        title: "",
+        description: "",
+        priority: "medium",
+        dueDate: "",
+        selectedGroups: [],
+        selectedUsers: [],
+      }));
+      setRecipientCount(0);
     } catch (error) {
-      // TODO: Surface error to user once error handling/toast system is connected
       console.error(error);
+      toast({
+        title: "Failed to create mass tasks",
+        description:
+          error?.response?.data?.message ||
+          "Something went wrong while creating tasks. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSending(false);
       setShowPreview(false);
