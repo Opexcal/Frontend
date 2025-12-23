@@ -22,6 +22,13 @@ export const authApi = {
   getMe: () => apiClient.get('/auth/me'),
 
   /**
+   * Request password reset link (backend must expose this route)
+   * @param {Object} data - { email }
+   * @returns {Promise}
+   */
+  forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
+
+  /**
    * Logout (client-side only - clear token)
    */
   logout: () => {

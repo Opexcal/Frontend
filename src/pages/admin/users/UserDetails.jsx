@@ -1,30 +1,42 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
-
-const mockUser = {
-  id: "1",
-  name: "Alice Johnson",
-  email: "alice.j@example.com",
-  role: "admin",
-  status: "active",
-  phone: "+1 (555) 123-4567",
-  timezone: "America/New_York",
-  language: "English",
-  joinedDate: "2024-01-15",
-  lastActive: "2 hours ago",
-};
+import { usersApi } from "@/api/usersApi";
+import { useToast } from "@/hooks/use-toast";
 
 const UserDetails = () => {
   const { id } = useParams();
   const { user: currentUser } = useAuth();
+  const { toast } = useToast();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // In real app fetch by id
-  const user = mockUser;
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await usersApi.get(id);
+        const u = res.user || res.data?.user || res.data;
+        setUser(u);
+      } catch (error) {
+        toast({
+          title: "Failed to load user",
+          description:
+            error?.message ||
+            error?.data?.message ||
+            "Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, toast]);
 
   const isSelf = currentUser && currentUser.id === user.id;
 
@@ -40,12 +52,20 @@ const UserDetails = () => {
           <Card className="p-4 space-y-4">
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-24 w-24">
-                <div className="bg-primary text-primary-foreground h-full w-full flex items-center justify-center">{user.name.split(" ").map(n=>n[0]).slice(0,2).join("")}</div>
+                <div className="bg-primary text-primary-foreground h-full w-full flex items-center justify-center">
+                  {user?.name
+                    ? user.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join("")
+                    : ""}
+                </div>
               </Avatar>
-              <h3 className="mt-4 text-lg font-medium">{user.name}</h3>
-              <div className="text-sm text-muted-foreground">{user.email}</div>
-              <div className="mt-3 text-sm text-muted-foreground">Role: {user.role}</div>
-              <div className="text-sm text-muted-foreground">Status: {user.status}</div>
+              <h3 className="mt-4 text-lg font-medium">{user?.name}</h3>
+              <div className="text-sm text-muted-foreground">{user?.email}</div>
+              <div className="mt-3 text-sm text-muted-foreground">Role: {user?.role}</div>
+              <div className="text-sm text-muted-foreground">Status: {user?.isActive ? "active" : "archived"}</div>
             </div>
             <div className="mt-4 flex justify-center">
               <Tooltip>
@@ -77,26 +97,28 @@ const UserDetails = () => {
             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="text-sm text-muted-foreground">Phone</div>
-                <div>{user.phone}</div>
+                <div>{user?.phone || "—"}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Timezone</div>
-                <div>{user.timezone}</div>
+                <div>{user?.timezone || "—"}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Language</div>
-                <div>{user.language}</div>
+                <div>{user?.language || "—"}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Joined</div>
-                <div>{user.joinedDate}</div>
+                <div>{user?.joinedDate || "—"}</div>
               </div>
             </div>
           </Card>
 
           <Card className="p-4">
             <h4 className="text-lg font-medium">Activity</h4>
-            <div className="mt-3 text-sm text-muted-foreground">No recent activity in mock data.</div>
+            <div className="mt-3 text-sm text-muted-foreground">
+              {user?.lastActive ? `Last active: ${user.lastActive}` : "No recent activity data."}
+            </div>
           </Card>
         </main>
       </div>

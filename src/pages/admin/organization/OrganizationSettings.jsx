@@ -1,22 +1,79 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const mockSettings = {
-  name: "Acme Corporation",
-  timezone: "America/New_York",
-  language: "English",
-  weekStartDay: "monday",
-};
+import { useToast } from "@/hooks/use-toast";
+import { organizationApi } from "@/api/organizationApi";
 
 const OrganizationSettings = () => {
-  const [settings, setSettings] = useState(mockSettings);
+  const { toast } = useToast();
+  const [settings, setSettings] = useState({
+    name: "",
+    timezone: "",
+    language: "",
+    weekStartDay: "monday",
+  });
+  const [loading, setLoading] = useState(false);
 
-  const save = () => {
-    // Simulate save
-    console.log("Saved", settings);
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await organizationApi.get();
+        const org = res.organization || res.data?.organization || {};
+        setSettings((prev) => ({
+          ...prev,
+          name: org.name || "",
+          timezone: org.timezone || "",
+          language: org.language || "",
+          weekStartDay: org.weekStartDay || "monday",
+        }));
+      } catch (error) {
+        toast({
+          title: "Failed to load organization",
+          description:
+            error?.message ||
+            error?.data?.message ||
+            "Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [toast]);
+
+  const save = async () => {
+    setLoading(true);
+    try {
+      await organizationApi.update({
+        name: settings.name,
+        branding: {
+          // Extend if backend stores timezone/language elsewhere
+        },
+        // weekStartDay/timezone/language would need backend support; send as passthrough if accepted
+        timezone: settings.timezone,
+        language: settings.language,
+        weekStartDay: settings.weekStartDay,
+      });
+      toast({
+        title: "Settings saved",
+        description: "Organization settings updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,7 +106,9 @@ const OrganizationSettings = () => {
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <Button onClick={save}>Save Changes</Button>
+          <Button onClick={save} disabled={loading}>
+            {loading ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </Card>
     </div>

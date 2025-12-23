@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,16 +22,28 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate API call - replace with actual auth integration
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await login({
+        email: formData.email,
+        password: formData.password,
+      });
       toast({
         title: "Login successful",
         description: "Redirecting to dashboard...",
       });
       navigate("/dashboard");
-    }, 1000);
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

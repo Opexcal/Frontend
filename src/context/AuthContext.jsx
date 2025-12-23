@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { authApi } from "@/api/authApi";
 
 const AuthContext = createContext();
 
@@ -9,16 +10,54 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    // TODO: replace with real auth/user fetch
-    return {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      role: "manager", // 'manager' | 'admin' | 'staff' | 'wanderer'
-      groups: ["engineering"],
-    };
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadCurrentUser = useCallback(async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await authApi.getMe();
+      setUser(res.data?.user || res.user || res);
+    } catch (err) {
+      // Token invalid/expired; clear it
+      localStorage.removeItem("authToken");
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCurrentUser();
+  }, [loadCurrentUser]);
+
+  const login = async (credentials) => {
+    const res = await authApi.login(credentials);
+    const token = res.token || res.data?.token;
+    const userData = res.user || res.data?.user;
+    if (token) localStorage.setItem("authToken", token);
+    setUser(userData || null);
+    return userData;
+  };
+
+  const register = async (data) => {
+    const res = await authApi.register(data);
+    const token = res.token || res.data?.token;
+    const userData = res.user || res.data?.user;
+    if (token) localStorage.setItem("authToken", token);
+    setUser(userData || null);
+    return userData;
+  };
+
+  const logout = () => {
+    authApi.logout();
+    setUser(null);
+  };
 
   const hasPermission = (permission) => {
     const permissions = {
@@ -34,7 +73,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, hasPermission }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        loading,
+        login,
+        register,
+        logout,
+        refreshUser: loadCurrentUser,
+        hasPermission,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,97 +24,86 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format, parseISO, isPast, isToday, isThisWeek } from "date-fns";
-
-// Mock data - personal tasks only
-const mockTasks = [
-  {
-    id: 1,
-    title: "Update portfolio website",
-    description: "Add new projects and update resume",
-    priority: "high",
-    status: "in-progress",
-    dueDate: "2025-12-24",
-    createdAt: "2025-12-20",
-    tags: ["personal", "career"],
-    estimatedHours: 4
-  },
-  {
-    id: 2,
-    title: "Read 'Design Systems' book",
-    description: "Finish chapters 5-7 for book club",
-    priority: "medium",
-    status: "not-started",
-    dueDate: "2025-12-30",
-    createdAt: "2025-12-18",
-    tags: ["learning"],
-    estimatedHours: 6
-  },
-  {
-    id: 3,
-    title: "Plan weekend trip",
-    description: "Book hotel and plan itinerary",
-    priority: "low",
-    status: "completed",
-    dueDate: "2025-12-22",
-    createdAt: "2025-12-15",
-    tags: ["personal"],
-    estimatedHours: 2
-  },
-  {
-    id: 4,
-    title: "Write blog post about React hooks",
-    description: "Deep dive into custom hooks patterns",
-    priority: "medium",
-    status: "in-progress",
-    dueDate: "2025-12-26",
-    createdAt: "2025-12-19",
-    tags: ["writing", "tech"],
-    estimatedHours: 5
-  },
-  {
-    id: 5,
-    title: "Organize home office",
-    description: "Clean desk, organize files, set up better lighting",
-    priority: "low",
-    status: "not-started",
-    dueDate: "2026-01-05",
-    createdAt: "2025-12-21",
-    tags: ["personal"],
-    estimatedHours: 3
-  },
-];
+import { useAuth } from "@/context/AuthContext";
+import { tasksApi } from "@/api/taskApi";
+import { useToast } from "@/hooks/use-toast";
 
 const MyTasks = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("dueDate");
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const filteredTasks = mockTasks.filter(task => {
-    // Search filter
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Status filter
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    
-    // Priority filter
-    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "dueDate":
-        return new Date(a.dueDate) - new Date(b.dueDate);
-      case "priority":
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
-      case "createdAt":
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      default:
-        return 0;
-    }
-  });
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await tasksApi.getTasks();
+        const list = res.tasks || res.data?.tasks || res.data || [];
+        // Tasks where I am an assignee
+        const mine = list.filter((t) =>
+          (t.assignees || []).some((a) => (a._id || a.id) === user?.id)
+        );
+        setTasks(
+          mine.map((t) => ({
+            id: t._id || t.id,
+            title: t.title,
+            description: t.description,
+            priority: (t.priority || "medium").toLowerCase(),
+            status: (t.status || "pending").toLowerCase(),
+            dueDate: t.dueDate,
+            createdAt: t.createdAt,
+            tags: t.tags || [],
+            estimatedHours: t.estimatedHours,
+          }))
+        );
+      } catch (error) {
+        toast({
+          title: "Failed to load tasks",
+          description:
+            error?.message ||
+            error?.data?.message ||
+            "Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user?.id, toast]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks
+      .filter((task) => {
+        const matchesSearch =
+          task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+        const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+
+        return matchesSearch && matchesStatus && matchesPriority;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "dueDate":
+            return new Date(a.dueDate) - new Date(b.dueDate);
+          case "priority": {
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+          }
+          case "createdAt":
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          default:
+            return 0;
+        }
+      });
+  }, [tasks, searchQuery, statusFilter, priorityFilter, sortBy]);
 
   const getDueDateStatus = (dueDate) => {
     const date = parseISO(dueDate);
@@ -125,10 +114,10 @@ const MyTasks = () => {
   };
 
   const stats = {
-    total: mockTasks.length,
-    completed: mockTasks.filter(t => t.status === "completed").length,
-    inProgress: mockTasks.filter(t => t.status === "in-progress").length,
-    overdue: mockTasks.filter(t => getDueDateStatus(t.dueDate) === "overdue").length,
+    total: tasks.length,
+    completed: tasks.filter((t) => t.status === "completed").length,
+    inProgress: tasks.filter((t) => t.status === "in-progress" || t.status === "pending").length,
+    overdue: tasks.filter((t) => getDueDateStatus(t.dueDate) === "overdue").length,
   };
 
   return (
@@ -254,7 +243,13 @@ const MyTasks = () => {
 
       {/* Tasks List */}
       <div className="space-y-4">
-        {filteredTasks.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground">Loading tasks...</p>
+            </CardContent>
+          </Card>
+        ) : filteredTasks.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <CheckSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />

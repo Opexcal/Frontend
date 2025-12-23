@@ -8,20 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Link } from "react-router-dom";
 import AddUserModal from "./users/AddUserModal";
 import { useAuth } from "@/context/AuthContext";
-
-const MOCK_USERS = Array.from({ length: 12 }).map((_, i) => {
-  const isActive = i % 5 !== 0; // sprinkle some archived users
-  return {
-    id: String(i + 1),
-    name: `User ${i + 1}`,
-    email: `user${i + 1}@example.com`,
-    role: i % 3 === 0 ? "admin" : i % 3 === 1 ? "staff" : "wanderer",
-    isActive,
-    status: isActive ? "active" : "archived",
-    groups: ["Engineering", "Product"].slice(0, (i % 2) + 1),
-    lastActive: isActive ? "2 hours ago" : "archived",
-  };
-});
+import { usersApi } from "@/api/usersApi";
+import { useToast } from "@/hooks/use-toast";
 
 const roleColor = (role) => {
   switch (role) {
@@ -38,6 +26,7 @@ const roleColor = (role) => {
 
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
+  const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -45,11 +34,41 @@ const UserManagement = () => {
   const [view, setView] = useState("active");
 
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setUsers(MOCK_USERS);
-      setLoading(false);
-    }, 800);
+    const loadUsers = async () => {
+      setLoading(true);
+      try {
+        const res = await usersApi.list(true); // includeInactive
+        const list = res.users || res.data?.users || [];
+        setUsers(
+          list.map((u) => ({
+            id: u._id || u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            isActive: u.isActive,
+            status: u.isActive ? "active" : "archived",
+            groups:
+              (Array.isArray(u.groups)
+                ? u.groups.map((g) => g.name || g)
+                : []) || [],
+            lastActive: u.lastActive || "—",
+          }))
+        );
+      } catch (error) {
+        toast({
+          title: "Failed to load users",
+          description:
+            error?.message ||
+            error?.data?.message ||
+            "Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
   }, []);
 
   const filteredUsers = useMemo(() => {
@@ -64,20 +83,52 @@ const UserManagement = () => {
     );
   }, [users, query, view]);
 
-  const archiveUser = (id) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id ? { ...u, isActive: false, status: "archived" } : u
-      )
-    );
+  const archiveUser = async (id) => {
+    try {
+      await usersApi.deactivate(id);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id ? { ...u, isActive: false, status: "archived" } : u
+        )
+      );
+      toast({
+        title: "User deactivated",
+        description: "The user was moved to Archived.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to deactivate",
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const restoreUser = (id) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id ? { ...u, isActive: true, status: "active" } : u
-      )
-    );
+  const restoreUser = async (id) => {
+    try {
+      await usersApi.reactivate(id);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id ? { ...u, isActive: true, status: "active" } : u
+        )
+      );
+      toast({
+        title: "User restored",
+        description: "The user has been reactivated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to restore",
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

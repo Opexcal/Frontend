@@ -25,18 +25,24 @@ const MassTaskCreation = () => {
     if (sending) return;
 
     setSending(true);
+    const groupId = taskData.selectedGroups[0]?.id;
+    if (!groupId) {
+      toast({
+        title: "Select a group",
+        description: "Mass task creation requires at least one group.",
+        variant: "destructive",
+      });
+      setSending(false);
+      return;
+    }
+
     try {
       await massOpsApi.createMassTasks({
-        taskTemplate: {
-          title: taskData.title,
-          description: taskData.description,
-          priority: taskData.priority,
-          dueDate: taskData.dueDate,
-        },
-        assignees: {
-          groupIds: taskData.selectedGroups.map((g) => g.id),
-          userIds: taskData.selectedUsers.map((u) => u.id),
-        },
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority,
+        dueDate: taskData.dueDate,
+        groupId,
       });
       toast({
         title: "Mass tasks created",

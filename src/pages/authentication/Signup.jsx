@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -34,16 +36,30 @@ const Signup = () => {
     }
 
     setIsLoading(true);
-    
-    // Simulate API call - replace with actual auth integration
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await register({
+        name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        orgName: formData.organizationName,
+      });
       toast({
-        title: "Organization created",
+        title: "Account created",
         description: "Welcome to OpexCal! Redirecting to dashboard...",
       });
       navigate("/dashboard");
-    }, 1500);
+    } catch (error) {
+      toast({
+        title: "Sign up failed",
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please verify your details and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

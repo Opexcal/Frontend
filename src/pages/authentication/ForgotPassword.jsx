@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, CheckCircle, XCircle } from "lucide-react";
+import { authApi } from "@/api/authApi";
 
 const ForgotPassword = () => {
   const { toast } = useToast();
@@ -19,20 +20,21 @@ const ForgotPassword = () => {
     setStatus("loading");
     setErrorMessage("");
     
-    // Simulate API call - replace with actual password reset integration
-    setTimeout(() => {
-      // Simulate success/error based on email
-      if (email.includes("notfound")) {
-        setStatus("error");
-        setErrorMessage("User credentials not found.");
-      } else {
-        setStatus("success");
-        toast({
-          title: "Reset link sent",
-          description: "Check your email for the password reset link.",
-        });
-      }
-    }, 1500);
+    try {
+      await authApi.forgotPassword({ email });
+      setStatus("success");
+      toast({
+        title: "Reset link sent",
+        description: "Check your email for the password reset link.",
+      });
+    } catch (error) {
+      setStatus("error");
+      setErrorMessage(
+        error?.message ||
+          error?.data?.message ||
+          "We couldn't process that email. Please try again."
+      );
+    }
   };
 
   return (

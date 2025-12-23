@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,129 +25,111 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
-
-// Mock data - tasks assigned by others
-const mockTasks = [
-  {
-    id: 101,
-    title: "Review PR #234 - Authentication refactor",
-    description: "Please review the authentication refactoring PR and provide feedback",
-    priority: "high",
-    status: "pending",
-    dueDate: "2025-12-24",
-    assignedBy: {
-      id: "1",
-      name: "Sarah Johnson",
-      avatar: "",
-      email: "sarah@example.com"
-    },
-    assignedAt: "2025-12-20",
-    estimatedHours: 2
-  },
-  {
-    id: 102,
-    title: "Update API documentation",
-    description: "Document the new endpoints added in the last sprint",
-    priority: "medium",
-    status: "pending",
-    dueDate: "2025-12-26",
-    assignedBy: {
-      id: "2",
-      name: "Mike Chen",
-      avatar: "",
-      email: "mike@example.com"
-    },
-    assignedAt: "2025-12-21",
-    estimatedHours: 4
-  },
-  {
-    id: 103,
-    title: "Write unit tests for payment module",
-    description: "Add comprehensive test coverage for the payment processing module",
-    priority: "high",
-    status: "accepted",
-    dueDate: "2025-12-28",
-    assignedBy: {
-      id: "3",
-      name: "Alex Rivera",
-      avatar: "",
-      email: "alex@example.com"
-    },
-    assignedAt: "2025-12-19",
-    estimatedHours: 6,
-    acceptedAt: "2025-12-20"
-  },
-  {
-    id: 104,
-    title: "Design user onboarding flow",
-    description: "Create wireframes and user flow for new user onboarding",
-    priority: "medium",
-    status: "accepted",
-    dueDate: "2026-01-05",
-    assignedBy: {
-      id: "1",
-      name: "Sarah Johnson",
-      avatar: "",
-      email: "sarah@example.com"
-    },
-    assignedAt: "2025-12-18",
-    estimatedHours: 8,
-    acceptedAt: "2025-12-18"
-  },
-  {
-    id: 105,
-    title: "Fix bug in search functionality",
-    description: "Investigate and fix the issue where search results are not filtering correctly",
-    priority: "high",
-    status: "declined",
-    dueDate: "2025-12-23",
-    assignedBy: {
-      id: "4",
-      name: "Emma Wilson",
-      avatar: "",
-      email: "emma@example.com"
-    },
-    assignedAt: "2025-12-17",
-    reasonDeclined: "Already working on similar feature"
-  },
-];
+import { tasksApi } from "@/api/taskApi";
+import { useToast } from "@/hooks/use-toast";
 
 const AssignedToMe = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [tasks, setTasks] = useState(mockTasks);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await tasksApi.getTasks();
+        const list = res.tasks || res.data?.tasks || res.data || [];
+        // Keep only tasks where current user is an assignee
+        const mine = list.filter((t) =>
+          (t.assignees || []).some((a) => (a._id || a.id) === user?.id)
+        );
+        setTasks(
+          mine.map((t) => ({
+            id: t._id || t.id,
+            title: t.title,
+            description: t.description,
+            priority: (t.priority || "medium").toLowerCase(),
+            status: (t.status || "pending").toLowerCase(),
+            dueDate: t.dueDate,
+            assignedBy: t.createdBy || {},
+            assignedAt: t.createdAt,
+            estimatedHours: t.estimatedHours,
+          }))
+        );
+      } catch (error) {
+        toast({
+          title: "Failed to load tasks",
+          description:
+            error?.message ||
+            error?.data?.message ||
+            "Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user?.id, toast]);
 
   const handleAccept = (taskId) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId
-          ? { ...task, status: "accepted", acceptedAt: new Date().toISOString().split("T")[0] }
-          : task
-      )
-    );
-    // API call here
+    tasksApi
+      .acceptTask(taskId)
+      .then(() => {
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === taskId
+              ? { ...task, status: "accepted", acceptedAt: new Date().toISOString() }
+              : task
+          )
+        );
+        toast({ title: "Task accepted" });
+      })
+      .catch((error) =>
+        toast({
+          title: "Failed to accept task",
+          description: error?.message || error?.data?.message,
+          variant: "destructive",
+        })
+      );
   };
 
   const handleDecline = (taskId, reason) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId
-          ? { ...task, status: "declined", reasonDeclined: reason }
-          : task
-      )
-    );
-    // API call here
+    tasksApi
+      .rejectTask(taskId, reason || "No reason provided")
+      .then(() => {
+        setTasks((prevTasks) =>
+          prevTasks.map((task) =>
+            task.id === taskId
+              ? { ...task, status: "declined", reasonDeclined: reason }
+              : task
+          )
+        );
+        toast({ title: "Task declined" });
+      })
+      .catch((error) =>
+        toast({
+          title: "Failed to decline task",
+          description: error?.message || error?.data?.message,
+          variant: "destructive",
+        })
+      );
   };
 
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const matchesSearch =
+        task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [tasks, searchQuery, statusFilter, priorityFilter]);
 
   const getDueDateStatus = (dueDate) => {
     const date = parseISO(dueDate);
@@ -158,9 +140,9 @@ const AssignedToMe = () => {
 
   const stats = {
     total: tasks.length,
-    pending: tasks.filter(t => t.status === "pending").length,
-    accepted: tasks.filter(t => t.status === "accepted").length,
-    declined: tasks.filter(t => t.status === "declined").length,
+    pending: tasks.filter((t) => t.status === "pending").length,
+    accepted: tasks.filter((t) => t.status === "accepted").length,
+    declined: tasks.filter((t) => t.status === "declined").length,
   };
 
   return (
@@ -267,7 +249,13 @@ const AssignedToMe = () => {
 
       {/* Tasks List */}
       <div className="space-y-4">
-        {filteredTasks.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground">Loading tasks...</p>
+            </CardContent>
+          </Card>
+        ) : filteredTasks.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <CheckSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />

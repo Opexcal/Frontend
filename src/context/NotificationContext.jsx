@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { mockNotifications } from "@/lib/mockNotifications";
+import { notificationsApi } from "@/api/notificationsApi";
+import { useToast } from "@/hooks/use-toast";
 
 const NotificationContext = createContext();
 
@@ -14,21 +15,29 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider = ({ children }) => {
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch notifications from mock data
+  // Fetch notifications from API
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const data = mockNotifications;
-      setNotifications(data);
-      setUnreadCount(data.filter((n) => !n.isRead).length);
+      const res = await notificationsApi.getNotifications();
+      const items = res.data?.data || res.data || res.notifications || [];
+      const unread = res.data?.unreadCount ?? res.unreadCount ?? items.filter((n) => !n.isRead).length;
+      setNotifications(items);
+      setUnreadCount(unread);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      toast({
+        title: "Failed to load notifications",
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please try again later.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -36,54 +45,75 @@ export const NotificationProvider = ({ children }) => {
 
   // Mark single notification as read
   const markAsRead = async (id) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id && !n.isRead ? { ...n, isRead: true } : n
-      )
-    );
-    const notification = notifications.find((n) => n.id === id);
-    if (notification && !notification.isRead) {
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+    try {
+      await notificationsApi.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) =>
+          (n._id || n.id) === id && !n.isRead ? { ...n, isRead: true } : n
+        )
+      );
+      const notification = notifications.find((n) => (n._id || n.id) === id);
+      if (notification && !notification.isRead) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to mark as read",
+        description: error?.message || error?.data?.message || "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   // Mark all as read
   const markAllAsRead = async () => {
-    const unreadNotifications = notifications.filter((n) => !n.isRead);
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, isRead: true }))
-    );
-    setUnreadCount(0);
+    try {
+      await notificationsApi.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      toast({
+        title: "Failed to mark all as read",
+        description: error?.message || error?.data?.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Delete single notification
   const deleteNotification = async (id) => {
-    const notification = notifications.find((n) => n.id === id);
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    if (notification && !notification.isRead) {
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+    try {
+      await notificationsApi.deleteNotification(id);
+      const notification = notifications.find((n) => (n._id || n.id) === id);
+      setNotifications((prev) =>
+        prev.filter((n) => (n._id || n.id) !== id)
+      );
+      if (notification && !notification.isRead) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to delete notification",
+        description: error?.message || error?.data?.message || "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   // Bulk delete notifications
   const bulkDeleteNotifications = async (ids) => {
-    const toDelete = notifications.filter((n) => ids.includes(n.id));
-    setNotifications((prev) => prev.filter((n) => !ids.includes(n.id)));
-    const unreadCount = toDelete.filter((n) => !n.isRead).length;
-    setUnreadCount((prev) => Math.max(0, prev - unreadCount));
+    // Backend lacks bulk delete; perform sequentially
+    for (const id of ids) {
+      await deleteNotification(id);
+    }
   };
 
   // Bulk mark as read
   const bulkMarkAsRead = async (ids) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        ids.includes(n.id) ? { ...n, isRead: true } : n
-      )
-    );
-    const toMarkRead = notifications.filter(
-      (n) => ids.includes(n.id) && !n.isRead
-    ).length;
-    setUnreadCount((prev) => Math.max(0, prev - toMarkRead));
+    // Backend lacks bulk API; perform sequentially
+    for (const id of ids) {
+      await markAsRead(id);
+    }
   };
 
   // Add new notification (for real-time)

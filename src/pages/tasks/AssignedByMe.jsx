@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,92 +26,73 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
-
-// Mock data - tasks assigned by the current user
-const mockTasks = [
-  {
-    id: 201,
-    title: "Review marketing campaign proposal",
-    description: "Review and provide feedback on the Q1 marketing campaign proposal",
-    priority: "high",
-    status: "in-progress",
-    dueDate: "2025-12-24",
-    assignedTo: [
-      { id: "1", name: "Sarah Johnson", avatar: "", status: "accepted" },
-      { id: "2", name: "Mike Chen", avatar: "", status: "pending" },
-    ],
-    assignedAt: "2025-12-20",
-    estimatedHours: 3
-  },
-  {
-    id: 202,
-    title: "Update design system documentation",
-    description: "Document new components added to the design system",
-    priority: "medium",
-    status: "not-started",
-    dueDate: "2025-12-26",
-    assignedTo: [
-      { id: "3", name: "Alex Rivera", avatar: "", status: "accepted" },
-    ],
-    assignedAt: "2025-12-21",
-    estimatedHours: 4
-  },
-  {
-    id: 203,
-    title: "Create API integration tests",
-    description: "Write comprehensive integration tests for the new API endpoints",
-    priority: "high",
-    status: "in-progress",
-    dueDate: "2025-12-28",
-    assignedTo: [
-      { id: "4", name: "Emma Wilson", avatar: "", status: "accepted" },
-      { id: "5", name: "David Kim", avatar: "", status: "accepted" },
-    ],
-    assignedAt: "2025-12-19",
-    estimatedHours: 8
-  },
-  {
-    id: 204,
-    title: "Prepare monthly team report",
-    description: "Compile team metrics and prepare monthly performance report",
-    priority: "medium",
-    status: "completed",
-    dueDate: "2025-12-22",
-    assignedTo: [
-      { id: "2", name: "Mike Chen", avatar: "", status: "accepted" },
-    ],
-    assignedAt: "2025-12-18",
-    estimatedHours: 2,
-    completedAt: "2025-12-22"
-  },
-  {
-    id: 205,
-    title: "Design user feedback survey",
-    description: "Create survey questions for gathering user feedback on new features",
-    priority: "low",
-    status: "not-started",
-    dueDate: "2026-01-05",
-    assignedTo: [
-      { id: "1", name: "Sarah Johnson", avatar: "", status: "pending" },
-    ],
-    assignedAt: "2025-12-21",
-    estimatedHours: 3
-  },
-];
+import { tasksApi } from "@/api/taskApi";
+import { useToast } from "@/hooks/use-toast";
 
 const AssignedByMe = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [tasks, setTasks] = useState([]);
 
-  const filteredTasks = mockTasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await tasksApi.getTasks();
+        const list = res.tasks || res.data?.tasks || res.data || [];
+        const mine = list.filter(
+          (t) => (t.createdBy?._id || t.createdBy?.id || t.createdBy) === user?.id
+        );
+        setTasks(
+          mine.map((t) => ({
+            id: t._id || t.id,
+            title: t.title,
+            description: t.description,
+            priority: (t.priority || "medium").toLowerCase(),
+            status: (t.status || "pending").toLowerCase(),
+            dueDate: t.dueDate,
+            assignedTo:
+              (t.assignees || []).map((a) => ({
+                id: a._id || a.id,
+                name: a.name,
+                avatar: a.avatar,
+                status: a.status || "accepted",
+              })) || [],
+            assignedAt: t.createdAt,
+            estimatedHours: t.estimatedHours,
+            completedAt: t.completedAt,
+          }))
+        );
+      } catch (error) {
+        toast({
+          title: "Failed to load tasks",
+          description:
+            error?.message ||
+            error?.data?.message ||
+            "Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user?.id, toast]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const matchesSearch =
+        task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [tasks, searchQuery, statusFilter, priorityFilter]);
 
   const getDueDateStatus = (dueDate) => {
     const date = parseISO(dueDate);
@@ -121,10 +102,10 @@ const AssignedByMe = () => {
   };
 
   const stats = {
-    total: mockTasks.length,
-    pending: mockTasks.filter(t => t.status === "not-started" || t.status === "in-progress").length,
-    completed: mockTasks.filter(t => t.status === "completed").length,
-    totalAssignees: mockTasks.reduce((sum, task) => sum + task.assignedTo.length, 0),
+    total: tasks.length,
+    pending: tasks.filter((t) => t.status === "not-started" || t.status === "in-progress" || t.status === "pending").length,
+    completed: tasks.filter((t) => t.status === "completed").length,
+    totalAssignees: tasks.reduce((sum, task) => sum + (task.assignedTo?.length || 0), 0),
   };
 
   return (
@@ -229,7 +210,13 @@ const AssignedByMe = () => {
 
       {/* Tasks List */}
       <div className="space-y-4">
-        {filteredTasks.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground">Loading tasks...</p>
+            </CardContent>
+          </Card>
+        ) : filteredTasks.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
