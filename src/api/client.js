@@ -1,5 +1,7 @@
+// src/api/client.js
 import axios from 'axios';
 
+// ✅ Fix: Use environment variable correctly
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const apiClient = axios.create({
@@ -12,6 +14,12 @@ const apiClient = axios.create({
 // Request Interceptor: Add auth token
 apiClient.interceptors.request.use(
   (config) => {
+    console.log('🔍 REQUEST DEBUG:');
+    console.log('URL:', config.url);
+    console.log('Method:', config.method);
+    console.log('Data being sent:', config.data);
+    console.log('Headers:', config.headers);
+    
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -26,13 +34,15 @@ apiClient.interceptors.response.use(
   (response) => response.data, // Return only data portion
   (error) => {
     if (error.response) {
-      // Server responded with error
       const { status, data } = error.response;
       
       if (status === 401) {
         // Token expired or invalid
         localStorage.removeItem('authToken');
-        window.location.href = '/login';
+        // ✅ Check if we're not already on login page to avoid infinite loop
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
       }
       
       return Promise.reject(data);

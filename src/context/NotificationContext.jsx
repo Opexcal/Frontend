@@ -21,27 +21,37 @@ export const NotificationProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch notifications from API
-  const fetchNotifications = async () => {
-    setIsLoading(true);
-    try {
-      const res = await notificationsApi.getNotifications();
-      const items = res.data?.data || res.data || res.notifications || [];
-      const unread = res.data?.unreadCount ?? res.unreadCount ?? items.filter((n) => !n.isRead).length;
-      setNotifications(items);
-      setUnreadCount(unread);
-    } catch (error) {
-      toast({
-        title: "Failed to load notifications",
-        description:
-          error?.message ||
-          error?.data?.message ||
-          "Please try again later.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+// Then update the fetchNotifications function:
+const fetchNotifications = async () => {
+  const token = localStorage.getItem('authToken');
+  
+  // Don't fetch if no token
+  if (!token) {
+    console.log('No auth token found, skipping notification fetch');
+    return;
+  }
+  
+  setIsLoading(true);
+  
+  try {
+    const data = await notificationsApi.getNotifications(); // ✅ Fixed
+    
+    // Handle the response based on your API structure
+    const notificationList = data.notifications || data.data?.notifications || [];
+    const count = data.unreadCount || data.data?.unreadCount || 0;
+    
+    setNotifications(notificationList);
+    setUnreadCount(count);
+  } catch (error) {
+    console.error('Failed to fetch notifications:', error);
+    // Optionally show a toast error
+  } finally {
+    setIsLoading(false);
+  }
+};
+useEffect(() => {
+  fetchNotifications();
+}, []);
 
   // Mark single notification as read
   const markAsRead = async (id) => {

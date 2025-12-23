@@ -1,30 +1,32 @@
+// src/api/notificationsApi.js
 import apiClient from './client';
 
 export const notificationsApi = {
   /**
-   * Get user's notifications (last 20)
-   * @returns {Promise} { count, unreadCount, data: notifications[] }
+   * Get user notifications
+   * @returns {Promise} { notifications, unreadCount }
    */
   getNotifications: () => apiClient.get('/notifications'),
 
   /**
-   * Mark single notification as read
-   * @param {String} notificationId
-   * @returns {Promise} { data: notification }
+   * Mark notification as read
+   * @param {string} id - Notification ID
+   * @returns {Promise}
    */
-  markAsRead: (notificationId) => 
-    apiClient.patch(`/notifications/${notificationId}/read`),
+  markAsRead: (id) => apiClient.patch(`/notifications/${id}/read`),
 
   /**
    * Mark all notifications as read
+   * @returns {Promise}
    */
-  markAllAsRead: () => apiClient.patch('/notifications/mark-all-read'),
+  markAllAsRead: () => apiClient.patch('/notifications/read-all'),
 
   /**
    * Delete notification
-   * @param {String} notificationId
+   * @param {string} id - Notification ID
+   * @returns {Promise}
    */
-  deleteNotification: (notificationId) => 
-    apiClient.delete(`/notifications/${notificationId}`)
+  deleteNotification: (id) => apiClient.delete(`/notifications/${id}`),
 };
 
+export default notificationsApi;

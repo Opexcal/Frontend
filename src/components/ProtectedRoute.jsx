@@ -5,21 +5,23 @@ import { useAuth } from "../context/AuthContext";
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user } = useAuth();
 
+  // User not logged in
   if (!user) return <Navigate to="/login" replace />;
 
+  // Role not allowed
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    // Redirect to role-appropriate dashboard instead of generic /dashboard
     const roleRoutes = {
       manager: "/dashboard/manager",
-      admin: "/dashboard/staff",
+      admin: "/dashboard/admin",
       staff: "/dashboard/staff",
-      wanderer: "/dashboard/wanderer"
+      wanderer: "/dashboard/wanderer",
     };
-    const defaultRoute = roleRoutes[user?.role] || "/dashboard/staff";
+
+    const defaultRoute = roleRoutes[user.role] || "/dashboard/staff";
     return <Navigate to={defaultRoute} replace />;
   }
 
-  // Support both direct children and nested routes (Outlet)
+  // Support both direct children and nested routes
   if (children) return children;
   return <Outlet />;
 };

@@ -1,11 +1,12 @@
+// src/pages/authentication/Login.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
@@ -22,23 +23,36 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
       await login({
         email: formData.email,
         password: formData.password,
       });
+      
       toast({
         title: "Login successful",
-        description: "Redirecting to dashboard...",
+        description: "Welcome back! Redirecting...",
       });
-      navigate("/dashboard");
+      
+      // ✅ Small delay for better UX
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
+      
     } catch (error) {
+      console.error("Login error:", error);
+      
+      // ✅ Better error message handling
+      const errorMessage = 
+        error?.message || 
+        error?.data?.message || 
+        error?.error ||
+        "Invalid email or password. Please try again.";
+      
       toast({
         title: "Login failed",
-        description:
-          error?.message ||
-          error?.data?.message ||
-          "Please check your credentials and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -51,9 +65,6 @@ const Login = () => {
       <Card className="border-none shadow-none">
         <CardHeader className="text-center space-y-3">
           <CardTitle className="text-2xl font-display">Log in to your account</CardTitle>
-          {/* <CardDescription>
-            Enter your credentials to access your dashboard
-          </CardDescription> */}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-7">
@@ -66,6 +77,8 @@ const Login = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
+                disabled={isLoading}
+                autoComplete="email"
               />
             </div>
             
@@ -79,11 +92,14 @@ const Login = () => {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  disabled={isLoading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -91,21 +107,28 @@ const Login = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
             </Button>
           </form>
 
           <div className="mt-6 text-center space-y-2 text-md font-normal text-foreground">
-            <p className="">
+            <p>
               Don't have an account yet?{" "}
-              <Link to="/signup" className=" hover:underline font-medium">
+              <Link to="/signup" className="hover:underline font-medium">
                 Sign up
               </Link>
             </p>
             <p className="text-md text-foreground">
               Can't log in?{" "}
-              <Link to="/help/login" className=" hover:underline">
-                Visit our help center
+              <Link to="/forgot-password" className="hover:underline">
+                Reset password
               </Link>
             </p>
           </div>

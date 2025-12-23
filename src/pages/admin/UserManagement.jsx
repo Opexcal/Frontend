@@ -10,6 +10,8 @@ import AddUserModal from "./users/AddUserModal";
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
 import { useToast } from "@/hooks/use-toast";
+import { roleDisplayMap as roleLabelMap, roleColors } from '../../constant/roleMapDisplay';
+
 
 const roleColor = (role) => {
   switch (role) {
@@ -42,9 +44,9 @@ const UserManagement = () => {
         setUsers(
           list.map((u) => ({
             id: u._id || u.id,
-            name: u.name,
-            email: u.email,
-            role: u.role,
+    name: u.name,
+    email: u.email,
+    role: roleLabelMap[u.role] || "wanderer",
             isActive: u.isActive,
             status: u.isActive ? "active" : "archived",
             groups:
@@ -203,11 +205,11 @@ const UserManagement = () => {
                     <td className="py-3">{u.name}</td>
                     <td>{u.email}</td>
                       <td>
-                        <span
-                          className={`px-2 py-1 rounded ${roleColor(u.role)}`}
-                        >
-                          {u.role}
-                        </span>
+                        <span className={`px-2 py-1 rounded ${roleColors[u.role]}`}>
+  {roleLabelMap[u.role]}
+</span>
+
+
                       </td>
                       <td className="capitalize">
                         {u.isActive ? (
@@ -231,6 +233,7 @@ const UserManagement = () => {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span>
+                                  {hasPermission('manage_users') && view === "active" && (
                                   <Button
                                     size="sm"
                                     variant="destructive"
@@ -244,6 +247,7 @@ const UserManagement = () => {
                                   >
                                     Delete
                                   </Button>
+                                  )}
                                 </span>
                               </TooltipTrigger>
                               {isSelf && (

@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "../../context/AuthContext";
+import { roleDisplayMap } from '@/constant/roleMapDisplay';
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -56,6 +57,16 @@ export const DashboardSidebar = () => {
   const { user, hasPermission } = useAuth();
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + "/");
+
+  // Role display mapping and helpers
+
+  const formatRole = (role) => {
+  if (!role) return "User";
+  return roleDisplayMap[role] ?? "User";
+};
+
+  const isSuperAdmin = (role) => ["manager", "SuperAdmin"].includes(role);
+  const isUnassigned = (role) => ["wanderer", "Unassigned"].includes(role);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -142,7 +153,7 @@ export const DashboardSidebar = () => {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {user?.role !== "wanderer" && (
+              {!isUnassigned(user?.role) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -159,8 +170,8 @@ export const DashboardSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {(hasPermission("manage_groups") || user?.role === "manager") && (
+              
+        {(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
           <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -179,7 +190,7 @@ export const DashboardSidebar = () => {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
-                {user?.role === "manager" && (
+                {isSuperAdmin(user?.role) && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={isActive("/admin/audit-logs")} tooltip="Audit Logs">
                       <Link to="/admin/audit-logs">Audit Logs</Link>
@@ -205,7 +216,7 @@ export const DashboardSidebar = () => {
               {!collapsed && (
                 <div className="flex-1 text-left">
                   <p className="text-sm font-medium text-sidebar-foreground">{user?.name ?? "John Doe"}</p>
-                  <p className="text-xs text-muted-foreground">{user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "User"}</p>
+                  <p className="text-xs text-muted-foreground">{formatRole(user?.role)}</p>
                 </div>
               )}
             </button>
