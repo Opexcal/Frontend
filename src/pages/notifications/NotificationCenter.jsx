@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   Filter,
   Trash2,
   CheckCheck,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ const NotificationCenter = () => {
     markAllAsRead,
     deleteNotification,
     bulkDeleteNotifications,
+    loading,
     bulkMarkAsRead,
   } = useNotifications();
 
@@ -59,9 +61,10 @@ const NotificationCenter = () => {
 
     // Filter by type
     if (filterType !== "all") {
-      result = result.filter((n) => n.type === filterType);
-    }
-
+  result = result.filter((n) => 
+    n.type.toUpperCase() === filterType.toUpperCase()
+  );
+}
     // Search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -240,7 +243,16 @@ const NotificationCenter = () => {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-6">
+        {loading && (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <span className="ml-2 text-sm text-muted-foreground">
+        Loading notifications...
+      </span>
+    </div>
+  )}
         {/* Tabs and Filters */}
+        {!loading && (
         <div className="mb-6">
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
             <div className="flex items-center justify-between mb-4">
@@ -253,23 +265,27 @@ const NotificationCenter = () => {
                 </TabsTrigger>
                 <TabsTrigger value="system">System</TabsTrigger>
               </TabsList>
+              {loading && (
+  <div className="flex items-center justify-center py-8">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <span className="ml-2 text-sm text-muted-foreground">Loading notifications...</span>
+  </div>
+)}
 
               {/* Filters */}
               <div className="flex items-center gap-2">
                 <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="task_assigned">Task Assignments</SelectItem>
-                    <SelectItem value="event_invite">Event Invites</SelectItem>
-                    <SelectItem value="mention">Mentions</SelectItem>
-                    <SelectItem value="deadline_reminder">Deadlines</SelectItem>
-                    <SelectItem value="system_update">System Updates</SelectItem>
-                  </SelectContent>
-                </Select>
+  <SelectTrigger className="w-[180px]">
+    <Filter className="h-4 w-4 mr-2" />
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Types</SelectItem>
+    <SelectItem value="TASK_ASSIGNED">Task Assignments</SelectItem>
+    <SelectItem value="TASK_RESPONSE">Task Responses</SelectItem>
+    <SelectItem value="EVENT_INVITE">Event Invites</SelectItem>
+  </SelectContent>
+</Select>
 
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className="w-[150px]">
@@ -344,6 +360,7 @@ const NotificationCenter = () => {
             </TabsContent>
           </Tabs>
         </div>
+          )}
       </div>
     </div>
   );

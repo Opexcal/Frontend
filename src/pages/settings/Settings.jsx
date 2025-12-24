@@ -1,27 +1,67 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Save } from "lucide-react";
+// Add at the top
+import { useAuth } from "@/context/AuthContext";
+import { usersApi } from "@/api/usersApi";
+import { Loader2 } from "lucide-react";
+
 
 const UserSettings = () => {
+  const { user: currentUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
-    name: "John Doe",
-    email: "john.doe@opexcal.com",
+    name: "",
+    email: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
-  const groupMemberships = [
-    { id: "1", name: "Engineering Team", roles: ["Admin", "Staff"] },
-    { id: "2", name: "Marketing Department", roles: ["Staff"] },
-    { id: "3", name: "Product Design", roles: ["Staff"] },
-    { id: "4", name: "Customer Support", roles: ["Staff"] },
-    { id: "5", name: "Human Resources", roles: ["Admin", "Staff"] },
-  ];
+  // Load user data on mount
+  useEffect(() => {
+    const loadUser = async () => {
+      if (!currentUser?.id) return;
+      setLoading(true);
+      try {
+        const res = await usersApi.get(currentUser.id);
+        const userData = res.data?.user || res.user;
+        setUser(userData);
+        setFormData(prev => ({
+          ...prev,
+          name: userData.name || "",
+          email: userData.email || "",
+        }));
+      } catch (error) {
+        console.error("Failed to load user:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUser();
+  }, [currentUser]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // const groupMemberships = [
+  //   { id: "1", name: "Engineering Team", roles: ["Admin", "Staff"] },
+  //   { id: "2", name: "Marketing Department", roles: ["Staff"] },
+  //   { id: "3", name: "Product Design", roles: ["Staff"] },
+  //   { id: "4", name: "Customer Support", roles: ["Staff"] },
+  //   { id: "5", name: "Human Resources", roles: ["Admin", "Staff"] },
+  // ];
+  const groupMemberships = user?.groups || [];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -43,6 +83,7 @@ const UserSettings = () => {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
+      
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-foreground">User Settings</h1>

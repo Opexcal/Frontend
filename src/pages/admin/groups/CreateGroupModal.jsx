@@ -3,19 +3,43 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { groupsApi } from "../../../api/groupsApi";
 
-const CreateGroupModal = ({ open, onOpenChange = () => {}, onSuccess = () => {} }) => {
+const CreateGroupModal = ({ open, onOpenChange, onSuccess }) => {
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const submit = () => {
-    if (name.trim().length < 2) return;
+const submit = async () => {
+  if (name.trim().length < 2) {
+    setError('Group name must be at least 2 characters');
+    return;
+  }
+
+  try {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onSuccess();
-    }, 1000);
+    setError(null);
+    
+    const response = await groupsApi.createGroup({ name: name.trim() });
+    console.log('Create response:', response); // { success: true, message: '...', data: {...group} }
+    
+    setName("");
+    onSuccess();
+  } catch (err) {
+    setError(err.message || 'Failed to create group');
+    console.error('Error creating group:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // Add this to reset form when modal closes
+  const handleOpenChange = (isOpen) => {
+    if (!isOpen) {
+      setName("");
+      setError(null);
+    }
+    onOpenChange(isOpen);
   };
 
   return (
@@ -25,16 +49,18 @@ const CreateGroupModal = ({ open, onOpenChange = () => {}, onSuccess = () => {} 
           <DialogTitle>Create Group</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label>Group Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <Label>Description</Label>
-            <textarea className="w-full border rounded p-2" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
+       <div className="space-y-4">
+        <div>
+          <Label>Group Name</Label>
+          <Input 
+            value={name} 
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Engineering Team"
+          />
+          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
         </div>
+        {/* Remove description field - backend doesn't support it */}
+      </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

@@ -2,24 +2,26 @@ import React, { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { groupsApi } from "../../../api/groupsApi";
+import CreateGroupModal from "./CreateGroupModal"; // Add this import
 
-const MOCK_GROUPS = [
-  { id: "1", name: "Engineering Team", description: "Software development and technical infrastructure", memberCount: 24, color: "blue" },
-  { id: "2", name: "Marketing Department", description: "Brand strategy and campaigns", memberCount: 12, color: "purple" },
-  { id: "3", name: "Customer Success", description: "Support and onboarding", memberCount: 8, color: "green" },
-];
 
 const GroupCard = ({ group }) => (
   <Card className="p-4 hover:shadow-md transition">
     <div className="flex items-start justify-between">
       <div>
         <h3 className="text-lg font-medium">{group.name}</h3>
-        <div className="text-sm text-muted-foreground mt-1">{group.description}</div>
-        <div className="mt-2 text-sm">Members: <span className="font-medium">{group.memberCount}</span></div>
+        <div className="mt-2 text-sm">
+          Members: <span className="font-medium">{group.members?.length || 0}</span>
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          Created {new Date(group.createdAt).toLocaleDateString()}
+        </div>
       </div>
       <div className="flex flex-col items-end gap-2">
-        <Link to={`/admin/groups/${group.id}`} className="text-primary">Manage</Link>
-        <Button variant="ghost" size="sm">Edit</Button>
+        <Link to={`/admin/groups/${group._id}`} className="text-primary">
+          Manage
+        </Link>
       </div>
     </div>
   </Card>
@@ -27,10 +29,50 @@ const GroupCard = ({ group }) => (
 
 const GroupManagement = () => {
   const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [error, setError] = useState(null);
+
+const fetchGroups = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const response = await groupsApi.getGroups();
+    
+    // Since apiClient already returns response.data,
+    // response = { success: true, count: X, data: [...groups] }
+    console.log('API Response:', response); // This is already response.data
+    console.log('Groups array:', response.data); // This is the groups array
+    
+    const groupsData = response.data || []; // NOT response.data.data
+    
+    if (!Array.isArray(groupsData)) {
+      console.error('Groups data is not an array:', groupsData);
+      setGroups([]);
+      return;
+    }
+    
+    console.log('✅ Setting groups:', groupsData);
+    setGroups(groupsData);
+    
+  } catch (err) {
+    console.error('❌ Fetch error:', err);
+    setError(err.message || 'Failed to load groups');
+    setGroups([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
-    setTimeout(() => setGroups(MOCK_GROUPS), 600);
+    fetchGroups();
   }, []);
+
+  const handleCreateSuccess = () => {
+    setCreateModalOpen(false);
+    fetchGroups();
+  };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -40,17 +82,37 @@ const GroupManagement = () => {
           <p className="text-sm text-muted-foreground">Manage departments and teams</p>
         </div>
         <div>
-          <Button asChild>
-            <Link to="#">Create Group</Link>
+          <Button onClick={() => setCreateModalOpen(true)}>
+            Create Group
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {groups.map((g) => (
-          <GroupCard key={g.id} group={g} />
-        ))}
-      </div>
+      {loading && <div className="text-center py-8">Loading groups...</div>}
+      {error && <div className="text-red-500 text-sm">{error}</div>}
+
+      {/* Empty state */}
+      {!loading && !error && groups.length === 0 && (
+        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+          <p className="text-muted-foreground mb-2">No groups found</p>
+          <p className="text-sm text-muted-foreground">Create your first group to get started</p>
+        </div>
+      )}
+
+      {/* Groups grid */}
+      {!loading && groups.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {groups.map((g) => (
+            <GroupCard key={g._id} group={g} />
+          ))}
+        </div>
+      )}
+
+      <CreateGroupModal 
+        open={createModalOpen} 
+        onOpenChange={setCreateModalOpen}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   );
 };

@@ -1,56 +1,236 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { usersApi } from "@/api/usersApi";
+import { groupsApi } from "@/api/groupsApi";
+import { useToast } from "@/hooks/use-toast";
 
-const AddUserModal = ({ open, onOpenChange = () => {}, onSuccess = () => {} }) => {
+const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
+  const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("staff");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("Staff");
+  const [selectedGroups, setSelectedGroups] = useState([]);
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
 
-  const submit = () => {
+  useEffect(() => {
+    if (open) {
+      loadGroups();
+      // Reset form
+      setName("");
+      setEmail("");
+      setPassword("");
+      setRole("Staff");
+      setSelectedGroups([]);
+      setSendWelcomeEmail(true);
+      setError(null);
+    }
+  }, [open]);
+
+  const loadGroups = async () => {
+    setLoadingGroups(true);
+    try {
+      const res = await groupsApi.getGroups();
+      setGroups(res.data || res.groups || []);
+    } catch (err) {
+      console.error("Failed to load groups:", err);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  const handleGroupToggle = (groupId) => {
+    setSelectedGroups(prev =>
+      prev.includes(groupId)
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
+
+  const submit = async () => {
     setError(null);
-    if (name.trim().length < 2) return setError("Name must be at least 2 characters");
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setError("Invalid email");
+
+    // Validation
+    if (name.trim().length < 2) {
+      return setError("Name must be at least 2 characters");
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return setError("Invalid email format");
+    }
+    if (password.length < 8) {
+      return setError("Password must be at least 8 characters");
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const userData = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role,
+        groups: selectedGroups,
+        sendWelcomeEmail
+      };
+
+      const response = await usersApi.create(userData);
+
+      toast({
+        title: "User created successfully",
+        description: `${name} has been added to your organization`,
+      });
+
+      onSuccess(response.data || response.user);
+      onOpenChange(false);
+    } catch (err) {
+      console.error("Create user error:", err);
+      const errorMsg = err?.message || err?.data?.message || "Failed to create user";
+      setError(errorMsg);
+      
+      toast({
+        title: "Failed to create user",
+        description: errorMsg,
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      onSuccess();
-    }, 1000);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add User</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
             <Label>Full name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              placeholder="John Doe"
+              disabled={loading}
+            />
           </div>
           <div>
             <Label>Email</Label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              type="email"
+              placeholder="john.doe@company.com"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <Label>Temporary Password</Label>
+            <div className="relative">
+              <Input 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                type={showPassword ? "text" : "password"}
+                placeholder="Min. 8 characters"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                disabled={loading}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              User will change this on first login
+            </p>
           </div>
           <div>
             <Label>Role</Label>
-            <select className="w-full border rounded p-2" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="admin">Admin</option>
-              <option value="staff">Staff</option>
-              <option value="wanderer">Wanderer</option>
+            <select 
+              className="w-full border rounded p-2" 
+              value={role} 
+              onChange={(e) => setRole(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Staff">Staff</option>
+              <option value="Admin">Admin</option>
+              <option value="SuperAdmin">SuperAdmin</option>
             </select>
           </div>
+
+          {/* Groups */}
+          {groups.length > 0 && (
+            <div>
+              <Label>Assign to Groups (Optional)</Label>
+              {loadingGroups ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading groups...
+                </div>
+              ) : (
+                <div className="border rounded p-3 space-y-2 max-h-40 overflow-y-auto">
+                  {groups.map((group) => (
+                    <div key={group.id || group._id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`group-${group.id || group._id}`}
+                        checked={selectedGroups.includes(group.id || group._id)}
+                        onCheckedChange={() => handleGroupToggle(group.id || group._id)}
+                        disabled={loading}
+                      />
+                      <Label
+                        htmlFor={`group-${group.id || group._id}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {group.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Welcome Email */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="welcomeEmail"
+              checked={sendWelcomeEmail}
+              onCheckedChange={setSendWelcomeEmail}
+              disabled={loading}
+            />
+            <Label htmlFor="welcomeEmail" className="text-sm font-normal cursor-pointer">
+              Send welcome email
+            </Label>
+          </div>
+
           {error && <div className="text-sm text-destructive">{error}</div>}
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={loading}>{loading ? "Adding..." : "Add User"}</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              "Add User"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

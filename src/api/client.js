@@ -31,29 +31,30 @@ apiClient.interceptors.request.use(
 
 // Response Interceptor: Handle common errors
 apiClient.interceptors.response.use(
-  (response) => response.data, // Return only data portion
+  (response) => response.data,
   (error) => {
     if (error.response) {
       const { status, data } = error.response;
-      
-      if (status === 401) {
-        // Token expired or invalid
-        localStorage.removeItem('authToken');
-        // ✅ Check if we're not already on login page to avoid infinite loop
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+      const hasToken = !!localStorage.getItem("authToken");
+
+      // Only logout if a token existed and was rejected
+      if (status === 401 && hasToken) {
+        localStorage.removeItem("authToken");
+
+        if (!window.location.pathname.includes("/login")) {
+          window.location.href = "/login";
         }
       }
-      
+
       return Promise.reject(data);
     }
-    
-    // Network error or no response
-    return Promise.reject({ 
-      success: false, 
-      message: 'Network error. Please check your connection.' 
+
+    return Promise.reject({
+      success: false,
+      message: "Network error. Please check your connection."
     });
   }
 );
+
 
 export default apiClient;

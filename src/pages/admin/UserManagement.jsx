@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
@@ -11,20 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
 import { useToast } from "@/hooks/use-toast";
 import { roleDisplayMap as roleLabelMap, roleColors } from '../../constant/roleMapDisplay';
-
-
-const roleColor = (role) => {
-  switch (role) {
-    case "manager":
-      return "bg-purple-600 text-white";
-    case "admin":
-      return "bg-green-600 text-white";
-    case "staff":
-      return "bg-blue-600 text-white";
-    default:
-      return "bg-gray-500 text-white";
-  }
-};
+import EditUserModal from "./users/EditUserModal"
 
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
@@ -34,44 +20,57 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
   const [view, setView] = useState("active");
+  const [editingUser, setEditingUser] = useState(null)
+
+  // ✅ FIX #1: Move loadUsers outside useEffect
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await usersApi.list(true);
+      const list = res.users || res.data?.users || [];
+      setUsers(
+        list.map((u) => ({
+          id: u._id || u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role, // ✅ FIX #4: Keep original role
+          isActive: u.isActive,
+          status: u.isActive ? "active" : "archived",
+          groups: (Array.isArray(u.groups) ? u.groups.map((g) => g.name || g) : []) || [],
+          lastActive: u.lastActive || "—",
+        }))
+      );
+    } catch (error) {
+      toast({
+        title: "Failed to load users",
+        description: error?.message || error?.data?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadUsers = async () => {
-      setLoading(true);
-      try {
-        const res = await usersApi.list(true); // includeInactive
-        const list = res.users || res.data?.users || [];
-        setUsers(
-          list.map((u) => ({
-            id: u._id || u.id,
-    name: u.name,
-    email: u.email,
-    role: roleLabelMap[u.role] || "wanderer",
-            isActive: u.isActive,
-            status: u.isActive ? "active" : "archived",
-            groups:
-              (Array.isArray(u.groups)
-                ? u.groups.map((g) => g.name || g)
-                : []) || [],
-            lastActive: u.lastActive || "—",
-          }))
-        );
-      } catch (error) {
-        toast({
-          title: "Failed to load users",
-          description:
-            error?.message ||
-            error?.data?.message ||
-            "Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadUsers();
   }, []);
+
+  // ✅ FIX #2: Add permission check (or remove it)
+  const hasPermission = (permission) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'SuperAdmin') return true;
+    if (currentUser.role === 'Admin' && permission === 'manage_users') return true;
+    return false;
+  };
+
+  // ✅ Now handleUserCreated can access loadUsers
+  const handleUserCreated = (newUser) => {
+    loadUsers();
+    toast({
+      title: "Success!",
+      description: `${newUser.name} has been added`,
+    });
+  };
 
   const filteredUsers = useMemo(() => {
     const bySearch = users.filter(
@@ -79,19 +78,14 @@ const UserManagement = () => {
         u.name.toLowerCase().includes(query.toLowerCase()) ||
         u.email.toLowerCase().includes(query.toLowerCase())
     );
-
-    return bySearch.filter((u) =>
-      view === "active" ? u.isActive : !u.isActive
-    );
+    return bySearch.filter((u) => (view === "active" ? u.isActive : !u.isActive));
   }, [users, query, view]);
 
   const archiveUser = async (id) => {
     try {
       await usersApi.deactivate(id);
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === id ? { ...u, isActive: false, status: "archived" } : u
-        )
+        prev.map((u) => (u.id === id ? { ...u, isActive: false, status: "archived" } : u))
       );
       toast({
         title: "User deactivated",
@@ -100,10 +94,7 @@ const UserManagement = () => {
     } catch (error) {
       toast({
         title: "Failed to deactivate",
-        description:
-          error?.message ||
-          error?.data?.message ||
-          "Please try again later.",
+        description: error?.message || error?.data?.message || "Please try again later.",
         variant: "destructive",
       });
     }
@@ -113,9 +104,7 @@ const UserManagement = () => {
     try {
       await usersApi.reactivate(id);
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === id ? { ...u, isActive: true, status: "active" } : u
-        )
+        prev.map((u) => (u.id === id ? { ...u, isActive: true, status: "active" } : u))
       );
       toast({
         title: "User restored",
@@ -124,10 +113,7 @@ const UserManagement = () => {
     } catch (error) {
       toast({
         title: "Failed to restore",
-        description:
-          error?.message ||
-          error?.data?.message ||
-          "Please try again later.",
+        description: error?.message || error?.data?.message || "Please try again later.",
         variant: "destructive",
       });
     }
@@ -138,9 +124,7 @@ const UserManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">User Management</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage users, roles, and permissions
-          </p>
+          <p className="text-sm text-muted-foreground">Manage users, roles, and permissions</p>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -161,8 +145,7 @@ const UserManagement = () => {
             </TabsList>
           </Tabs>
           <span className="text-xs text-muted-foreground">
-            Viewing{" "}
-            <strong>{view === "active" ? "active" : "archived"} accounts</strong>
+            Viewing <strong>{view === "active" ? "active" : "archived"} accounts</strong>
           </span>
         </div>
 
@@ -189,10 +172,7 @@ const UserManagement = () => {
               <tbody>
                 {filteredUsers.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="py-8 text-center text-muted-foreground"
-                    >
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
                       No {view === "active" ? "active" : "archived"} users found
                     </td>
                   </tr>
@@ -202,14 +182,12 @@ const UserManagement = () => {
 
                   return (
                     <tr key={u.id} className="border-t">
-                    <td className="py-3">{u.name}</td>
-                    <td>{u.email}</td>
+                      <td className="py-3">{u.name}</td>
+                      <td>{u.email}</td>
                       <td>
                         <span className={`px-2 py-1 rounded ${roleColors[u.role]}`}>
-  {roleLabelMap[u.role]}
-</span>
-
-
+                          {roleLabelMap[u.role] || u.role}
+                        </span>
                       </td>
                       <td className="capitalize">
                         {u.isActive ? (
@@ -218,14 +196,18 @@ const UserManagement = () => {
                           <span className="text-slate-500">archived</span>
                         )}
                       </td>
-                    <td>{u.groups.join(", ")}</td>
-                    <td>{u.lastActive}</td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                          <Link
-                            to={`/admin/users/${u.id}`}
-                            className="text-primary"
-                          >
+                      <td>{u.groups.join(", ") || "—"}</td>
+                      <td>{u.lastActive}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                           <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingUser(u)}
+                            >
+                              Edit
+                            </Button>
+                          <Link to={`/admin/users/${u.id}`} className="text-primary">
                             View
                           </Link>
 
@@ -233,20 +215,15 @@ const UserManagement = () => {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span>
-                                  {hasPermission('manage_users') && view === "active" && (
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    disabled={isSelf}
-                                    className={
-                                      isSelf
-                                        ? "cursor-not-allowed opacity-60"
-                                        : ""
-                                    }
-                                    onClick={() => !isSelf && archiveUser(u.id)}
-                                  >
-                                    Delete
-                                  </Button>
+                                  {hasPermission('manage_users') && (
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      disabled={isSelf}
+                                      onClick={() => !isSelf && archiveUser(u.id)}
+                                    >
+                                      Delete
+                                    </Button>
                                   )}
                                 </span>
                               </TooltipTrigger>
@@ -257,16 +234,13 @@ const UserManagement = () => {
                               )}
                             </Tooltip>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => restoreUser(u.id)}
-                            >
+                            <Button size="sm" variant="outline" onClick={() => restoreUser(u.id)}>
                               Restore
                             </Button>
                           )}
-                      </div>
-                    </td>
+                        </div>
+                      </td>
+                      
                     </tr>
                   );
                 })}
@@ -276,8 +250,19 @@ const UserManagement = () => {
         )}
       </Card>
 
-      <AddUserModal open={showAddUser} onOpenChange={setShowAddUser} onSuccess={() => setShowAddUser(false)} />
+      <AddUserModal open={showAddUser} onOpenChange={setShowAddUser} onSuccess={handleUserCreated} />
+      <EditUserModal
+  open={!!editingUser}
+  onOpenChange={(open) => !open && setEditingUser(null)}
+  userId={editingUser?.id}
+  onSuccess={() => {
+    loadUsers();
+    setEditingUser(null);
+    toast({ title: "User updated successfully" });
+  }}
+/>
     </div>
+    
   );
 };
 

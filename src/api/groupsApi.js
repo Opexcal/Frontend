@@ -30,22 +30,14 @@ export const groupsApi = {
   updateGroup: (groupId, data) => apiClient.patch(`/groups/${groupId}`, data),
 
   /**
-   * Add members to group (admin only)
+   * Manage group members - add or remove (admin only)
    * @param {String} groupId
-   * @param {Array} members - Array of user IDs
-   * @returns {Promise} { data: group }
+   * @param {String} action - "add" or "remove"
+   * @param {Array} userIds - Array of user IDs
+   * @returns {Promise} { data: { group, updatedCount } }
    */
-  addMembers: (groupId, members) => 
-    apiClient.patch(`/groups/${groupId}/members/add`, { members }),
-
-  /**
-   * Remove members from group (admin only)
-   * @param {String} groupId
-   * @param {Array} members - Array of user IDs
-   * @returns {Promise} { data: group }
-   */
-  removeMembers: (groupId, members) => 
-    apiClient.patch(`/groups/${groupId}/members/remove`, { members }),
+  manageMembers: (groupId, action, userIds) => 
+    apiClient.patch(`/groups/${groupId}/members`, { action, userIds }),
 
   /**
    * Delete group (admin only)

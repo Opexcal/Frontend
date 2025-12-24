@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
 import { useToast } from "@/hooks/use-toast";
+import EditUserModal from "./EditUserModal";
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -14,6 +15,7 @@ const UserDetails = () => {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showEdit,setShowEdit] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -38,13 +40,17 @@ const UserDetails = () => {
     load();
   }, [id, toast]);
 
-  const isSelf = currentUser && currentUser.id === user.id;
+  const isSelf = currentUser?.id && user?.id && currentUser.id === user.id;
+
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
         <Link to="/admin/users" className="text-sm text-muted-foreground">← Back to Users</Link>
-        <h1 className="text-2xl font-semibold mt-2">{user.name}</h1>
+        <h1 className="text-2xl font-semibold mt-2">
+  {loading ? "Loading..." : user?.name}
+</h1>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -67,7 +73,14 @@ const UserDetails = () => {
               <div className="mt-3 text-sm text-muted-foreground">Role: {user?.role}</div>
               <div className="text-sm text-muted-foreground">Status: {user?.isActive ? "active" : "archived"}</div>
             </div>
-            <div className="mt-4 flex justify-center">
+            <div className="mt-4 flex justify-center gap-2">
+               <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEdit(true)}
+                >
+                  Edit User
+                </Button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
@@ -122,6 +135,16 @@ const UserDetails = () => {
           </Card>
         </main>
       </div>
+      <EditUserModal
+  open={showEdit}
+  onOpenChange={setShowEdit}
+  userId={id}
+  onSuccess={() => {
+    setShowEdit(false);
+    // Reload user data
+    load();
+  }}
+/>
     </div>
   );
 };

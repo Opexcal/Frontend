@@ -6,7 +6,16 @@ export const notificationsApi = {
    * Get user notifications
    * @returns {Promise} { notifications, unreadCount }
    */
-  getNotifications: () => apiClient.get('/notifications'),
+  getNotifications: () => {
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    return Promise.reject({
+      success: false,
+      message: "No auth token available"
+    });
+  }
+  return apiClient.get("/notifications");
+},
 
   /**
    * Mark notification as read
@@ -19,7 +28,7 @@ export const notificationsApi = {
    * Mark all notifications as read
    * @returns {Promise}
    */
-  markAllAsRead: () => apiClient.patch('/notifications/read-all'),
+  markAllAsRead: () => apiClient.patch('/notifications/mark-all-read'),
 
   /**
    * Delete notification

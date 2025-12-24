@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Settings } from "lucide-react";
+import { Bell, Settings, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import NotificationBadge from "./NotificationBadge";
 import NotificationItem from "./NotificationItem";
 import { useNotifications } from "@/context/NotificationContext";
 
+
 /**
  * NotificationDropdown - Header dropdown component showing recent notifications
  * Shows the 5 most recent notifications with a link to view all
@@ -21,6 +22,7 @@ const NotificationDropdown = () => {
   const {
     notifications,
     unreadCount,
+    loading,
     markAsRead,
     deleteNotification,
   } = useNotifications();
@@ -88,15 +90,18 @@ const NotificationDropdown = () => {
 
         {/* Notification List */}
         <div className="overflow-y-auto max-h-[350px]">
-          {recentNotifications.length === 0 ? (
-            <div className="p-8 text-center">
-              <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-              <p className="text-sm text-muted-foreground">
-                No notifications yet
-              </p>
-            </div>
-          ) : (
-            recentNotifications.map((notification) => (
+    {loading ? (
+      <div className="p-8 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    ) : recentNotifications.length === 0 ? (
+      <div className="p-8 text-center">
+        <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+        <p className="text-sm text-muted-foreground">No notifications yet</p>
+      </div>
+    ) : (
+      recentNotifications.map((notification) => (
               <div key={notification.id}>
                 <div
                   onClick={(e) => {

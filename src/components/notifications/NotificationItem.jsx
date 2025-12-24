@@ -28,29 +28,26 @@ const NotificationItem = ({
   onClick,
 }) => {
   const getIcon = (type) => {
+    const normalizedType = type.toUpperCase();
     const iconMap = {
-      task_assigned: CheckSquare,
-      task_completed: CheckCircle2,
-      event_invite: Calendar,
-      event_reminder: Bell,
-      deadline_reminder: AlertCircle,
-      mention: AtSign,
-      group_added: Users,
-      system_update: Info,
-    };
-
-    const IconComponent = iconMap[type] || Info;
-    const config = getNotificationTypeConfig(type);
-    return <IconComponent className={cn("h-5 w-5", config.color)} />;
+    'TASK_ASSIGNED': CheckSquare,
+    'TASK_RESPONSE': CheckCircle2,
+    'EVENT_INVITE': Calendar,
+    // Keep lowercase for backwards compatibility
+    'task_assigned': CheckSquare,
+    'task_response': CheckCircle2,
+    'event_invite': Calendar,
   };
 
-  const relativeTime = formatDistanceToNow(
-    new Date(notification.timestamp),
-    {
-      addSuffix: true,
-    }
-  );
+    const IconComponent = iconMap[type] || iconMap[normalizedType] || Info;
+  const config = getNotificationTypeConfig(type);
+  return <IconComponent className={cn("h-5 w-5", config.color)} />;
+};
 
+const relativeTime = formatDistanceToNow(
+  new Date(notification.createdAt || notification.timestamp),
+  { addSuffix: true }
+);
   const config = getNotificationTypeConfig(notification.type);
 
   return (
