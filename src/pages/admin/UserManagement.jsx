@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { roleDisplayMap as roleLabelMap, roleColors } from '../../constant/roleMapDisplay';
 import EditUserModal from "./users/EditUserModal"
 
+
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -23,34 +24,38 @@ const UserManagement = () => {
   const [editingUser, setEditingUser] = useState(null)
 
   // ✅ FIX #1: Move loadUsers outside useEffect
-  const loadUsers = async () => {
-    setLoading(true);
-    try {
-      const res = await usersApi.list(true);
-      const list = res.users || res.data?.users || [];
-      setUsers(
-        list.map((u) => ({
-          id: u._id || u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role, // ✅ FIX #4: Keep original role
-          isActive: u.isActive,
-          status: u.isActive ? "active" : "archived",
-          groups: (Array.isArray(u.groups) ? u.groups.map((g) => g.name || g) : []) || [],
-          lastActive: u.lastActive || "—",
-        }))
-      );
-    } catch (error) {
-      toast({
-        title: "Failed to load users",
-        description: error?.message || error?.data?.message || "Please try again later.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+// In UserManagement.jsx - Update the loadUsers function
+const loadUsers = async () => {
+  setLoading(true);
+  try {
+    const res = await usersApi.list(true);
+    const list = res.users || res.data?.users || [];
+    
+    setUsers(
+      list.map((u) => ({
+        id: u._id || u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        isActive: u.isActive,
+        status: u.isActive ? "active" : "archived",
+        // ✅ Better groups handling
+        groups: Array.isArray(u.groups) 
+          ? u.groups.map(g => typeof g === 'object' ? g.name : g).filter(Boolean)
+          : [],
+        lastActive: u.lastActive || "—",
+      }))
+    );
+  } catch (error) {
+    toast({
+      title: "Failed to load users",
+      description: error?.message || "Please try again later.",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     loadUsers();
   }, []);
@@ -267,3 +272,4 @@ const UserManagement = () => {
 };
 
 export default UserManagement;
+

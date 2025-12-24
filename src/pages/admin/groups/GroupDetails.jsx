@@ -27,12 +27,16 @@ const fetchGroup = async () => {
     setLoading(true);
     const response = await groupsApi.getGroup(id);
     
-    // Backend returns the group object directly
-    setGroup(response);
+    // Backend returns: { success: true, data: {...group} }
+    // After interceptor: response = { success: true, data: {...group} }
+    const groupData = response.data || response;
+    
+    console.log('✅ Group loaded:', groupData.name, 'Members:', groupData.members?.length || 0);
+    setGroup(groupData);
     
   } catch (err) {
     setError(err.message || "Failed to load group");
-    console.error("Error fetching group:", err);
+    console.error("❌ Error fetching group:", err);
   } finally {
     setLoading(false);
   }
@@ -85,16 +89,56 @@ const fetchGroup = async () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <aside className="lg:col-span-1">
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Members</div>
-            <div className="text-2xl font-semibold">{group.members?.length || 0}</div>
-            <div className="mt-3 text-xs text-muted-foreground">
-              Created by {group.createdBy?.name || 'Unknown'}
+<Card className="p-4">
+  <div className="flex items-center justify-between mb-4">
+    <div>
+      <h4 className="text-lg font-medium">Members</h4>
+      <p className="text-sm text-muted-foreground">
+        {group.members?.length || 0} total member{group.members?.length !== 1 ? 's' : ''}
+      </p>
+    </div>
+    <Button onClick={() => setAddMembersModalOpen(true)}>
+      Add Members
+    </Button>
+  </div>
+  
+  <div className="space-y-2">
+    {group.members?.length > 0 ? (
+      group.members.map(member => (
+        <div key={member._id} className="flex items-center justify-between py-3 px-2 border-b hover:bg-accent/50 rounded">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+              {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {new Date(group.createdAt).toLocaleDateString()}
+            <div>
+              <div className="font-medium">{member.name}</div>
+              <div className="text-sm text-muted-foreground">{member.email}</div>
             </div>
-          </Card>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+              {member.role}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => handleRemoveMember(member._id)}
+            >
+              Remove
+            </Button>
+          </div>
+        </div>
+      ))
+    ) : (
+      <div className="text-center py-8">
+        <p className="text-sm text-muted-foreground mb-3">No members yet</p>
+        <Button onClick={() => setAddMembersModalOpen(true)}>
+          Add First Member
+        </Button>
+      </div>
+    )}
+  </div>
+</Card>
         </aside>
 
         <main className="lg:col-span-2 space-y-4">

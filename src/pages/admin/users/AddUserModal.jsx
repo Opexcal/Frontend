@@ -38,17 +38,20 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
   }, [open]);
 
   const loadGroups = async () => {
-    setLoadingGroups(true);
-    try {
-      const res = await groupsApi.getGroups();
-      setGroups(res.data || res.groups || []);
-    } catch (err) {
-      console.error("Failed to load groups:", err);
-    } finally {
-      setLoadingGroups(false);
-    }
-  };
-
+  setLoadingGroups(true);
+  try {
+    const res = await groupsApi.getGroups();
+    // Handle the response structure properly
+    const groupsData = res.data || res || [];
+    console.log('✅ Loaded groups for modal:', groupsData);
+    setGroups(Array.isArray(groupsData) ? groupsData : []);
+  } catch (err) {
+    console.error("Failed to load groups:", err);
+    setGroups([]);
+  } finally {
+    setLoadingGroups(false);
+  }
+};
   const handleGroupToggle = (groupId) => {
     setSelectedGroups(prev =>
       prev.includes(groupId)
@@ -170,36 +173,40 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
           </div>
 
           {/* Groups */}
-          {groups.length > 0 && (
-            <div>
-              <Label>Assign to Groups (Optional)</Label>
-              {loadingGroups ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading groups...
-                </div>
-              ) : (
-                <div className="border rounded p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {groups.map((group) => (
-                    <div key={group.id || group._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`group-${group.id || group._id}`}
-                        checked={selectedGroups.includes(group.id || group._id)}
-                        onCheckedChange={() => handleGroupToggle(group.id || group._id)}
-                        disabled={loading}
-                      />
-                      <Label
-                        htmlFor={`group-${group.id || group._id}`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {group.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              )}
+         {/* Groups */}
+{groups.length > 0 && (
+  <div>
+    <Label>Assign to Groups (Optional)</Label>
+    {loadingGroups ? (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading groups...
+      </div>
+    ) : (
+      <div className="border rounded p-3 space-y-2 max-h-40 overflow-y-auto">
+        {groups.map((group) => {
+          const groupId = group._id || group.id; // ✅ Get the correct ID
+          return (
+            <div key={groupId} className="flex items-center space-x-2">
+              <Checkbox
+                id={`group-${groupId}`}
+                checked={selectedGroups.includes(groupId)}
+                onCheckedChange={() => handleGroupToggle(groupId)}
+                disabled={loading}
+              />
+              <Label
+                htmlFor={`group-${groupId}`}
+                className="text-sm font-normal cursor-pointer"
+              >
+                {group.name}
+              </Label>
             </div>
-          )}
+          );
+        })}
+      </div>
+    )}
+  </div>
+)}
 
           {/* Welcome Email */}
           <div className="flex items-center space-x-2">

@@ -31,35 +31,51 @@ const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
   }, [open, userId]);
 
   const loadUserData = async () => {
-    setLoadingUser(true);
-    try {
-      const res = await usersApi.get(userId);
-      const userData = res.data?.user || res.user;
-      setName(userData.name || "");
-      setRole(userData.role || "Staff");
-      const groupIds = (userData.groups || []).map(g => 
-        typeof g === 'object' ? (g._id || g.id) : g
-      );
-      setSelectedGroups(groupIds);
-    } catch (err) {
-      toast({
-        title: "Failed to load user",
-        description: err?.message || "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingUser(false);
-    }
-  };
+  setLoadingUser(true);
+  try {
+    const res = await usersApi.get(userId);
+    const userData = res.data?.user || res.user || res.data || res;
+    
+    console.log('👤 Loaded user data:', userData);
+    
+    setName(userData.name || "");
+    setRole(userData.role || "Staff");
+    
+    // Extract group IDs whether they're objects or strings
+    const groupIds = (userData.groups || []).map(g => {
+      if (typeof g === 'object') {
+        return g._id || g.id;
+      }
+      return g;
+    }).filter(Boolean); // Remove any undefined/null values
+    
+    console.log('📋 User group IDs:', groupIds);
+    setSelectedGroups(groupIds);
+    
+  } catch (err) {
+    console.error('❌ Failed to load user:', err);
+    toast({
+      title: "Failed to load user",
+      description: err?.message || "Please try again",
+      variant: "destructive",
+    });
+  } finally {
+    setLoadingUser(false);
+  }
+};
 
   const loadGroups = async () => {
-    try {
-      const res = await groupsApi.getGroups();
-      setGroups(res.data || res.groups || []);
-    } catch (err) {
-      console.error("Failed to load groups:", err);
-    }
-  };
+  try {
+    const res = await groupsApi.getGroups();
+    // Handle the response structure properly
+    const groupsData = res.data || res || [];
+    console.log('✅ Loaded groups for edit modal:', groupsData);
+    setGroups(Array.isArray(groupsData) ? groupsData : []);
+  } catch (err) {
+    console.error("Failed to load groups:", err);
+    setGroups([]);
+  }
+};
 
   const handleGroupToggle = (groupId) => {
     setSelectedGroups(prev =>
@@ -136,26 +152,42 @@ const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
               )}
             </div>
 
-            {groups.length > 0 && (
-              <div>
-                <Label>Groups</Label>
-                <div className="border rounded p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {groups.map((group) => (
-                    <div key={group.id || group._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`group-${group.id || group._id}`}
-                        checked={selectedGroups.includes(group.id || group._id)}
-                        onCheckedChange={() => handleGroupToggle(group.id || group._id)}
-                        disabled={loading}
-                      />
-                      <Label htmlFor={`group-${group.id || group._id}`} className="text-sm font-normal cursor-pointer">
-                        {group.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
+{groups.length > 0 && (
+  <div>
+    <Label>Groups</Label>
+    <div className="border rounded p-3 space-y-2 max-h-40 overflow-y-auto">
+      {groups.map((group) => {
+        const groupId = group._id || group.id;
+        const isChecked = selectedGroups.includes(groupId);
+        
+        return (
+          <div key={groupId} className="flex items-center space-x-2">
+            <Checkbox
+              id={`group-${groupId}`}
+              checked={isChecked}
+              onCheckedChange={() => handleGroupToggle(groupId)}
+              disabled={loading}
+            />
+            <Label 
+              htmlFor={`group-${groupId}`} 
+              className="text-sm font-normal cursor-pointer flex-1"
+            >
+              <div className="flex items-center justify-between">
+                <span>{group.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {group.members?.length || 0} members
+                </span>
               </div>
-            )}
+            </Label>
+          </div>
+        );
+      })}
+    </div>
+    <p className="text-xs text-muted-foreground mt-2">
+      {selectedGroups.length} group(s) selected
+    </p>
+  </div>
+)}
 
             {error && <div className="text-sm text-destructive">{error}</div>}
           </div>

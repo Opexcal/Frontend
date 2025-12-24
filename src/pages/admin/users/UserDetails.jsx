@@ -17,28 +17,28 @@ const UserDetails = () => {
   const [loading, setLoading] = useState(true);
   const [showEdit,setShowEdit] = useState(false)
 
+ const load = async () => {
+    setLoading(true);
+    try {
+      const res = await usersApi.get(id);
+      const u = res.user || res.data?.user || res.data;
+      setUser(u);
+    } catch (error) {
+      toast({
+        title: "Failed to load user",
+        description: error?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await usersApi.get(id);
-        const u = res.user || res.data?.user || res.data;
-        setUser(u);
-      } catch (error) {
-        toast({
-          title: "Failed to load user",
-          description:
-            error?.message ||
-            error?.data?.message ||
-            "Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [id, toast]);
+    if (id) {
+      load();
+    }
+  }, [id]);
 
   const isSelf = currentUser?.id && user?.id && currentUser.id === user.id;
 
@@ -135,16 +135,15 @@ const UserDetails = () => {
           </Card>
         </main>
       </div>
-      <EditUserModal
-  open={showEdit}
-  onOpenChange={setShowEdit}
-  userId={id}
-  onSuccess={() => {
-    setShowEdit(false);
-    // Reload user data
-    load();
-  }}
-/>
+<EditUserModal
+        open={showEdit}
+        onOpenChange={setShowEdit}
+        userId={id}
+        onSuccess={() => {
+          setShowEdit(false);
+          load(); // ✅ Now this works
+        }}
+      />
     </div>
   );
 };

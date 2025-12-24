@@ -24,17 +24,28 @@ const loadCurrentUser = useCallback(async () => {
   }
   
   try {
+    console.log('🔄 Loading current user...');
     const res = await authApi.getMe();
-    const apiUser = res.data?.user || res.user || res;
+    
+    // After interceptor unwraps: res = { success: true, data: { user: {...} } }
+    console.log('📦 getMe response:', res);
+    
+    const apiUser = res.data?.user || res.user || res.data || res;
+    
+    if (!apiUser || !apiUser.email) {
+      throw new Error('Invalid user data received');
+    }
     
     const normalizedUser = {
       ...apiUser,
       role: backendToFrontendRole[apiUser.role] || "wanderer",
     };
+    
+    console.log('✅ User loaded:', normalizedUser);
     setUser(normalizedUser);
     
   } catch (err) {
-    console.error('Failed to load user:', err);
+    console.error('❌ Failed to load user:', err);
     // Token invalid/expired; clear it
     localStorage.removeItem("authToken");
     setUser(null);

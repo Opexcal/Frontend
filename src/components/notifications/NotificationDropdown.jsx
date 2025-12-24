@@ -34,15 +34,14 @@ const NotificationDropdown = () => {
     setRecentNotifications(notifications.slice(0, 5));
   }, [notifications]);
 
-  const handleMarkAsRead = (e, id) => {
-    e.stopPropagation();
-    markAsRead(id);
-  };
+const handleMarkAsRead = (id) => {
+  markAsRead(id);
+};
 
-  const handleDelete = (e, id) => {
-    e.stopPropagation();
-    deleteNotification(id);
-  };
+const handleDelete = (id) => {
+  deleteNotification(id);
+};
+
 
   const handleViewNotification = (notification) => {
     if (notification.actionUrl) {
@@ -101,24 +100,21 @@ const NotificationDropdown = () => {
         <p className="text-sm text-muted-foreground">No notifications yet</p>
       </div>
     ) : (
-      recentNotifications.map((notification) => (
-              <div key={notification.id}>
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewNotification(notification);
-                  }}
-                  className="border-b last:border-b-0"
-                >
-                  <NotificationItem
-                    notification={notification}
-                    variant="compact"
-                    onMarkAsRead={(id) => handleMarkAsRead(event, id)}
-                    onDelete={(id) => handleDelete(event, id)}
-                  />
-                </div>
-              </div>
-            ))
+     recentNotifications.map((notification) => (
+  <div key={notification.id}>
+    <div
+      onClick={() => handleViewNotification(notification)}
+      className="border-b last:border-b-0"
+    >
+      <NotificationItem
+        notification={notification}
+        variant="compact"
+        onMarkAsRead={handleMarkAsRead}
+        onDelete={handleDelete}
+      />
+    </div>
+  </div>
+))
           )}
         </div>
 

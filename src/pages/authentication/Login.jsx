@@ -1,6 +1,6 @@
 // src/pages/authentication/Login.jsx
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,9 @@ import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login,user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,48 +21,60 @@ const Login = () => {
     password: "",
   });
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  
-  try {
-    console.log('🔐 Attempting login with:', formData.email);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
     
-    await login({
-      email: formData.email,
-      password: formData.password,
-    });
-    
-    console.log('✅ Login successful, token stored');
-    
-    toast({
-      title: "Login successful",
-      description: "Welcome back! Redirecting...",
-    });
-    
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 500);
-    
-  } catch (error) {
-    console.error("❌ Login error:", error);
-    
-    const errorMessage = 
-      error?.message || 
-      error?.data?.message || 
-      error?.error ||
-      "Invalid email or password. Please try again.";
-    
-    toast({
-      title: "Login failed",
-      description: errorMessage,
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      console.log('🔐 Attempting login with:', formData.email);
+      
+      await login({
+        email: formData.email,
+        password: formData.password,
+      });
+      
+      console.log('✅ Login successful, token stored');
+      
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
+      
+      // Redirect to the page they were trying to access, or dashboard
+      const from = location.state?.from?.pathname || "/dashboard";
+      navigate(from, { replace: true });
+      
+    } catch (error) {
+      console.error("❌ Login error:", error);
+      
+      const errorMessage = 
+        error?.message || 
+        error?.data?.message || 
+        "Invalid email or password.";
+      
+      toast({
+        title: "Login failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+    useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+    if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   return (
     <div className="w-full max-w-md animate-fade-in">
       <Card className="border-none shadow-none">

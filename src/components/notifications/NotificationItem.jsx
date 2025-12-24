@@ -76,7 +76,7 @@ const relativeTime = formatDistanceToNow(
                   !notification.isRead && "font-semibold"
                 )}
               >
-                {notification.title}
+                {notification.title || notification.message}
               </p>
               <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                 {notification.message}
@@ -122,6 +122,7 @@ const relativeTime = formatDistanceToNow(
                   e.stopPropagation();
                   onDelete?.(notification.id);
                 }}
+                className="gap-1"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

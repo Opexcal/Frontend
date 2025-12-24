@@ -202,13 +202,15 @@ const { user, loading: authLoading } = useAuth();
   };
 
   // Auto-fetch on mount
+// In NotificationContext.jsx - Update useEffect dependencies
 useEffect(() => {
   if (!authLoading && user) {
     console.log('✅ Fetching notifications for user:', user.email);
     fetchNotifications();
   }
-}, [authLoading, user]);
-  // Poll for new notifications every 30 seconds
+}, [authLoading, user, fetchNotifications]); // Add fetchNotifications
+
+// Poll for new notifications every 30 seconds
 useEffect(() => {
   if (authLoading || !user) return;
 
@@ -217,7 +219,7 @@ useEffect(() => {
   }, 30000);
 
   return () => clearInterval(interval);
-}, [authLoading, user]);
+}, [authLoading, user, fetchNotifications]); // Add fetchNotifications
 
 
   return (

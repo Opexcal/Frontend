@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usersApi } from "@/api/usersApi"; // You'll need this
 import { groupsApi } from "@/api/groupsApi";
-
+import { useToast } from "@/hooks/use-toast";
 const AddMembersModal = ({ open, onOpenChange, groupId, existingMemberIds = [], onSuccess }) => {
+  const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -18,21 +19,23 @@ const AddMembersModal = ({ open, onOpenChange, groupId, existingMemberIds = [], 
     }
   }, [open]);
 
+// In AddMembersModal.jsx - Update the fetchUsers function
 const fetchUsers = async () => {
   try {
-    const response = await usersApi.getUsers();
+    const response = await usersApi.getUsers(false); // Only active users
     
-    // Fix: The users array is in response.data.users, not response.data.data
-    const usersArray = response.data?.users || response.users || [];
+    // Backend returns: { success: true, count: X, users: [...] }
+    const usersArray = response.users || response.data?.users || [];
     
+    // Filter out users already in the group
     const availableUsers = usersArray.filter(
       user => !existingMemberIds.includes(user._id)
     );
 
-    console.log('✅ Available users:', availableUsers); // Debug log
+    console.log('✅ Available users to add:', availableUsers.length);
     setUsers(availableUsers);
   } catch (err) {
-    console.error('Error fetching users:', err);
+    console.error('❌ Error fetching users:', err);
     setError('Failed to load users');
   }
 };
@@ -46,24 +49,40 @@ const fetchUsers = async () => {
     );
   };
 
-  const handleSubmit = async () => {
-    if (selectedUsers.length === 0) {
-      setError('Please select at least one user');
-      return;
-    }
+// In AddMembersModal.jsx - Update handleSubmit
+const handleSubmit = async () => {
+  if (selectedUsers.length === 0) {
+    setError('Please select at least one user');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      setError(null);
-      await groupsApi.manageMembers(groupId, 'add', selectedUsers);
-      onSuccess();
-    } catch (err) {
-      setError(err.message || 'Failed to add members');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  try {
+    setLoading(true);
+    setError(null);
+    
+    await groupsApi.manageMembers(groupId, 'add', selectedUsers);
+    
+    // ✅ Add success toast
+    toast({
+      title: "Members added successfully",
+      description: `${selectedUsers.length} member(s) added to the group`,
+    });
+    
+    onSuccess();
+  } catch (err) {
+    const errorMsg = err.message || 'Failed to add members';
+    setError(errorMsg);
+    
+    // ✅ Add error toast
+    toast({
+      title: "Failed to add members",
+      description: errorMsg,
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">

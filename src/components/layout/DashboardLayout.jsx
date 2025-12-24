@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Outlet } from "react-router-dom";
 import NotificationDropdown from "@/components/notifications/NotificationDropdown";
-
+import NotificationErrorBoundary from "@/components/notifications/NotificationErrorBoundary";
 
 const DashboardLayout = () => {
  return (
@@ -27,7 +27,9 @@ const DashboardLayout = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <NotificationDropdown />
+                <NotificationErrorBoundary>
+  <NotificationDropdown />
+</NotificationErrorBoundary>
               </div>
             </div>
  </header>

@@ -1,5 +1,5 @@
 // src/pages/authentication/Signup.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { register } = useAuth();
+  const { register ,user, loading} = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -24,6 +24,19 @@ const Signup = () => {
     confirmPassword: "",
   });
 
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
+ if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
   const validateForm = () => {
     if (formData.password.length < 8) {
       toast({

@@ -6,26 +6,31 @@ import { groupsApi } from "../../../api/groupsApi";
 import CreateGroupModal from "./CreateGroupModal"; // Add this import
 
 
-const GroupCard = ({ group }) => (
-  <Card className="p-4 hover:shadow-md transition">
-    <div className="flex items-start justify-between">
-      <div>
-        <h3 className="text-lg font-medium">{group.name}</h3>
-        <div className="mt-2 text-sm">
-          Members: <span className="font-medium">{group.members?.length || 0}</span>
+const GroupCard = ({ group }) => {
+  // Calculate member count safely
+  const memberCount = Array.isArray(group.members) ? group.members.length : 0;
+  
+  return (
+    <Card className="p-4 hover:shadow-md transition">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-medium">{group.name}</h3>
+          <div className="mt-2 text-sm">
+            Members: <span className="font-medium">{memberCount}</span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Created {new Date(group.createdAt).toLocaleDateString()}
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          Created {new Date(group.createdAt).toLocaleDateString()}
+        <div className="flex flex-col items-end gap-2">
+          <Link to={`/admin/groups/${group._id}`} className="text-primary hover:underline">
+            Manage
+          </Link>
         </div>
       </div>
-      <div className="flex flex-col items-end gap-2">
-        <Link to={`/admin/groups/${group._id}`} className="text-primary">
-          Manage
-        </Link>
-      </div>
-    </div>
-  </Card>
-);
+    </Card>
+  );
+};
 
 const GroupManagement = () => {
   const [groups, setGroups] = useState([]);
@@ -40,11 +45,12 @@ const fetchGroups = async () => {
     
     const response = await groupsApi.getGroups();
     
-    // Backend returns array directly after interceptor unwraps it
-    const groupsData = Array.isArray(response) ? response : [];
+    // Backend returns: { success: true, count: X, data: [...groups] }
+    // After interceptor: response = { success: true, count: X, data: [...groups] }
+    const groupsData = response.data || response || [];
     
     console.log('✅ Groups loaded:', groupsData.length);
-    setGroups(groupsData);
+    setGroups(Array.isArray(groupsData) ? groupsData : []);
     
   } catch (err) {
     console.error('❌ Fetch error:', err);

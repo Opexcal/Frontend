@@ -88,62 +88,63 @@ function App () {
           </Route>
 
           {/* Dashboard Routes */}
-          <Route element={<DashboardLayout />}>
-            {/* Redirect /dashboard/admin to admin dashboard - must be before /dashboard */}
-            <Route path="/dashboard/admin" element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/wanderer" element={<WandererDashboard />} />
-            <Route path="/dashboard/staff" element={<StaffDashboard />} />
-            <Route path="/dashboard/manager" element={<ManagerDashboard />} />
-            <Route path="/calendar" element={<CalendarOverview />} />
-            <Route path="/calendar/personal" element={<PersonalCalendar />} />
-            <Route path="/calendar/group/:id" element={<GroupCalendar />} />
-            <Route path="/calendar/day" element={<DayView />} />
-            <Route path="/tasks" element={<TaskLists />} />
-            <Route path="/tasks/my-tasks" element={<MyTasks />} />
-            <Route path="/tasks/assigned-to-me" element={<AssignedToMe />} />
-            <Route path="/tasks/assigned-by-me" element={<AssignedByMe />} />
-            <Route path="/tasks/:id" element={<TaskDetails />} />
-            <Route path="/tasks/:id/timeline" element={<TaskTimeline />} />
-            <Route path="/events/:id" element={<EventDetails />} />
-            <Route path="/events/:id/rsvp" element={<EventRSVP />} />
-            <Route path="/events/recurring/:id" element={<RecurringEvents />} />
-            <Route path="/reports/tasks" element={<TaskReports />} />
-            <Route path="/reports/productivity" element={<TeamProductivity />} />
-            <Route path="/reports/attendance" element={<EventAttendance />} />
-            <Route path="/reports/export" element={<ExportData />} />
-            <Route path="/settings" element={<Settings />} />
+          {/* Dashboard Routes - ALL PROTECTED */}
+<Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+  {/* Redirect /dashboard/admin to admin dashboard - must be before /dashboard */}
+  <Route path="/dashboard/admin" element={<Navigate to="/admin/dashboard" replace />} />
+  <Route path="/dashboard" element={<Dashboard />} />
+  <Route path="/dashboard/wanderer" element={<WandererDashboard />} />
+  <Route path="/dashboard/staff" element={<StaffDashboard />} />
+  <Route path="/dashboard/manager" element={<ManagerDashboard />} />
+  <Route path="/calendar" element={<CalendarOverview />} />
+  <Route path="/calendar/personal" element={<PersonalCalendar />} />
+  <Route path="/calendar/group/:id" element={<GroupCalendar />} />
+  <Route path="/calendar/day" element={<DayView />} />
+  <Route path="/tasks" element={<TaskLists />} />
+  <Route path="/tasks/my-tasks" element={<MyTasks />} />
+  <Route path="/tasks/assigned-to-me" element={<AssignedToMe />} />
+  <Route path="/tasks/assigned-by-me" element={<AssignedByMe />} />
+  <Route path="/tasks/:id" element={<TaskDetails />} />
+  <Route path="/tasks/:id/timeline" element={<TaskTimeline />} />
+  <Route path="/events/:id" element={<EventDetails />} />
+  <Route path="/events/:id/rsvp" element={<EventRSVP />} />
+  <Route path="/events/recurring/:id" element={<RecurringEvents />} />
+  <Route path="/reports/tasks" element={<TaskReports />} />
+  <Route path="/reports/productivity" element={<TeamProductivity />} />
+  <Route path="/reports/attendance" element={<EventAttendance />} />
+  <Route path="/reports/export" element={<ExportData />} />
+  <Route path="/settings" element={<Settings />} />
 
-            {/* Notifications (all authenticated users) */}
-            <Route path="/notifications" element={<NotificationCenter />} />
-            <Route path="/notifications/settings" element={<NotificationSettings />} />
+  {/* Notifications (all authenticated users) */}
+  <Route path="/notifications" element={<NotificationCenter />} />
+  <Route path="/notifications/settings" element={<NotificationSettings />} />
 
-            {/* Team Management (Admin/Manager only) */}
-            <Route path="/team/dashboard" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamDashboard /></ProtectedRoute>} />
-            <Route path="/team/calendar" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamCalendar /></ProtectedRoute>} />
-            <Route path="/team/tasks" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamTasks /></ProtectedRoute>} />
-            <Route path="/team/reports" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamReports /></ProtectedRoute>} />
+  {/* Team Management (Admin/Manager only) */}
+  <Route path="/team/dashboard" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamDashboard /></ProtectedRoute>} />
+  <Route path="/team/calendar" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamCalendar /></ProtectedRoute>} />
+  <Route path="/team/tasks" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamTasks /></ProtectedRoute>} />
+  <Route path="/team/reports" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamReports /></ProtectedRoute>} />
 
-            {/* Task Assignments (all authenticated users) */}
-            <Route path="/assignments" element={<TaskDelegation />} />
-            <Route path="/assignments/pending" element={<PendingAssignments />} />
+  {/* Task Assignments (all authenticated users) */}
+  <Route path="/assignments" element={<TaskDelegation />} />
+  <Route path="/assignments/pending" element={<PendingAssignments />} />
 
-            {/* Mass Operations (Admin/Manager only) */}
-            <Route path="/mass/message" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassMessaging /></ProtectedRoute>} />
-            <Route path="/mass/task" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassTaskCreation /></ProtectedRoute>} />
-            <Route path="/mass/event" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassEventCreation /></ProtectedRoute>} />
+  {/* Mass Operations (Admin/Manager only) */}
+  <Route path="/mass/message" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassMessaging /></ProtectedRoute>} />
+  <Route path="/mass/task" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassTaskCreation /></ProtectedRoute>} />
+  <Route path="/mass/event" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassEventCreation /></ProtectedRoute>} />
 
-            {/* Admin routes grouped under /admin and protected */}
-            <Route path="/admin" element={<ProtectedRoute allowedRoles={["manager", "admin"]} />}>
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="users/:id" element={<UserDetails />} />
-              <Route path="groups" element={<GroupManagement />} />
-              <Route path="groups/:id" element={<GroupDetails />} />
-              <Route path="audit-logs" element={<AuditLogs />} />
-              <Route path="settings" element={<OrganizationSettings />} />
-            </Route>
-          </Route>
+  {/* Admin routes grouped under /admin and protected */}
+  <Route path="/admin" element={<ProtectedRoute allowedRoles={["manager", "admin"]} />}>
+    <Route path="dashboard" element={<AdminDashboard />} />
+    <Route path="users" element={<UserManagement />} />
+    <Route path="users/:id" element={<UserDetails />} />
+    <Route path="groups" element={<GroupManagement />} />
+    <Route path="groups/:id" element={<GroupDetails />} />
+    <Route path="audit-logs" element={<AuditLogs />} />
+    <Route path="settings" element={<OrganizationSettings />} />
+  </Route>
+</Route>
 
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

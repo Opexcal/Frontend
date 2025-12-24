@@ -222,9 +222,10 @@ export const DashboardSidebar = () => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/notifications">
               <Bell className="mr-2 h-4 w-4" />
-              Notifications
+              Notifications</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/settings">
