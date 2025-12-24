@@ -20,45 +20,47 @@ const Login = () => {
     password: "",
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  
+  try {
+    console.log('🔐 Attempting login with:', formData.email);
     
-    try {
-      await login({
-        email: formData.email,
-        password: formData.password,
-      });
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back! Redirecting...",
-      });
-      
-      // ✅ Small delay for better UX
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 500);
-      
-    } catch (error) {
-      console.error("Login error:", error);
-      
-      // ✅ Better error message handling
-      const errorMessage = 
-        error?.message || 
-        error?.data?.message || 
-        error?.error ||
-        "Invalid email or password. Please try again.";
-      
-      toast({
-        title: "Login failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    await login({
+      email: formData.email,
+      password: formData.password,
+    });
+    
+    console.log('✅ Login successful, token stored');
+    
+    toast({
+      title: "Login successful",
+      description: "Welcome back! Redirecting...",
+    });
+    
+    setTimeout(() => {
+      navigate("/dashboard");
+    }, 500);
+    
+  } catch (error) {
+    console.error("❌ Login error:", error);
+    
+    const errorMessage = 
+      error?.message || 
+      error?.data?.message || 
+      error?.error ||
+      "Invalid email or password. Please try again.";
+    
+    toast({
+      title: "Login failed",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="w-full max-w-md animate-fade-in">

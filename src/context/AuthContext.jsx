@@ -14,31 +14,34 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadCurrentUser = useCallback(async () => {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-    try {
-      const res = await authApi.getMe();
-      const apiUser = res.data?.user || res.user || res;
-// In loadCurrentUser:
-const normalizedUser = {
-  ...apiUser,
-  role: backendToFrontendRole[apiUser.role] || "wanderer",
-};
-setUser(normalizedUser);
-
-    } catch (err) {
-      // Token invalid/expired; clear it
-      localStorage.removeItem("authToken");
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const loadCurrentUser = useCallback(async () => {
+  const token = localStorage.getItem("authToken");
+  
+  if (!token) {
+    setUser(null);
+    setLoading(false);
+    return;
+  }
+  
+  try {
+    const res = await authApi.getMe();
+    const apiUser = res.data?.user || res.user || res;
+    
+    const normalizedUser = {
+      ...apiUser,
+      role: backendToFrontendRole[apiUser.role] || "wanderer",
+    };
+    setUser(normalizedUser);
+    
+  } catch (err) {
+    console.error('Failed to load user:', err);
+    // Token invalid/expired; clear it
+    localStorage.removeItem("authToken");
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadCurrentUser();
@@ -47,34 +50,61 @@ setUser(normalizedUser);
   // In AuthContext.jsx
 const login = async (credentials) => {
   const res = await authApi.login(credentials);
-  // res is already the response.data from interceptor
-  // so it's { success: true, message: '...', data: { token, user } }
-  const token = res.data?.token;
-  const userData = res.data?.user;
   
-  if (token) localStorage.setItem("authToken", token);
-  // In login:
-const normalizedUser = {
-  ...userData,
-  role: backendToFrontendRole[userData.role] || "wanderer",
-};
-setUser(normalizedUser);
-
+  // After interceptor: res = { success: true, message: '...', data: { token, user } }
+  const token = res.data?.token || res.token;
+  const userData = res.data?.user || res.user;
+  
+  if (!token) {
+    throw new Error('No authentication token received');
+  }
+  
+  localStorage.setItem("authToken", token);
+  
+  const normalizedUser = {
+    ...userData,
+    role: backendToFrontendRole[userData.role] || "wanderer",
+  };
+  setUser(normalizedUser);
+  
   return userData;
+};
+
+const refreshToken = async () => {
+  try {
+    const res = await authApi.post('/auth/refresh');
+    const newToken = res.data?.token;
+    
+    if (newToken) {
+      localStorage.setItem('authToken', newToken);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    localStorage.removeItem('authToken');
+    setUser(null);
+    return false;
+  }
 };
 
 const register = async (data) => {
   const res = await authApi.register(data);
-  const token = res.data?.token;
-  const userData = res.data?.user;
   
-  if (token) localStorage.setItem("authToken", token);
+  const token = res.data?.token || res.token;
+  const userData = res.data?.user || res.user;
+  
+  if (!token) {
+    throw new Error('No authentication token received');
+  }
+  
+  localStorage.setItem("authToken", token);
+  
   const normalizedUser = {
-  ...userData,
-  role: backendToFrontendRole[userData.role] || "wanderer",
-};
-setUser(normalizedUser);
-
+    ...userData,
+    role: backendToFrontendRole[userData.role] || "wanderer",
+  };
+  setUser(normalizedUser);
+  
   return userData;
 };
   const logout = () => {

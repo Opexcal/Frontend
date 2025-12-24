@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { eventsApi } from "../../api/eventsApi";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { startOfMonth, endOfMonth, parseISO, isSameDay } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,24 +13,84 @@ import  CreateEventForm from "../../components/forms/CreateEventForms";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Mock event data
-const mockEvents = [
-  { id: 1, title: "Team Sync", date: 2, color: "bg-primary" },
-  { id: 2, title: "Sprint Planning", date: 5, color: "bg-success" },
-  { id: 3, title: "Client Call", date: 8, color: "bg-warning" },
-  { id: 4, title: "Workshop", date: 12, color: "bg-primary" },
-  { id: 5, title: "Review Meeting", date: 15, color: "bg-success" },
-  { id: 6, title: "Deadline", date: 20, color: "bg-destructive" },
-];
-
 const CalendarOverview = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState("month");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-
+const [viewMode, setViewMode] = useState("month");
+const [isCreateOpen, setIsCreateOpen] = useState(false);
+// Add these new states:
+const [events, setEvents] = useState([]);
+const [isLoading, setIsLoading] = useState(true);
+const { toast } = useToast();
+const navigate = useNavigate();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
+  // Add this function after your state declarations
+const fetchMonthEvents = async () => {
+  setIsLoading(true);
+  try {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    
+    const response = await eventsApi.getEventsInRange(monthStart, monthEnd);
+    
+    const mappedEvents = response.data.map(event => ({
+      id: event._id,
+      title: event.title,
+      date: new Date(event.startDate).getDate(),
+      color: getColorByType(event.type),
+      fullDate: event.startDate,
+      type: event.type
+    }));
+    
+    setEvents(mappedEvents);
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Failed to load events.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Add helper function
+const getColorByType = (type) => {
+  const colorMap = {
+    Meeting: 'bg-blue-500',
+    Deadline: 'bg-red-500',
+    Holiday: 'bg-green-500',
+    Task: 'bg-orange-500',
+    Reminder: 'bg-purple-500',
+    Other: 'bg-gray-500'
+  };
+  return colorMap[type] || 'bg-primary';
+};
+
+// Add useEffect to fetch on mount and when date changes
+useEffect(() => {
+  fetchMonthEvents();
+}, [currentDate]);
+
+// Add event listener for event changes
+useEffect(() => {
+  const handleEventChange = () => {
+    fetchMonthEvents();
+  };
+
+  window.addEventListener("eventCreated", handleEventChange);
+  window.addEventListener("eventUpdated", handleEventChange);
+  window.addEventListener("eventDeleted", handleEventChange);
+
+  return () => {
+    window.removeEventListener("eventCreated", handleEventChange);
+    window.removeEventListener("eventUpdated", handleEventChange);
+    window.removeEventListener("eventDeleted", handleEventChange);
+  };
+}, [currentDate]);
+
+
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -69,15 +134,18 @@ const CalendarOverview = () => {
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = isCurrentMonth && today.getDate() === day;
-      const dayEvents = mockEvents.filter(e => e.date === day);
+      const dayEvents = events.filter(e => e.date === day);
 
       days.push(
         <div
-          key={day}
-          className={`h-24 border border-border/50 p-1 hover:bg-accent/30 transition-colors cursor-pointer ${
-            isToday ? "bg-primary/5 border-primary/30" : ""
-          }`}
-        >
+  key={day}
+  onClick={() => navigate("/calendar/day", { 
+    state: { date: new Date(year, month, day).toISOString() } 
+  })}
+  className={`h-24 border border-border/50 p-1 hover:bg-accent/30 transition-colors cursor-pointer ${
+    isToday ? "bg-primary/5 border-primary/30" : ""
+  }`}
+>
           <div className={`text-sm font-medium mb-1 ${isToday ? "text-primary" : "text-foreground"}`}>
             {day}
           </div>
@@ -101,6 +169,13 @@ const CalendarOverview = () => {
     return days;
   };
 
+  if (isLoading) {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      Loading calendar...
+    </div>
+  );
+}
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -133,18 +208,25 @@ const CalendarOverview = () => {
             <CardTitle className="text-base">Quick Date Picker</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select defaultValue="october-2025">
-              <SelectTrigger>
-                <SelectValue placeholder="Select month" />
-              </SelectTrigger>
-              <SelectContent>
-                {monthNames.map((name, index) => (
-                  <SelectItem key={name} value={`${name.toLowerCase()}-${year}`}>
-                    {name} {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Select 
+  value={`${monthNames[month].toLowerCase()}-${year}`}
+  onValueChange={(value) => {
+    const [monthName, selectedYear] = value.split('-');
+    const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthName);
+    setCurrentDate(new Date(parseInt(selectedYear), monthIndex, 1));
+  }}
+>
+  <SelectTrigger>
+    <SelectValue placeholder="Select month" />
+  </SelectTrigger>
+  <SelectContent>
+    {monthNames.map((name, index) => (
+      <SelectItem key={index} value={`${name.toLowerCase()}-${year}`}>
+        {name} {year}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 
             {/* Mini Calendar */}
             <div className="border rounded-lg p-3">
@@ -162,13 +244,21 @@ const CalendarOverview = () => {
                                   today.getMonth() === month && today.getFullYear() === year;
                   return (
                     <div
-                      key={i}
-                      className={`h-6 w-6 flex items-center justify-center rounded-full cursor-pointer transition-colors
-                        ${isValidDay ? "hover:bg-accent" : "text-muted-foreground/30"}
-                        ${isToday ? "bg-primary text-primary-foreground" : ""}`}
-                    >
-                      {isValidDay ? day : ""}
-                    </div>
+  key={i}
+  onClick={() => {
+    if (isValidDay) {
+      setCurrentDate(new Date(year, month, day));
+      navigate("/calendar/day", { 
+        state: { date: new Date(year, month, day).toISOString() } 
+      });
+    }
+  }}
+  className={`h-6 w-6 flex items-center justify-center rounded-full cursor-pointer transition-colors
+    ${isValidDay ? "hover:bg-accent" : "text-muted-foreground/30"}
+    ${isToday ? "bg-primary text-primary-foreground" : ""}`}
+>
+  {isValidDay ? day : ""}
+</div>
                   );
                 })}
               </div>
@@ -232,6 +322,7 @@ const CalendarOverview = () => {
                 </Button>
               </div>
             </div>
+            
           </CardHeader>
           <CardContent>
             {/* Calendar Header */}

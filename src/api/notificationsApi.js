@@ -28,7 +28,7 @@ export const notificationsApi = {
    * Mark all notifications as read
    * @returns {Promise}
    */
-  markAllAsRead: () => apiClient.patch('/notifications/mark-all-read'),
+  markAllAsRead: () => apiClient.patch('/notifications/read-all'),
 
   /**
    * Delete notification

@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { eventsApi } from "../../api/eventsApi";
+import { useToast } from "@/hooks/use-toast";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,62 +32,113 @@ import {
 } from "@/components/ui/select";
 
 // Mock data
-const mockEvent = {
-  id: 1,
-  title: "Sprint Planning Meeting",
-  description: "Quarterly sprint planning session to discuss Q1 goals, assign tasks, and plan the upcoming sprint. All team members are expected to attend and contribute to the planning process.",
-  start: "2025-12-23T10:00:00",
-  end: "2025-12-23T12:00:00",
-  location: "Conference Room A",
-  onlineLink: "https://zoom.us/j/123456789",
-  type: "meeting",
-  isRecurring: false,
-  createdAt: "2025-12-20T10:00:00",
-  updatedAt: "2025-12-22T14:30:00",
-  organizer: {
-    id: "1",
-    name: "Sarah Johnson",
-    avatar: "",
-    email: "sarah@example.com"
-  },
-  attendees: [
-    { id: "2", name: "Mike Chen", avatar: "", email: "mike@example.com", rsvp: "accepted" },
-    { id: "3", name: "Alex Rivera", avatar: "", email: "alex@example.com", rsvp: "accepted" },
-    { id: "4", name: "Emma Wilson", avatar: "", email: "emma@example.com", rsvp: "pending" },
-    { id: "5", name: "David Kim", avatar: "", email: "david@example.com", rsvp: "declined" },
-  ],
-  attachments: [
-    { id: 1, name: "sprint_planning_agenda.pdf", size: "1.2 MB", uploadedAt: "2025-12-20" },
-  ],
-  comments: [
-    {
-      id: 1,
-      author: { id: "2", name: "Mike Chen", avatar: "" },
-      content: "Looking forward to this meeting! I'll prepare my updates beforehand.",
-      createdAt: "2025-12-21T09:15:00",
-    },
-  ],
-};
+// const mockEvent = {
+//   id: 1,
+//   title: "Sprint Planning Meeting",
+//   description: "Quarterly sprint planning session to discuss Q1 goals, assign tasks, and plan the upcoming sprint. All team members are expected to attend and contribute to the planning process.",
+//   start: "2025-12-23T10:00:00",
+//   end: "2025-12-23T12:00:00",
+//   location: "Conference Room A",
+//   onlineLink: "https://zoom.us/j/123456789",
+//   type: "meeting",
+//   isRecurring: false,
+//   createdAt: "2025-12-20T10:00:00",
+//   updatedAt: "2025-12-22T14:30:00",
+//   organizer: {
+//     id: "1",
+//     name: "Sarah Johnson",
+//     avatar: "",
+//     email: "sarah@example.com"
+//   },
+//   attendees: [
+//     { id: "2", name: "Mike Chen", avatar: "", email: "mike@example.com", rsvp: "accepted" },
+//     { id: "3", name: "Alex Rivera", avatar: "", email: "alex@example.com", rsvp: "accepted" },
+//     { id: "4", name: "Emma Wilson", avatar: "", email: "emma@example.com", rsvp: "pending" },
+//     { id: "5", name: "David Kim", avatar: "", email: "david@example.com", rsvp: "declined" },
+//   ],
+//   attachments: [
+//     { id: 1, name: "sprint_planning_agenda.pdf", size: "1.2 MB", uploadedAt: "2025-12-20" },
+//   ],
+//   comments: [
+//     {
+//       id: 1,
+//       author: { id: "2", name: "Mike Chen", avatar: "" },
+//       content: "Looking forward to this meeting! I'll prepare my updates beforehand.",
+//       createdAt: "2025-12-21T09:15:00",
+//     },
+//   ],
+// };
 
 const EventDetails = () => {
-  const { id } = useParams();
+ const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [event] = useState(mockEvent);
+  const { toast } = useToast();
+  
+  const [event, setEvent] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
-  const [rsvpStatus, setRsvpStatus] = useState(
-    event.attendees.find(a => a.id === user?.id)?.rsvp || "pending"
-  );
+// With this
+const [rsvpStatus, setRsvpStatus] = useState("pending");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRSVPDialogOpen, setIsRSVPDialogOpen] = useState(false);
 
-  const canEdit = user?.id === event.organizer.id || user?.role === "admin" || user?.role === "manager";
+// In EventDetails.jsx - Add after fetching event
+useEffect(() => {
+  const fetchEvent = async () => {
+    setIsLoading(true);
+    try {
+      const response = await eventsApi.getEvent(id);
+      
+      const mappedEvent = {
+        ...response.data,
+        start: response.data.startDate,
+        end: response.data.endDate,
+        onlineLink: response.data.conferencingLink,
+        organizer: response.data.createdBy,
+        comments: response.data.comments || [],
+        attachments: response.data.attachments || [],
+        isRecurring: false
+      };
+      
+      setEvent(mappedEvent);
+      
+      // Set RSVP status after event loads
+      if (mappedEvent?.attendees) {
+        const myRsvp = mappedEvent.attendees.find(
+          a => a.id === user?.id || a._id === user?.id
+        );
+        if (myRsvp?.rsvp) {
+          setRsvpStatus(myRsvp.rsvp);
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load event details.",
+        variant: "destructive"
+      });
+      navigate("/calendar");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchEvent();
+}, [id, user]); // ✅ Add dependencies
+
+const canEdit = event && (
+  user?.id === event?.createdBy || 
+  user?._id === event?.createdBy ||
+  ['SuperAdmin', 'Admin'].includes(user?.role)
+);
+
   const myRSVP = event.attendees.find(a => a.id === user?.id);
-  const acceptedCount = event.attendees.filter(a => a.rsvp === "accepted").length;
-  const declinedCount = event.attendees.filter(a => a.rsvp === "declined").length;
-  const pendingCount = event.attendees.filter(a => a.rsvp === "pending").length;
-  const isEventPast = isPast(parseISO(event.end));
-  const isEventToday = isToday(parseISO(event.start));
+const acceptedCount = event?.attendees?.filter(a => a.rsvp === "accepted").length || 0;
+const declinedCount = event?.attendees?.filter(a => a.rsvp === "declined").length || 0;
+const pendingCount = event?.attendees?.filter(a => a.rsvp === "pending").length || 0;
+const isEventPast = event ? isPast(parseISO(event.end)) : false;
+const isEventToday = event ? isToday(parseISO(event.start)) : false;
 
   const handleRSVP = (status) => {
     // API call here
@@ -100,12 +153,85 @@ const EventDetails = () => {
     setCommentText("");
   };
 
-  const handleDelete = () => {
-    if (confirm("Are you sure you want to delete this event?")) {
-      // API call here
+const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this event?")) return;
+    
+    try {
+      await eventsApi.deleteEvent(id);
+      toast({
+        title: "Success",
+        description: "Event deleted successfully."
+      });
       navigate("/calendar");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete event.",
+        variant: "destructive"
+      });
     }
   };
+  // Add to EventDetails.jsx
+const handleUpdateEvent = async (updates) => {
+  setIsLoading(true);
+  try {
+    const updateData = {
+      title: updates.title,
+      description: updates.description,
+      startDate: updates.startDate ? new Date(updates.startDate).toISOString() : undefined,
+      endDate: updates.endDate ? new Date(updates.endDate).toISOString() : undefined,
+      type: updates.type,
+      visibility: updates.visibility,
+      conferencingLink: updates.conferencingLink || null,
+      attendees: updates.attendees || [],
+    };
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => 
+      updateData[key] === undefined && delete updateData[key]
+    );
+
+    const response = await eventsApi.updateEvent(event._id, updateData);
+    
+    setEvent(response.data);
+    setIsEditDialogOpen(false);
+    
+    toast({
+      title: "Success",
+      description: "Event updated successfully."
+    });
+
+    // Trigger refresh in other components
+    window.dispatchEvent(new CustomEvent('eventUpdated', { detail: response.data }));
+    
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to update event.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+if (!event) {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-center">
+        <p className="text-lg font-medium">Event not found</p>
+        <Button className="mt-4" onClick={() => navigate("/calendar")}>
+          Back to Calendar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -199,49 +325,19 @@ const EventDetails = () => {
 
           {/* Comments */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Comments ({event.comments.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Add Comment */}
-              <div className="mb-6">
-                <Textarea
-                  placeholder="Add a comment..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="min-h-[100px] mb-3"
-                />
-                <Button onClick={handleAddComment}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Comment
-                </Button>
-              </div>
-
-              {/* Comments List */}
-              <div className="space-y-4">
-                {event.comments.map(comment => (
-                  <div key={comment.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={comment.author.avatar} />
-                      <AvatarFallback>{comment.author.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">{comment.author.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {format(parseISO(comment.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground">{comment.content}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <MessageSquare className="h-5 w-5" />
+      Comments
+      <Badge variant="secondary" className="ml-2">Coming Soon</Badge>
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <p className="text-sm text-muted-foreground text-center py-8">
+      Comment functionality will be available soon
+    </p>
+  </CardContent>
+</Card>
         </div>
 
         {/* Sidebar */}
@@ -335,30 +431,49 @@ const EventDetails = () => {
               </div>
 
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {event.attendees.map(attendee => (
-                  <div key={attendee.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={attendee.avatar} />
-                        <AvatarFallback>{attendee.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{attendee.name}</p>
-                        <p className="text-xs text-muted-foreground">{attendee.email}</p>
-                      </div>
-                    </div>
-                    <Badge variant={
-                      attendee.rsvp === "accepted" ? "default" :
-                      attendee.rsvp === "declined" ? "destructive" :
-                      "outline"
-                    }>
-                      {attendee.rsvp === "accepted" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                      {attendee.rsvp === "declined" && <XCircle className="h-3 w-3 mr-1" />}
-                      {attendee.rsvp === "pending" && <AlertCircle className="h-3 w-3 mr-1" />}
-                      {attendee.rsvp}
-                    </Badge>
-                  </div>
-                ))}
+{event.attendees && event.attendees.length > 0 ? (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5" />
+        Attendees ({event.attendees.length})
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-3">
+        {event.attendees.map((attendee, index) => (
+          <div key={attendee._id || index} className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback>
+                {attendee.name?.[0] || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium text-sm">
+                {attendee.name || attendee.email || 'User'}
+              </p>
+              {attendee.email && (
+                <p className="text-xs text-muted-foreground">{attendee.email}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <Badge variant="secondary" className="mt-4">
+        RSVP tracking coming soon
+      </Badge>
+    </CardContent>
+  </Card>
+) : (
+  <Card>
+    <CardHeader>
+      <CardTitle>Attendees</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <p className="text-sm text-muted-foreground">No attendees added yet</p>
+    </CardContent>
+  </Card>
+)}
               </div>
 
               <Button variant="outline" className="w-full mt-4" asChild>
@@ -371,30 +486,19 @@ const EventDetails = () => {
 
           {/* Attachments */}
           {event.attachments && event.attachments.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Attachments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {event.attachments.map(attachment => (
-                    <div
-                      key={attachment.id}
-                      className="flex items-center justify-between p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">{attachment.name}</p>
-                          <p className="text-xs text-muted-foreground">{attachment.size}</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm">Download</Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+             <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        Attachments
+        <Badge variant="secondary">Coming Soon</Badge>
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <p className="text-sm text-muted-foreground text-center py-4">
+        File attachments coming soon
+      </p>
+    </CardContent>
+  </Card>
           )}
 
           {/* Actions */}

@@ -40,8 +40,8 @@ const { user, loading: authLoading } = useAuth();
       const response = await notificationsApi.getNotifications();
       
       if (response.success) {
-        // Transform backend format to frontend format
-        const transformed = response.data.map(notif => ({
+  // Backend returns { success, count, unreadCount, data: [...] }
+  const transformed = (response.data || []).map(notif => ({
           id: notif._id,
           type: notif.type,
           message: notif.message,
@@ -202,14 +202,14 @@ const { user, loading: authLoading } = useAuth();
   };
 
   // Auto-fetch on mount
- useEffect(() => {
+useEffect(() => {
   if (!authLoading && user) {
+    console.log('✅ Fetching notifications for user:', user.email);
     fetchNotifications();
   }
-}, [authLoading, user, fetchNotifications]);
-
+}, [authLoading, user]);
   // Poll for new notifications every 30 seconds
-  useEffect(() => {
+useEffect(() => {
   if (authLoading || !user) return;
 
   const interval = setInterval(() => {
@@ -217,7 +217,7 @@ const { user, loading: authLoading } = useAuth();
   }, 30000);
 
   return () => clearInterval(interval);
-}, [authLoading, user, fetchNotifications]);
+}, [authLoading, user]);
 
 
   return (

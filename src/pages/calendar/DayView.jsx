@@ -11,92 +11,183 @@ import {
 } from "lucide-react";
 import { format, addDays, subDays, parseISO, startOfDay, isToday, isSameDay, setHours, setMinutes } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
+import { eventsApi } from "../../api/eventsApi"
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data
-const generateMockEvents = (date) => {
-  const baseDate = startOfDay(date);
-  return [
-    {
-      id: "1",
-      title: "Morning Standup",
-      start: setMinutes(setHours(baseDate, 9), 0),
-      end: setMinutes(setHours(baseDate, 9), 30),
-      type: "meeting",
-      location: "Conference Room A",
-      attendees: 8,
-      color: "blue",
-      description: "Daily team sync meeting"
-    },
-    {
-      id: "2",
-      title: "Client Presentation Prep",
-      start: setMinutes(setHours(baseDate, 10), 0),
-      end: setMinutes(setHours(baseDate, 11), 30),
-      type: "work",
-      location: "My Desk",
-      attendees: 2,
-      color: "purple",
-      description: "Prepare slides for client presentation"
-    },
-    {
-      id: "3",
-      title: "Lunch Break",
-      start: setMinutes(setHours(baseDate, 12), 0),
-      end: setMinutes(setHours(baseDate, 13), 0),
-      type: "personal",
-      location: "Cafeteria",
-      color: "green",
-      description: "Lunch with team"
-    },
-    {
-      id: "4",
-      title: "Client Call",
-      start: setMinutes(setHours(baseDate, 14), 0),
-      end: setMinutes(setHours(baseDate, 15), 0),
-      type: "meeting",
-      location: "Zoom",
-      attendees: 5,
-      color: "blue",
-      description: "Quarterly review call"
-    },
-    {
-      id: "5",
-      title: "Code Review",
-      start: setMinutes(setHours(baseDate, 15), 30),
-      end: setMinutes(setHours(baseDate, 16), 30),
-      type: "work",
-      location: "Slack",
-      attendees: 3,
-      color: "orange",
-      description: "Review PR #234"
-    },
-    {
-      id: "6",
-      title: "Team Building Day",
-      start: baseDate,
-      end: addDays(baseDate, 1),
-      type: "event",
-      color: "red",
-      isAllDay: true,
-      description: "Company-wide team building event"
-    }
-  ];
-};
+// const generateMockEvents = (date) => {
+//   const baseDate = startOfDay(date);
+//   return [
+//     {
+//       id: "1",
+//       title: "Morning Standup",
+//       start: setMinutes(setHours(baseDate, 9), 0),
+//       end: setMinutes(setHours(baseDate, 9), 30),
+//       type: "meeting",
+//       location: "Conference Room A",
+//       attendees: 8,
+//       color: "blue",
+//       description: "Daily team sync meeting"
+//     },
+//     {
+//       id: "2",
+//       title: "Client Presentation Prep",
+//       start: setMinutes(setHours(baseDate, 10), 0),
+//       end: setMinutes(setHours(baseDate, 11), 30),
+//       type: "work",
+//       location: "My Desk",
+//       attendees: 2,
+//       color: "purple",
+//       description: "Prepare slides for client presentation"
+//     },
+//     {
+//       id: "3",
+//       title: "Lunch Break",
+//       start: setMinutes(setHours(baseDate, 12), 0),
+//       end: setMinutes(setHours(baseDate, 13), 0),
+//       type: "personal",
+//       location: "Cafeteria",
+//       color: "green",
+//       description: "Lunch with team"
+//     },
+//     {
+//       id: "4",
+//       title: "Client Call",
+//       start: setMinutes(setHours(baseDate, 14), 0),
+//       end: setMinutes(setHours(baseDate, 15), 0),
+//       type: "meeting",
+//       location: "Zoom",
+//       attendees: 5,
+//       color: "blue",
+//       description: "Quarterly review call"
+//     },
+//     {
+//       id: "5",
+//       title: "Code Review",
+//       start: setMinutes(setHours(baseDate, 15), 30),
+//       end: setMinutes(setHours(baseDate, 16), 30),
+//       type: "work",
+//       location: "Slack",
+//       attendees: 3,
+//       color: "orange",
+//       description: "Review PR #234"
+//     },
+//     {
+//       id: "6",
+//       title: "Team Building Day",
+//       start: baseDate,
+//       end: addDays(baseDate, 1),
+//       type: "event",
+//       color: "red",
+//       isAllDay: true,
+//       description: "Company-wide team building event"
+//     }
+//   ];
+// };
 
 const DayView = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
+  
   const [currentDate, setCurrentDate] = useState(
     location.state?.date ? parseISO(location.state.date) : new Date()
   );
   const [viewFilter, setViewFilter] = useState("all");
-  const [events, setEvents] = useState(generateMockEvents(currentDate));
+  const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // In each calendar view component
+useEffect(() => {
+  const handleEventChange = () => {
+    fetchDayEvents();
+  };
+
+  window.addEventListener("eventCreated", handleEventChange);
+  window.addEventListener("eventUpdated", handleEventChange);
+  window.addEventListener("eventDeleted", handleEventChange);
+
+  return () => {
+    window.removeEventListener("eventCreated", handleEventChange);
+    window.removeEventListener("eventUpdated", handleEventChange);
+    window.removeEventListener("eventDeleted", handleEventChange);
+  };
+}, []);
+
+  // Fetch events for the current day
+  const fetchDayEvents = async () => {
+      setIsLoading(true);
+      try {
+        const dayStart = startOfDay(currentDate);
+        const dayEnd = addDays(dayStart, 1);
+        
+        const response = await eventsApi.getEventsInRange(dayStart, dayEnd);
+        
+        // Map backend events to component format
+        const mappedEvents = response.data.map(event => ({
+          id: event._id,
+          title: event.title,
+          start: new Date(event.startDate),
+          end: new Date(event.endDate),
+          type: event.type.toLowerCase(),
+          location: event.location || null,
+          description: event.description,
+          onlineLink: event.conferencingLink,
+          attendees: event.attendees?.length || 0,
+          color: getColorByType(event.type),
+          isAllDay: isAllDayEvent(event.startDate, event.endDate),
+          organizer: event.createdBy,
+          visibility: event.visibility
+        }));
+        
+        setEvents(mappedEvents);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load events for this day.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
   useEffect(() => {
-    setEvents(generateMockEvents(currentDate));
+    fetchDayEvents();
   }, [currentDate]);
+
+  // Helper: Map event type to color
+  const getColorByType = (type) => {
+    const colorMap = {
+      Meeting: 'blue',
+      Deadline: 'red',
+      Holiday: 'green',
+      Task: 'orange',
+      Reminder: 'purple',
+      Other: 'gray'
+    };
+    return colorMap[type] || 'blue';
+  };
+
+  // Helper: Check if event spans full day
+  const isAllDayEvent = (start, end) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const duration = (endDate - startDate) / (1000 * 60 * 60); // hours
+    return duration >= 23;
+  };
+
+  // Add loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Loading day view...
+      </div>
+    );
+  }
+
+  
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const currentHour = new Date().getHours();
@@ -114,12 +205,12 @@ const DayView = () => {
   };
 
   const getEventColor = (color) => {
-    const colors = {
-      green: "bg-green-500",
-      blue: "bg-blue-500",
-      purple: "bg-purple-500",
-      red: "bg-red-500",
-      orange: "bg-orange-500"
+    const colors = { // Tailwind classes
+      'green': 'bg-green-500',
+      'blue': 'bg-blue-500',
+      'purple': 'bg-purple-500',
+      'red': 'bg-red-500',
+      'orange': 'bg-orange-500',
     };
     return colors[color] || "bg-primary";
   };

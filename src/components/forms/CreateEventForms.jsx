@@ -10,6 +10,7 @@ import { CalendarIcon, Clock, MapPin, Users, Link as LinkIcon } from "lucide-rea
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { eventsApi } from "../../api/eventsApi";
 
  const CreateEventForm = ({ onClose }) => {
   const { toast } = useToast();
@@ -26,22 +27,74 @@ import { useToast } from "@/hooks/use-toast";
     meetingUrl: "",
     participants: "",
     reminder: "30",
+    visibility: "Public",
   });
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  
+  // Validation
+  if (!formData.title || !startDate || !endDate) {
+    toast({
+      title: "Validation Error",
+      description: "Title, start date, and end date are required.",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  setIsLoading(true);
+  
+  try {
+    // Combine date + time into ISO strings
+    const startDateTime = new Date(startDate);
+    if (formData.startTime) {
+      const [hours, minutes] = formData.startTime.split(':');
+      startDateTime.setHours(parseInt(hours), parseInt(minutes));
+    }
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Event created",
-        description: "Your event has been created successfully.",
-      });
-      onClose();
-    }, 1000);
-  };
+    const endDateTime = new Date(endDate);
+    if (formData.endTime) {
+      const [hours, minutes] = formData.endTime.split(':');
+      endDateTime.setHours(parseInt(hours), parseInt(minutes));
+    }
+
+    // Map frontend fields to backend schema
+    const eventData = {
+      title: formData.title,
+      description: formData.description,
+      startDate: startDateTime.toISOString(),
+      endDate: endDateTime.toISOString(),
+      type: formData.eventType || 'Meeting', // Map to backend enum
+      visibility: 'Public', // Add visibility selector to form if needed
+      conferencingLink: formData.meetingUrl || null,
+      attendees: [], // Add attendee selection logic if needed
+      // groupId: null // Add if implementing group events
+    };
+
+    const response = await eventsApi.createEvent(eventData);
+    
+    toast({
+      title: "Success",
+      description: response.message || "Event created successfully.",
+    });
+    
+    onClose();
+    
+    // Optional: trigger calendar refresh
+    window.dispatchEvent(new CustomEvent('eventCreated', { detail: response.data }));
+    
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to create event.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -78,13 +131,13 @@ import { useToast } from "@/hooks/use-toast";
               <SelectValue placeholder="Select event type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="meeting">Meeting</SelectItem>
-              <SelectItem value="workshop">Workshop</SelectItem>
-              <SelectItem value="presentation">Presentation</SelectItem>
-              <SelectItem value="deadline">Deadline</SelectItem>
-              <SelectItem value="holiday">Holiday</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
+  <SelectItem value="Meeting">Meeting</SelectItem>
+  <SelectItem value="Deadline">Deadline</SelectItem>
+  <SelectItem value="Holiday">Holiday</SelectItem>
+  <SelectItem value="Task">Task</SelectItem>
+  <SelectItem value="Reminder">Reminder</SelectItem>
+  <SelectItem value="Other">Other</SelectItem>
+</SelectContent>
           </Select>
         </div>
       </div>
@@ -119,6 +172,20 @@ import { useToast } from "@/hooks/use-toast";
               </PopoverContent>
             </Popover>
           </div>
+
+          <div className="space-y-2">
+  <Label htmlFor="visibility">Visibility</Label>
+  <Select value={formData.visibility} onValueChange={(value) => setFormData({ ...formData, visibility: value })}>
+    <SelectTrigger>
+      <SelectValue placeholder="Select visibility" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="Public">Public - Everyone can see</SelectItem>
+      <SelectItem value="Private">Private - Only you</SelectItem>
+      <SelectItem value="GroupOnly">Group Only - Group members</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
 
           <div className="space-y-2">
             <Label htmlFor="startTime">Start Time</Label>

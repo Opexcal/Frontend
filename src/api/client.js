@@ -4,22 +4,19 @@ import axios from 'axios';
 // ✅ Fix: Use environment variable correctly
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
 
 // Request Interceptor: Add auth token
+
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// ✅ REQUEST INTERCEPTOR - Attach token to every request
 apiClient.interceptors.request.use(
   (config) => {
-    console.log('🔍 REQUEST DEBUG:');
-    console.log('URL:', config.url);
-    console.log('Method:', config.method);
-    console.log('Data being sent:', config.data);
-    console.log('Headers:', config.headers);
-    
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -28,6 +25,25 @@ apiClient.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+
+// ✅ RESPONSE INTERCEPTOR - Handle responses and errors
+apiClient.interceptors.response.use(
+  (response) => response.data, // Return only the data
+  (error) => {
+    // Handle 401 Unauthorized - token expired/invalid
+    if (error.response?.status === 401) {
+      localStorage.removeItem('authToken');
+      window.location.href = '/login';
+    }
+    
+    // Return a consistent error object
+    return Promise.reject(
+      error.response?.data || { message: 'Network error' }
+    );
+  }
+);
+
 
 // Response Interceptor: Handle common errors
 apiClient.interceptors.response.use(

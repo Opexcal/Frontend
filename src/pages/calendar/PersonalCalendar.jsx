@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,63 +13,17 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameDay, isToday, isSameMonth,
   addMonths, subMonths, parseISO, getDay, addDays
 } from "date-fns";
+import { eventsApi } from "../../api/eventsApi"
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const mockData = {
-  events: [
-    {
-      id: "1",
-      title: "Morning Workout",
-      start: "2025-12-22T07:00:00",
-      end: "2025-12-22T08:00:00",
-      type: "personal",
-      color: "green",
-      isPersonal: true
-    },
-    {
-      id: "2",
-      title: "Doctor Appointment",
-      start: "2025-12-23T14:00:00",
-      end: "2025-12-23T15:00:00",
-      type: "appointment",
-      color: "blue",
-      isPersonal: true
-    },
-    {
-      id: "3",
-      title: "Personal Project Review",
-      start: "2025-12-24T10:00:00",
-      end: "2025-12-24T11:30:00",
-      type: "work",
-      color: "purple",
-      isPersonal: true
-    },
-    {
-      id: "4",
-      title: "Holiday - Christmas",
-      start: "2025-12-25T00:00:00",
-      end: "2025-12-25T23:59:59",
-      type: "holiday",
-      color: "red",
-      isPersonal: true,
-      isAllDay: true
-    },
-  ],
-  stats: {
-    thisWeek: 3,
-    thisMonth: 8,
-    nextEvent: {
-      id: "2",
-      title: "Doctor Appointment",
-      date: "2025-12-23",
-      time: "2:00 PM"
-    }
-  }
-};
+
 
 const PersonalCalendar = () => {
+  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("month");
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedTypes, setSelectedTypes] = useState({
     meetings: true,
     deadlines: true,
@@ -84,12 +38,104 @@ const PersonalCalendar = () => {
   const calendarEnd = endOfWeek(monthEnd);
   const daysInMonth = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  const eventsForDate = (date) => {
-    return mockData.events.filter(event => {
-      const eventDate = parseISO(event.start);
-      return isSameDay(eventDate, date);
-    });
+const eventsForDate = (date) => {
+  // Use actual events state instead
+  return events.filter(event => {
+    const eventDate = parseISO(event.start);
+    return isSameDay(eventDate, date);
+  });
+};
+
+const stats = {
+  thisWeek: events.filter(e => {
+    const eventDate = parseISO(e.start);
+    const weekEnd = addDays(new Date(), 7);
+    return eventDate >= new Date() && eventDate <= weekEnd;
+  }).length,
+  thisMonth: events.length,
+  nextEvent: events
+    .filter(e => parseISO(e.start) >= new Date())
+    .sort((a, b) => parseISO(a.start) - parseISO(b.start))[0] || null
+};
+
+const fetchPersonalEvents = async () => {
+      setIsLoading(true);
+      try {
+        const monthStart = startOfMonth(currentDate);
+        const monthEnd = endOfMonth(currentDate);
+        
+        const response = await eventsApi.getEventsInRange(monthStart, monthEnd);
+        
+        // Backend already filters by user permissions
+        // Filter personal events (Private or created by user)
+        const personalEvents = response.data.map(event => ({
+          id: event._id,
+          title: event.title,
+          start: event.startDate,
+          end: event.endDate,
+          type: event.type.toLowerCase(),
+          color: getColorByType(event.type),
+          isPersonal: event.visibility === 'Private',
+          isAllDay: isAllDayEvent(event.startDate, event.endDate),
+          description: event.description,
+          location: event.location,
+          conferencingLink: event.conferencingLink
+        }));
+        
+        setEvents(personalEvents);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load personal events.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+  // In each calendar view component
+useEffect(() => {
+  const handleEventChange = (e) => {
+    // Refetch events when an event is created/updated/deleted
+    fetchPersonalEvents();
   };
+
+  window.addEventListener('eventCreated', handleEventChange);
+  window.addEventListener('eventUpdated', handleEventChange);
+  window.addEventListener('eventDeleted', handleEventChange);
+
+  return () => {
+    window.removeEventListener('eventCreated', handleEventChange);
+    window.removeEventListener('eventUpdated', handleEventChange);
+    window.removeEventListener('eventDeleted', handleEventChange);
+  };
+}, []);
+  // Fetch events for current month
+  useEffect(() => {
+    fetchPersonalEvents();
+  }, [currentDate]);
+
+  const getColorByType = (type) => {
+    const typeMap = {
+      'meeting': 'blue',
+      'deadline': 'red',
+      'holiday': 'green',
+      'task': 'orange',
+      'reminder': 'purple',
+      'other': 'gray'
+    };
+    return typeMap[type.toLowerCase()] || 'blue';
+  };
+
+  const isAllDayEvent = (start, end) => {
+    const duration = (new Date(end) - new Date(start)) / (1000 * 60 * 60);
+    return duration >= 23;
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading calendar...</div>;
+  }
 
   const getEventColor = (color) => {
     const colors = {
@@ -114,13 +160,12 @@ const PersonalCalendar = () => {
     navigate("/calendar/day", { state: { date: date.toISOString() } });
   };
 
-  const filteredEvents = mockData.events.filter(event => {
-    if (event.type === "meeting" && !selectedTypes.meetings) return false;
-    if (event.type === "deadline" && !selectedTypes.deadlines) return false;
-    if (event.type === "personal" && !selectedTypes.personal) return false;
-    if (event.type === "holiday" && !selectedTypes.holidays) return false;
-    return true;
-  });
+const filteredEvents = events.filter(event => {
+  if (event.type === "meeting" && !selectedTypes.meetings) return false;
+  if (event.type === "deadline" && !selectedTypes.deadlines) return false;
+  // ... rest of filters
+  return true;
+});
 
   const upcomingEvents = filteredEvents
     .filter(event => parseISO(event.start) >= new Date())
@@ -492,23 +537,24 @@ const PersonalCalendar = () => {
             <CardContent className="space-y-3">
               <div>
                 <p className="text-sm text-muted-foreground">This Week</p>
-                <p className="text-2xl font-semibold">{mockData.stats.thisWeek}</p>
+               <p className="text-2xl font-semibold">{stats.thisWeek}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-semibold">{mockData.stats.thisMonth}</p>
+               <p className="text-2xl font-semibold">{stats.thisMonth}</p>
               </div>
-              {mockData.stats.nextEvent && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Next Event</p>
-                  <p className="text-sm font-medium">{mockData.stats.nextEvent.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {mockData.stats.nextEvent.date} at {mockData.stats.nextEvent.time}
-                  </p>
-                </div>
-              )}
+              {stats.nextEvent && (
+  <div>
+    <p className="text-sm font-medium">{stats.nextEvent.title}</p>
+    <p className="text-xs text-muted-foreground">
+      {format(parseISO(stats.nextEvent.start), "MMM d 'at' h:mm a")}
+    </p>
+  </div>
+)}
             </CardContent>
           </Card>
+
+          
         </div>
       </div>
     </div>

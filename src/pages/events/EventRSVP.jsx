@@ -121,6 +121,21 @@ const EventRSVP = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
+      <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+  <CardContent className="p-4">
+    <div className="flex items-center gap-2">
+      <AlertCircle className="h-5 w-5 text-orange-600" />
+      <div>
+        <p className="font-medium text-orange-900 dark:text-orange-100">
+          RSVP Tracking - Mock Data
+        </p>
+        <p className="text-sm text-orange-700 dark:text-orange-300">
+          Backend support for RSVP tracking is coming soon. Current data is for demonstration only.
+        </p>
+      </div>
+    </div>
+  </CardContent>
+</Card>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>

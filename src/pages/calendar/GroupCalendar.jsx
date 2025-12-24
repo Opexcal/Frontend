@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,86 +24,30 @@ import {
   addMonths, subMonths, parseISO, addDays
 } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
+import { eventsApi } from "../../api/eventsApi"
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const groupMembers = [
-  { id: "1", name: "Sarah Johnson", avatar: "", color: "blue", role: "Lead" },
-  { id: "2", name: "Mike Chen", avatar: "", color: "green", role: "Member" },
-  { id: "3", name: "Alex Rivera", avatar: "", color: "purple", role: "Member" },
-  { id: "4", name: "Emma Wilson", avatar: "", color: "orange", role: "Member" },
-];
 
-const mockData = {
-  group: {
-    id: "1",
-    name: "Engineering Team",
-    memberCount: 24,
-    description: "Engineering and development team responsible for product development",
-    lead: { id: "1", name: "Sarah Johnson", avatar: "", email: "sarah@example.com" },
-    members: groupMembers
-  },
-  events: [
-    {
-      id: "1",
-      title: "Sprint Planning",
-      start: "2025-12-22T09:00:00",
-      end: "2025-12-22T10:30:00",
-      organizer: { id: "1", name: "Sarah Johnson", avatar: "" },
-      attendees: [
-        { id: "1", name: "Sarah Johnson", avatar: "", rsvp: "accepted" },
-        { id: "2", name: "Mike Chen", avatar: "", rsvp: "accepted" },
-        { id: "3", name: "Alex Rivera", avatar: "", rsvp: "pending" },
-      ],
-      location: "Conference Room A",
-      isGroupEvent: true,
-      type: "meeting",
-      color: "blue"
-    },
-    {
-      id: "2",
-      title: "Code Review Session",
-      start: "2025-12-23T14:00:00",
-      end: "2025-12-23T15:00:00",
-      organizer: { id: "2", name: "Mike Chen", avatar: "" },
-      attendees: [
-        { id: "1", name: "Sarah Johnson", avatar: "", rsvp: "accepted" },
-        { id: "2", name: "Mike Chen", avatar: "", rsvp: "accepted" },
-      ],
-      isGroupEvent: true,
-      type: "meeting",
-      color: "green"
-    },
-    {
-      id: "3",
-      title: "Sprint Retrospective",
-      start: "2025-12-28T10:00:00",
-      end: "2025-12-28T11:30:00",
-      organizer: { id: "1", name: "Sarah Johnson", avatar: "" },
-      attendees: groupMembers.map(m => ({ ...m, rsvp: "pending" })),
-      isGroupEvent: true,
-      type: "meeting",
-      color: "blue"
-    },
-  ],
-  stats: {
-    totalEventsThisMonth: 18,
-    upcomingDeadlines: 3
-  }
-};
 
 const GroupCalendar = () => {
-  const { id } = useParams();
+  const { id } = useParams(); // groupId
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("month");
-  const [selectedMembers, setSelectedMembers] = useState(
-    mockData.group.members.map(m => m.id)
-  );
+  const [events, setEvents] = useState([]);
+  const [groupInfo, setGroupInfo] = useState({
+  name: 'Loading...',
+  description: '',
+  memberCount: 0,
+  members: []
+});
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedMembers, setSelectedMembers] = useState([]);
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === "admin" || user?.role === "manager" ||
-    mockData.group.lead.id === user?.id;
+const isAdmin = ['SuperAdmin', 'Admin'].includes(user?.role);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -111,15 +55,95 @@ const GroupCalendar = () => {
   const calendarEnd = endOfWeek(monthEnd);
   const daysInMonth = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  const eventsForDate = (date) => {
-    return mockData.events.filter(event => {
-      const eventDate = parseISO(event.start);
-      return isSameDay(eventDate, date);
+  // In each calendar view component
+// ✅ DEFINE FIRST
+const fetchGroupEvents = async () => {
+  setIsLoading(true);
+  try {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+
+    const response = await eventsApi.getEventsInRange(monthStart, monthEnd);
+
+    const groupEvents = response.data.filter(
+      event => event.groupId?._id === id || event.groupId === id
+    );
+
+    const mappedEvents = groupEvents.map(event => ({
+      id: event._id,
+      title: event.title,
+      start: event.startDate,
+      end: event.endDate,
+      organizer: event.createdBy,
+      attendees: event.attendees || [],
+      location: event.location,
+      isGroupEvent: event.visibility === "GroupOnly",
+      type: event.type.toLowerCase(),
+      color: getColorByType(event.type),
+      description: event.description,
+      conferencingLink: event.conferencingLink
+    }));
+
+    setEvents(mappedEvents);
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Failed to load group events.",
+      variant: "destructive"
     });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+useEffect(() => {
+  const handleEventChange = () => {
+    fetchGroupEvents();
   };
 
+  window.addEventListener("eventCreated", handleEventChange);
+  window.addEventListener("eventUpdated", handleEventChange);
+  window.addEventListener("eventDeleted", handleEventChange);
+
+  return () => {
+    window.removeEventListener("eventCreated", handleEventChange);
+    window.removeEventListener("eventUpdated", handleEventChange);
+    window.removeEventListener("eventDeleted", handleEventChange);
+  };
+}, [currentDate, id]);
+
+useEffect(() => {
+  fetchGroupEvents();
+}, [currentDate, id]);
+
+
+  // Helper function
+  const getColorByType = (type) => {
+    const colorMap = {
+      Meeting: 'blue',
+      Deadline: 'red',
+      Holiday: 'green',
+      Task: 'orange',
+      Reminder: 'purple',
+      Other: 'gray'
+    };
+    return colorMap[type] || 'blue';
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading group calendar...</div>;
+  }
+
+const eventsForDate = (date) => {
+  // Use actual events state instead
+  return events.filter(event => {
+    const eventDate = parseISO(event.start);
+    return isSameDay(eventDate, date);
+  });
+};
+
   const getMemberColor = (memberId) => {
-    const member = mockData.group.members.find(m => m.id === memberId);
+    const member = groupInfo.members.find(m => m.id === memberId);
     return member?.color || "blue";
   };
 
@@ -143,18 +167,18 @@ const GroupCalendar = () => {
   };
 
   const handleSelectAll = () => {
-    setSelectedMembers(mockData.group.members.map(m => m.id));
+    setSelectedMembers(groupInfo.members.map(m => m.id));
   };
 
   const handleDeselectAll = () => {
     setSelectedMembers([]);
   };
 
-  const filteredEvents = mockData.events.filter(event => {
-    if (!selectedMembers.length) return false;
-    // Filter by selected members (simplified - in real app, check event organizer/attendees)
-    return true;
-  });
+const filteredEvents = events.filter(event => {
+  if (selectedMembers.length === 0) return true; // Show all if none selected
+  // Add actual filtering logic when backend supports member filtering
+  return true;
+});
 
   const handlePreviousMonth = () => {
     setCurrentDate(subMonths(currentDate, 1));
@@ -187,7 +211,7 @@ const GroupCalendar = () => {
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
           <Link to="/calendar" className="hover:text-foreground">Calendars</Link>
           <BreadcrumbIcon className="h-4 w-4" />
-          <span className="text-foreground">{mockData.group.name}</span>
+         <span className="text-foreground">{groupInfo.name}</span>
         </div>
 
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -196,11 +220,11 @@ const GroupCalendar = () => {
               <Users className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-display font-semibold text-foreground flex items-center gap-2">
-                {mockData.group.name}
-                <Badge variant="outline">{mockData.group.memberCount} members</Badge>
-              </h1>
-              <p className="text-muted-foreground mt-1">{mockData.group.description}</p>
+             <h1 className="text-3xl font-display font-semibold text-foreground flex items-center gap-2">
+  {groupInfo.name}
+  <Badge variant="outline">{groupInfo.memberCount || 0} members</Badge>
+</h1>
+<p className="text-muted-foreground mt-1">{groupInfo.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -466,90 +490,58 @@ const GroupCalendar = () => {
 
           {/* Group Info */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Group Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{mockData.group.description}</p>
-              <div>
-                <p className="text-sm font-medium mb-2">Team Lead</p>
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={mockData.group.lead.avatar} />
-                    <AvatarFallback>{mockData.group.lead.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">{mockData.group.lead.name}</p>
-                    <p className="text-xs text-muted-foreground">{mockData.group.lead.email}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">Group Information</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <p className="text-sm text-muted-foreground">{groupInfo.description}</p>
+    {groupInfo.members && groupInfo.members.length > 0 && (
+      <div>
+        <p className="text-sm font-medium mb-2">Members</p>
+        <p className="text-sm text-muted-foreground">
+          {groupInfo.memberCount || groupInfo.members.length} total members
+        </p>
+      </div>
+    )}
+    <Badge variant="secondary">
+      Backend group details coming soon
+    </Badge>
+  </CardContent>
+</Card>
 
           {/* Members List */}
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Members</CardTitle>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={handleSelectAll}>All</Button>
-                  <Button variant="ghost" size="sm" onClick={handleDeselectAll}>None</Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {mockData.group.members.map(member => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-2 flex-1">
-                    <Checkbox
-                      checked={selectedMembers.includes(member.id)}
-                      onCheckedChange={() => handleMemberToggle(member.id)}
-                    />
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={member.avatar} />
-                      <AvatarFallback>{member.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{member.name}</p>
-                      <p className="text-xs text-muted-foreground">{member.role}</p>
-                    </div>
-                  </div>
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{
-                      backgroundColor:
-                        member.color === "blue" ? "#3b82f6" :
-                        member.color === "green" ? "#10b981" :
-                        member.color === "purple" ? "#a855f7" :
-                        member.color === "orange" ? "#f97316" :
-                        "#6b7280"
-                    }}
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">Members</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <p className="text-sm text-muted-foreground text-center py-8">
+      Member management will be available once group endpoints are implemented
+    </p>
+    <Badge variant="secondary" className="w-full justify-center">
+      Coming Soon
+    </Badge>
+  </CardContent>
+</Card>
 
           {/* Quick Stats */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Group Stats</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Events This Month</p>
-                <p className="text-2xl font-semibold">{mockData.stats.totalEventsThisMonth}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Upcoming Deadlines</p>
-                <p className="text-2xl font-semibold">{mockData.stats.upcomingDeadlines}</p>
-              </div>
-            </CardContent>
-          </Card>
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">Group Stats</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <div>
+      <p className="text-sm text-muted-foreground">Events This Month</p>
+      <p className="text-2xl font-semibold">{events.length}</p>
+    </div>
+    <div>
+      <p className="text-sm text-muted-foreground">Upcoming Deadlines</p>
+      <p className="text-2xl font-semibold">
+        {events.filter(e => e.type === 'deadline' && new Date(e.start) > new Date()).length}
+      </p>
+    </div>
+  </CardContent>
+</Card>
         </div>
       </div>
     </div>
