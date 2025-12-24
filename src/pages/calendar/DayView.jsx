@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,7 @@ import {
   Calendar as CalendarIcon, CheckSquare, Clock, Cloud,
   Mail, Copy, FileText, AlertCircle
 } from "lucide-react";
-import { format, addDays, subDays, parseISO, startOfDay, isToday, isSameDay, setHours, setMinutes } from "date-fns";
-import { useAuth } from "../../context/AuthContext";
+import { format, addDays, subDays, parseISO, startOfDay, isToday, setHours,} from "date-fns";
 import { eventsApi } from "../../api/eventsApi"
 import { useToast } from "@/hooks/use-toast";
 
@@ -87,8 +86,6 @@ import { useToast } from "@/hooks/use-toast";
 
 const DayView = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const { toast } = useToast();
   
   const [currentDate, setCurrentDate] = useState(

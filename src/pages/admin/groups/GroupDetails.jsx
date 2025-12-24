@@ -22,18 +22,21 @@ const GroupDetails = () => {
     fetchGroup();
   }, [id]);
 
-  const fetchGroup = async () => {
-    try {
-      setLoading(true);
-      const response = await groupsApi.getGroup(id);
-      setGroup(response.data);
-    } catch (err) {
-      setError(err.message || "Failed to load group");
-      console.error("Error fetching group:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchGroup = async () => {
+  try {
+    setLoading(true);
+    const response = await groupsApi.getGroup(id);
+    
+    // Backend returns the group object directly
+    setGroup(response);
+    
+  } catch (err) {
+    setError(err.message || "Failed to load group");
+    console.error("Error fetching group:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this group?')) return;

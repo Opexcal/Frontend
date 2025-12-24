@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
@@ -12,10 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight,
-  ArrowRight, Users, Download,
+  Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Users, Download,
   ChevronRight as BreadcrumbIcon, CheckCircle2, XCircle, Clock
 } from "lucide-react";
 import {

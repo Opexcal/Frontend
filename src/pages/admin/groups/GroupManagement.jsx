@@ -40,20 +40,10 @@ const fetchGroups = async () => {
     
     const response = await groupsApi.getGroups();
     
-    // Since apiClient already returns response.data,
-    // response = { success: true, count: X, data: [...groups] }
-    console.log('API Response:', response); // This is already response.data
-    console.log('Groups array:', response.data); // This is the groups array
+    // Backend returns array directly after interceptor unwraps it
+    const groupsData = Array.isArray(response) ? response : [];
     
-    const groupsData = response.data || []; // NOT response.data.data
-    
-    if (!Array.isArray(groupsData)) {
-      console.error('Groups data is not an array:', groupsData);
-      setGroups([]);
-      return;
-    }
-    
-    console.log('✅ Setting groups:', groupsData);
+    console.log('✅ Groups loaded:', groupsData.length);
     setGroups(groupsData);
     
   } catch (err) {
