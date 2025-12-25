@@ -1,164 +1,187 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { massOpsApi } from '../api/massOperationsApi';
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState, useEffect } from 'react';
+import { teamApi } from '../api/teamApi';
+import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Users, User } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Users, User } from "lucide-react";
 
-const RecipientSelector = ({ mode, onSelect, allowOrganizationWide }) => {
+const RecipientSelector = ({ mode = 'task', onSelect, allowOrganizationWide = false }) => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ groups: [], users: [] });
-  const [selectedGroupIds, setSelectedGroupIds] = useState(new Set());
-  const [selectedUserIds, setSelectedUserIds] = useState(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
+  const [groups, setGroups] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [selectedGroups, setSelectedGroups] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
 
+  // Fetch groups (teams) and members
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchRecipients = async () => {
       try {
-        const response = await massOpsApi.getRecipients();
-        // Expecting response.data to have { groups: [], users: [] }
-        setData(response.data || { groups: [], users: [] });
+        setLoading(true);
+        
+        // Fetch teams (groups)
+        const teamsResponse = await teamApi.getDashboard();
+        const teams = teamsResponse.data?.teams || teamsResponse.teams || [];
+        
+        // Fetch members
+        const membersResponse = await teamApi.getMembers();
+        const allMembers = membersResponse.data?.members || membersResponse.members || [];
+        
+        setGroups(teams.map(t => ({
+          id: t.id || t._id,
+          name: t.name,
+          memberCount: t.members?.length || 0
+        })));
+        
+        setMembers(allMembers.map(m => ({
+          id: m.id || m._id,
+          name: m.name,
+          email: m.email,
+          role: m.role
+        })));
+        
       } catch (error) {
-        console.error("Failed to fetch recipients", error);
+        console.error('Failed to fetch recipients', error);
+        toast({
+          title: "Failed to load recipients",
+          description: error?.response?.data?.message || "Could not fetch teams and members",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+
+    fetchRecipients();
   }, []);
 
-  // Calculate unique recipients count and prepare return object
-  const calculation = useMemo(() => {
-    const selectedGroups = data.groups.filter(g => selectedGroupIds.has(g.id));
-    const selectedUsers = data.users.filter(u => selectedUserIds.has(u.id));
+  // Calculate total recipient count
+  useEffect(() => {
+    let count = 0;
     
-    // Calculate unique count (naive implementation assuming we want to show an estimate)
-    // In a real app, you might map users to groups to dedup, or rely on backend for exact count.
-    // Here we sum group members + individual users, which is an upper bound.
-    let count = selectedUsers.length;
-    
-    // If we have member counts on groups, add them (ignoring overlap for simple estimation)
-    // Or if we have user-group mapping in data.users, we can be precise.
-    const uniqueUserIds = new Set(selectedUserIds);
-    
-    // Attempt to find users belonging to selected groups if data is available
-    selectedGroups.forEach(group => {
-        const groupMembers = data.users.filter(u => u.groupIds && u.groupIds.includes(group.id));
-        if (groupMembers.length > 0) {
-            groupMembers.forEach(m => uniqueUserIds.add(m.id));
-        } else {
-            // Fallback to adding memberCount if we can't resolve individual users
-            // This makes the count an estimate if there are overlaps we can't see
-        }
+    // Count members from selected groups
+    selectedGroups.forEach(groupId => {
+      const group = groups.find(g => g.id === groupId);
+      if (group) count += group.memberCount;
     });
     
-    // If we resolved users, use that size, otherwise sum counts
-    if (uniqueUserIds.size > selectedUsers.length) {
-        count = uniqueUserIds.size;
-    } else {
-        count = selectedUsers.length + selectedGroups.reduce((acc, g) => acc + (g.memberCount || 0), 0);
-    }
+    // Add individually selected users
+    count += selectedUsers.length;
+    
+    // Call parent callback
+    onSelect({
+      groups: selectedGroups.map(id => groups.find(g => g.id === id)),
+      users: selectedUsers.map(id => members.find(m => m.id === id)),
+      count
+    });
+  }, [selectedGroups, selectedUsers, groups, members]);
 
-    return {
-        groups: selectedGroups,
-        users: selectedUsers,
-        count: count
-    };
-  }, [selectedGroupIds, selectedUserIds, data]);
-
-  useEffect(() => {
-    onSelect(calculation);
-  }, [calculation, onSelect]);
-
-  const toggleGroup = (id) => {
-    const newSet = new Set(selectedGroupIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedGroupIds(newSet);
+  const handleGroupToggle = (groupId) => {
+    setSelectedGroups(prev => 
+      prev.includes(groupId) 
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    );
   };
 
-  const toggleUser = (id) => {
-    const newSet = new Set(selectedUserIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedUserIds(newSet);
+  const handleUserToggle = (userId) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
-
-  const filteredGroups = data.groups.filter(g => 
-    g.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  const filteredUsers = data.users.filter(u => 
-    u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   if (loading) {
-    return <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-40 w-full" /></div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <span className="ml-2 text-sm text-gray-600">Loading recipients...</span>
+      </div>
+    );
   }
 
   return (
-    <div className="w-full border rounded-md p-4 bg-white">
-      <div className="mb-4 relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-        <Input 
-          placeholder="Search groups or users..." 
-          className="pl-8"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+    <div className="space-y-4">
+      {/* Teams/Groups Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Users className="h-4 w-4 text-gray-500" />
+          <h3 className="font-medium text-sm">Select Teams/Groups</h3>
+          <Badge variant="outline" className="ml-auto">
+            {selectedGroups.length} selected
+          </Badge>
+        </div>
+        
+        <ScrollArea className="h-48 border rounded-lg">
+          <div className="p-3 space-y-2">
+            {groups.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No teams available
+              </p>
+            ) : (
+              groups.map(group => (
+                <div 
+                  key={group.id}
+                  className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  onClick={() => handleGroupToggle(group.id)}
+                >
+                  <Checkbox 
+                    checked={selectedGroups.includes(group.id)}
+                    onCheckedChange={() => handleGroupToggle(group.id)}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{group.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {group.memberCount} member{group.memberCount !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
-      <Tabs defaultValue="groups" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="groups">Groups</TabsTrigger>
-          <TabsTrigger value="users">Individual Users</TabsTrigger>
-        </TabsList>
+      {/* Individual Members Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <User className="h-4 w-4 text-gray-500" />
+          <h3 className="font-medium text-sm">Select Individual Members</h3>
+          <Badge variant="outline" className="ml-auto">
+            {selectedUsers.length} selected
+          </Badge>
+        </div>
         
-        <TabsContent value="groups">
-          <ScrollArea className="h-[300px] w-full rounded-md border p-4">
-            {filteredGroups.length === 0 ? <p className="text-sm text-gray-500 text-center py-4">No groups found.</p> : (
-                <div className="space-y-2">
-                {filteredGroups.map(group => (
-                    <div key={group.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
-                    <Checkbox id={`group-${group.id}`} checked={selectedGroupIds.has(group.id)} onCheckedChange={() => toggleGroup(group.id)} />
-                    <label htmlFor={`group-${group.id}`} className="flex-1 text-sm font-medium cursor-pointer flex justify-between">
-                        <span className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-500"/> {group.name}</span>
-                        <span className="text-xs text-gray-400">{group.memberCount || 0} members</span>
-                    </label>
-                    </div>
-                ))}
+        <ScrollArea className="h-48 border rounded-lg">
+          <div className="p-3 space-y-2">
+            {members.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No members available
+              </p>
+            ) : (
+              members.map(member => (
+                <div 
+                  key={member.id}
+                  className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  onClick={() => handleUserToggle(member.id)}
+                >
+                  <Checkbox 
+                    checked={selectedUsers.includes(member.id)}
+                    onCheckedChange={() => handleUserToggle(member.id)}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{member.name}</p>
+                    <p className="text-xs text-gray-500">{member.email}</p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {member.role}
+                  </Badge>
                 </div>
+              ))
             )}
-          </ScrollArea>
-        </TabsContent>
-        
-        <TabsContent value="users">
-          <ScrollArea className="h-[300px] w-full rounded-md border p-4">
-             {filteredUsers.length === 0 ? <p className="text-sm text-gray-500 text-center py-4">No users found.</p> : (
-                <div className="space-y-2">
-                {filteredUsers.map(user => (
-                    <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
-                    <Checkbox id={`user-${user.id}`} checked={selectedUserIds.has(user.id)} onCheckedChange={() => toggleUser(user.id)} />
-                    <label htmlFor={`user-${user.id}`} className="flex-1 text-sm font-medium cursor-pointer">
-                        <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-500"/>
-                            <div><div>{user.name}</div><div className="text-xs text-gray-400">{user.email}</div></div>
-                        </div>
-                    </label>
-                    </div>
-                ))}
-                </div>
-            )}
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-      
-      <div className="mt-4 text-xs text-gray-500 flex justify-between items-center">
-        <span>Selected: {selectedGroupIds.size} groups, {selectedUserIds.size} users</span>
-        {allowOrganizationWide && <span className="text-blue-600 font-semibold">Org-wide enabled</span>}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );

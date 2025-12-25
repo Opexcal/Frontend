@@ -20,72 +20,103 @@ const MassTaskCreation = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
 
-const handleCreateTask = async () => {
-  if (sending) return;
+  const handleCreateTask = async () => {
+    if (sending) return;
 
-  setSending(true);
-  const groupId = taskData.selectedGroups[0]?.id;
-  
-  if (!groupId) {
-    toast({
-      title: "Select a group",
-      description: "Mass task creation requires at least one group.",
-      variant: "destructive",
-    });
-    setSending(false);
-    return;
-  }
+    // Validate inputs
+    if (!taskData.title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter a task title",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  try {
-    // Backend expects: POST /api/mass/task
-    // Body: { title, description, priority, dueDate, groupId }
-    await massOpsApi.createMassTasks({
-      title: taskData.title,
-      description: taskData.description,
-      priority: taskData.priority, // Must be 'High', 'Medium', or 'Low'
-      dueDate: new Date(taskData.dueDate).toISOString(), // Send as ISO string
-      groupId,
-    });
-    
-    toast({
-      title: "Mass tasks created",
-      description: `Successfully created tasks for ${recipientCount} assignees.`,
-    });
+    if (taskData.selectedGroups.length === 0 && taskData.selectedUsers.length === 0) {
+      toast({
+        title: "No recipients selected",
+        description: "Please select at least one group or user",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Reset form
-    setTaskData({
-      title: "",
-      description: "",
-      priority: "Medium", // Changed default
-      dueDate: "",
-      selectedGroups: [],
-      selectedUsers: [],
-    });
-    setRecipientCount(0);
-  } catch (error) {
-    toast({
-      title: "Failed to create mass tasks",
-      description: error?.response?.data?.message || "Something went wrong",
-      variant: "destructive",
-    });
-  } finally {
-    setSending(false);
-    setShowPreview(false);
-  }
-};
+    setSending(true);
+
+    try {
+      // If groups are selected, use mass task API
+      if (taskData.selectedGroups.length > 0) {
+        const groupId = taskData.selectedGroups[0].id;
+        
+        await massOpsApi.createMassTasks({
+          title: taskData.title,
+          description: taskData.description,
+          priority: taskData.priority,
+          dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : undefined,
+          groupId,
+        });
+      } 
+      // If only individual users, create individual tasks
+      else if (taskData.selectedUsers.length > 0) {
+        const { tasksApi } = await import('../../api/taskApi');
+        
+        // Create task for each selected user
+        const promises = taskData.selectedUsers.map(user => 
+          tasksApi.createTask({
+            title: taskData.title,
+            description: taskData.description,
+            priority: taskData.priority,
+            dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : undefined,
+            assignees: [user.id],
+            status: 'Not Started'
+          })
+        );
+        
+        await Promise.all(promises);
+      }
+      
+      toast({
+        title: "Mass tasks created",
+        description: `Successfully created tasks for ${recipientCount} assignee${recipientCount !== 1 ? 's' : ''}.`,
+      });
+
+      // Reset form
+      setTaskData({
+        title: "",
+        description: "",
+        priority: "Medium",
+        dueDate: "",
+        selectedGroups: [],
+        selectedUsers: [],
+      });
+      setRecipientCount(0);
+      setShowPreview(false);
+      
+    } catch (error) {
+      console.error("Mass task creation error:", error);
+      toast({
+        title: "Failed to create mass tasks",
+        description: error?.response?.data?.message || error?.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="relative max-w-4xl mx-auto p-6">
-      {/* High-end processing overlay for heavy mass task creation */}
+      {/* Processing overlay */}
       {sending && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="bg-white/95 rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4 border border-slate-100">
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-900">
-                Creating tasks for {recipientCount || "selected"} recipients
+                Creating tasks for {recipientCount || "selected"} recipient{recipientCount !== 1 ? 's' : ''}
               </p>
               <p className="text-xs text-slate-500">
-                This may take a few seconds while we process everything in the
-                background.
+                This may take a few seconds while we process everything in the background.
               </p>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
@@ -94,6 +125,7 @@ const handleCreateTask = async () => {
           </div>
         </div>
       )}
+
       <h1 className="text-2xl font-bold mb-6">Mass Task Creation</h1>
 
       {/* Step 1: Assignees */}
@@ -104,12 +136,12 @@ const handleCreateTask = async () => {
           onSelect={(recipients) => {
             setTaskData(prev => ({
               ...prev,
-              selectedGroups: recipients.groups,
-              selectedUsers: recipients.users,
+              selectedGroups: recipients.groups || [],
+              selectedUsers: recipients.users || [],
             }));
-            setRecipientCount(recipients.count);
+            setRecipientCount(recipients.count || 0);
           }}
-          allowOrganizationWide={user.role === 'manager'}
+          allowOrganizationWide={user?.role === 'manager'}
         />
         <p className="mt-4 text-sm text-gray-600">
           Total assignees: <strong>{recipientCount}</strong>
@@ -121,12 +153,14 @@ const handleCreateTask = async () => {
         <h2 className="text-lg font-semibold mb-4">Task Details</h2>
         
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Task Title *</label>
+          <label className="block text-sm font-medium mb-2">
+            Task Title <span className="text-red-500">*</span>
+          </label>
           <input
             type="text"
             value={taskData.title}
             onChange={(e) => setTaskData(prev => ({ ...prev, title: e.target.value }))}
-            className="w-full border rounded-lg px-4 py-2"
+            className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter task title"
             maxLength={100}
             required
@@ -137,15 +171,14 @@ const handleCreateTask = async () => {
           <div>
             <label className="block text-sm font-medium mb-2">Priority</label>
             <select
-  value={taskData.priority}
-  onChange={(e) => setTaskData(prev => ({ ...prev, priority: e.target.value }))}
-  className="w-full border rounded-lg px-4 py-2"
->
-  <option value="Low">Low</option>
-  <option value="Medium">Medium</option>
-  <option value="High">High</option>
-  {/* Remove 'urgent' - not in backend enum */}
-</select>
+              value={taskData.priority}
+              onChange={(e) => setTaskData(prev => ({ ...prev, priority: e.target.value }))}
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Due Date</label>
@@ -153,7 +186,7 @@ const handleCreateTask = async () => {
               type="datetime-local"
               value={taskData.dueDate}
               onChange={(e) => setTaskData(prev => ({ ...prev, dueDate: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -174,17 +207,9 @@ const handleCreateTask = async () => {
         <button
           onClick={() => setShowPreview(true)}
           disabled={!taskData.title || recipientCount === 0 || sending}
-          className="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Preview Task
-        </button>
-        
-        <button
-          onClick={() => setShowPreview(true)}
-          disabled={!taskData.title || recipientCount === 0 || sending}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {sending ? "Processing…" : `Assign to ${recipientCount} Users`}
+          {sending ? "Processing…" : `Assign to ${recipientCount} User${recipientCount !== 1 ? 's' : ''}`}
         </button>
       </div>
 
@@ -195,21 +220,54 @@ const handleCreateTask = async () => {
           onClose={() => setShowPreview(false)}
           onConfirm={handleCreateTask}
           title="Confirm Mass Task Assignment"
-          confirmText={`Assign to ${recipientCount} Users`}
+          confirmText={`Assign to ${recipientCount} User${recipientCount !== 1 ? 's' : ''}`}
           loading={sending}
         >
-          <div>
-            <p className="text-sm text-gray-600 mb-2">
-              <strong>Title:</strong> {taskData.title}
-            </p>
-            <p className="text-sm text-gray-600 mb-2">
-              <strong>Priority:</strong> {taskData.priority}
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>Due Date:</strong> {taskData.dueDate ? new Date(taskData.dueDate).toLocaleString() : 'No due date'}
-            </p>
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <div dangerouslySetInnerHTML={{ __html: taskData.description }} />
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">TITLE</p>
+              <p className="text-sm font-medium">{taskData.title}</p>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">PRIORITY</p>
+              <span className={`inline-block px-2 py-1 text-xs rounded ${
+                taskData.priority === 'High' ? 'bg-red-100 text-red-700' :
+                taskData.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-gray-100 text-gray-700'
+              }`}>
+                {taskData.priority}
+              </span>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">DUE DATE</p>
+              <p className="text-sm">
+                {taskData.dueDate ? new Date(taskData.dueDate).toLocaleString() : 'No due date'}
+              </p>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">DESCRIPTION</p>
+              <div className="border rounded-lg p-3 bg-gray-50 text-sm max-h-40 overflow-y-auto">
+                <div dangerouslySetInnerHTML={{ __html: taskData.description || '<em class="text-gray-400">No description</em>' }} />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">RECIPIENTS</p>
+              <p className="text-sm">
+                {taskData.selectedGroups.length > 0 && (
+                  <span className="mr-2">
+                    {taskData.selectedGroups.length} team{taskData.selectedGroups.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {taskData.selectedUsers.length > 0 && (
+                  <span>
+                    {taskData.selectedUsers.length} individual user{taskData.selectedUsers.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         </PreviewModal>
