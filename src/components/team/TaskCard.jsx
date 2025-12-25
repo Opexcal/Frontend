@@ -1,4 +1,5 @@
-import { formatDistanceToNow, format } from "date-fns";
+import React, { useState } from "react";
+import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { tasksApi } from '@/api/taskApi';
 import { useToast } from "@/hooks/use-toast";
+import RejectTaskDialog from '../../components/RejectTaskDialog'; // ✅ Make sure path is correct
 
 /**
  * TaskCard - Reusable task card component
@@ -39,18 +41,32 @@ const TaskCard = ({
   onDelete,
   onReassign,
   onClick,
+  onRefresh,
   className = "",
 }) => {
   const { toast } = useToast();
-  const [filters, setFilters] = useState({ status: '', priority: '' });
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
 
-useEffect(() => {
-  const fetchTasks = async () => {
-    const response = await tasksApi.getTasks(filters);
-    setTasks(response.data.tasks);
+  // ✅ Single handleDeclineConfirm for the dialog
+  const handleDeclineConfirm = async (rejectionReason) => {
+    try {
+      await tasksApi.rejectTask(task._id, rejectionReason);
+      toast({ 
+        title: "Task rejected",
+        description: "The task creator has been notified" 
+      });
+      setShowRejectDialog(false);
+      if (onRefresh) onRefresh();
+      if (onDecline) onDecline(task);
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: error.response?.data?.message || "Failed to reject task",
+        variant: "destructive" 
+      });
+    }
   };
-  fetchTasks();
-}, [filters, refreshTrigger]);
+
   const daysUntilDue = task.dueDate
     ? Math.ceil(
         (new Date(task.dueDate) - new Date()) / (1000 * 60 * 60 * 24)
@@ -63,6 +79,25 @@ useEffect(() => {
   const handleClick = (e) => {
     if (e.target.closest(".task-actions")) return;
     if (onClick) onClick(task);
+  };
+
+  // ✅ Handle accept task
+  const handleAccept = async () => {
+    try {
+      await tasksApi.acceptTask(task._id);
+      toast({ 
+        title: "Task accepted",
+        description: "Status updated to In-Progress" 
+      });
+      if (onRefresh) onRefresh();
+      if (onAccept) onAccept(task);
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: error.response?.data?.message || "Failed to accept task",
+        variant: "destructive" 
+      });
+    }
   };
 
   // Default variant - Full task card
@@ -79,7 +114,7 @@ useEffect(() => {
           {onSelect && (
             <Checkbox
               checked={isSelected}
-              onCheckedChange={() => onSelect(task.id)}
+              onCheckedChange={() => onSelect(task._id)}
               className="mt-1"
             />
           )}
@@ -93,17 +128,16 @@ useEffect(() => {
             </div>
 
             <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-              {task.description}
+              {task.description || "No description"}
             </p>
 
             <div className="flex items-center flex-wrap gap-2 mb-3">
-              <PriorityBadge priority={task.priority} />
-              {showAssignee && (
-  <Badge variant="secondary" className="text-xs">
-    {/* Changed from task.assigneeName to: */}
-    {task.assignees?.map(a => a.name).join(', ')}
-  </Badge>
-)}
+              <PriorityBadge priority={task.priority?.toLowerCase() || 'medium'} />
+              {showAssignee && task.assignees?.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {task.assignees.map(a => a.name).join(', ')}
+                </Badge>
+              )}
 
               {isOverdue && (
                 <Badge variant="destructive" className="text-xs">
@@ -181,7 +215,7 @@ useEffect(() => {
                       )}
                       {onDelete && (
                         <DropdownMenuItem
-                          onClick={() => onDelete(task.id)}
+                          onClick={() => onDelete(task._id)}
                           className="text-destructive"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -215,7 +249,7 @@ useEffect(() => {
               {task.title}
             </h4>
             <div className="flex items-center gap-2 flex-wrap">
-              <PriorityBadge priority={task.priority} />
+              <PriorityBadge priority={task.priority?.toLowerCase() || 'medium'} />
               <StatusBadge status={task.status} />
             </div>
           </div>
@@ -232,119 +266,134 @@ useEffect(() => {
   // Delegation variant - For task delegation/assignment
   if (variant === "delegation") {
     return (
-      <Card
-        className={cn(
-          "p-4 border-l-4 border-l-primary",
-          isOverdue && "border-l-4 border-l-destructive",
-          className
-        )}
-      >
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <h3 className="font-semibold text-base mb-1">📋 {task.title}</h3>
-            <p className="text-sm text-muted-foreground mb-2">
-              {task.description}
-            </p>
-          </div>
-          <div className="flex-shrink-0">
-            <PriorityBadge priority={task.priority} />
-          </div>
-        </div>
-
-        <div className="space-y-2 mb-4 pb-4 border-b">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Assigned by:</span>
-            <span className="ml-2 font-medium">{task.assignedByName}</span>
-          </div>
-          <div className="text-sm">
-            <span className="text-muted-foreground">Due:</span>
-            <span
-              className={cn(
-                "ml-2 font-medium",
-                isOverdue
-                  ? "text-red-600"
-                  : isDueSoon
-                    ? "text-orange-600"
-                    : ""
-              )}
-            >
-              {format(new Date(task.dueDate), "MMM dd, yyyy")}
-            </span>
-          </div>
-          <StatusBadge status={task.status} />
-        </div>
-
-        {task.conferenceLink && (
-          <div className="mb-4 p-2 bg-blue-50 rounded">
-            <div className="text-xs text-muted-foreground mb-1">
-              🔗 Meeting Link
+      <>
+        <Card
+          className={cn(
+            "p-4 border-l-4 border-l-primary",
+            isOverdue && "border-l-4 border-l-destructive",
+            className
+          )}
+        >
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <h3 className="font-semibold text-base mb-1">📋 {task.title}</h3>
+              <p className="text-sm text-muted-foreground mb-2">
+                {task.description || "No description"}
+              </p>
             </div>
-            <a
-              href={task.conferenceLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:text-blue-700 break-all"
-            >
-              {task.conferenceLink}
-            </a>
+            <div className="flex-shrink-0">
+              <PriorityBadge priority={task.priority?.toLowerCase() || 'medium'} />
+            </div>
           </div>
-        )}
 
-        {showActions && (
-          <div className="task-actions flex items-center gap-2">
-            {onAccept && (
-  <Button
-    size="sm"
-    className="gap-1"
-    onClick={async () => {
-      try {
-        await tasksApi.acceptTask(task._id);
-        toast({ title: "Task accepted" });
-        // Refresh task list or update local state
-      } catch (error) {
-        toast({ 
-          title: "Error", 
-          description: error.response?.data?.message,
-          variant: "destructive" 
-        });
-      }
-    }}
-  >
-    <CheckCircle2 className="h-4 w-4" />
-    Accept
-  </Button>
-)}
-
-            {onDecline && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onDecline(task)}
+          <div className="space-y-2 mb-4 pb-4 border-b">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Assigned by:</span>
+              <span className="ml-2 font-medium">
+                {task.createdBy?.name || task.assignedByName || "Unknown"}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Due:</span>
+              <span
+                className={cn(
+                  "ml-2 font-medium",
+                  isOverdue
+                    ? "text-red-600"
+                    : isDueSoon
+                      ? "text-orange-600"
+                      : ""
+                )}
               >
-                ✗ Decline
-              </Button>
-            )}
-            {onReassign && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onReassign(task)}
-              >
-                ↪ Reassign
-              </Button>
-            )}
-            {onEdit && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onEdit(task)}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
+                {format(new Date(task.dueDate), "MMM dd, yyyy")}
+              </span>
+            </div>
+            <StatusBadge status={task.status} />
+            
+            {/* ✅ Show rejection reason if task is rejected */}
+            {task.status === "Rejected" && task.rejectionReason && (
+              <div className="text-sm mt-2 p-2 bg-destructive/10 rounded">
+                <span className="text-muted-foreground">Rejection reason:</span>
+                <p className="text-destructive text-xs mt-1">{task.rejectionReason}</p>
+              </div>
             )}
           </div>
-        )}
-      </Card>
+
+          {task.conferenceLink && (
+            <div className="mb-4 p-2 bg-blue-50 rounded">
+              <div className="text-xs text-muted-foreground mb-1">
+                🔗 Meeting Link
+              </div>
+              <a
+                href={task.conferenceLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-700 break-all"
+              >
+                {task.conferenceLink}
+              </a>
+            </div>
+          )}
+
+          {showActions && (
+            <div className="task-actions flex items-center gap-2">
+              {/* ✅ Only show Accept/Decline for Pending tasks */}
+              {task.status === "Pending" && (
+                <>
+                  {onAccept && (
+                    <Button
+                      size="sm"
+                      className="gap-1"
+                      onClick={handleAccept}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Accept
+                    </Button>
+                  )}
+
+                  {onDecline && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowRejectDialog(true)} // ✅ Open dialog
+                    >
+                      ✗ Decline
+                    </Button>
+                  )}
+                </>
+              )}
+              
+              {onReassign && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onReassign(task)}
+                >
+                  ↪ Reassign
+                </Button>
+              )}
+              
+              {onEdit && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onEdit(task)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </Card>
+
+        {/* ✅ Reject Task Dialog - outside Card but inside fragment */}
+        <RejectTaskDialog
+          isOpen={showRejectDialog}
+          onClose={() => setShowRejectDialog(false)}
+          onConfirm={handleDeclineConfirm}
+          taskTitle={task.title}
+        />
+      </>
     );
   }
 };

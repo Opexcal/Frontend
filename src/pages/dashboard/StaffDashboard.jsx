@@ -6,13 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   CheckSquare, Calendar, TrendingUp, AlertCircle, 
-  ArrowRight, Plus, CheckCircle2, XCircle, Clock, Users,
-  Filter, TrendingDown
+  ArrowRight, Plus, Clock, Users, Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PriorityBadge } from "@/components/common/PriorityBadge";
 import StatusBadge from "@/components/common/StatusBadge";
 import { useAuth } from "../../context/AuthContext";
+import { useDashboard } from "../../hooks/useDashboard";
 import {
   Select,
   SelectContent,
@@ -20,115 +20,73 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-
-// Mock data
-const mockData = {
-  stats: {
-    myTasks: { total: 12, completed: 9 },
-    teamEvents: 7,
-    completionRate: 78,
-    overdueItems: 2
-  },
-  todaysFocus: {
-    tasksDueToday: [
-      { id: 1, title: "Review Q4 report", priority: "high", status: "in-progress" },
-      { id: 2, title: "Client presentation prep", priority: "medium", status: "not-started" },
-    ],
-    eventsToday: [
-      { id: 1, title: "Team Standup", time: "9:00 AM", type: "meeting" },
-      { id: 2, title: "Client Call", time: "2:00 PM", type: "meeting" },
-    ],
-    teamUpdates: [
-      { id: 1, user: "Sarah", action: "completed", item: "Design mockups" },
-      { id: 2, user: "Mike", action: "created", item: "New project proposal" },
-    ]
-  },
-  tasks: {
-    personal: [
-      { id: 1, title: "Update documentation", priority: "medium", status: "in-progress", dueDate: "2025-12-23" },
-      { id: 2, title: "Code review", priority: "high", status: "not-started", dueDate: "2025-12-24" },
-      { id: 3, title: "Write blog post", priority: "low", status: "not-started", dueDate: "2025-12-30" },
-    ],
-    assignedToMe: [
-      { 
-        id: 101, 
-        title: "Review PR #234", 
-        priority: "high", 
-        status: "pending",
-        assignedBy: { name: "John Doe", avatar: "" },
-        dueDate: "2025-12-23"
-      },
-    ],
-    overdue: [
-      { id: 201, title: "Update API docs", priority: "medium", status: "in-progress", dueDate: "2025-12-20" },
-      { id: 202, title: "Fix bug #123", priority: "high", status: "in-progress", dueDate: "2025-12-21" },
-    ]
-  },
-  groups: [
-    { id: 1, name: "Engineering", memberCount: 24, role: "Member" },
-    { id: 2, name: "Product Team", memberCount: 8, role: "Lead" },
-  ],
-  teamActivity: [
-    {
-      id: 1,
-      actor: { name: "Sarah Johnson", avatar: "" },
-      type: "task_completed",
-      description: "completed task 'Design mockups'",
-      timestamp: "2 hours ago",
-      group: "Engineering"
-    },
-    {
-      id: 2,
-      actor: { name: "Mike Chen", avatar: "" },
-      type: "event_created",
-      description: "created event 'Sprint Planning'",
-      timestamp: "4 hours ago",
-      group: "Engineering"
-    },
-    {
-      id: 3,
-      actor: { name: "Alex Rivera", avatar: "" },
-      type: "task_assigned",
-      description: "assigned task to you",
-      timestamp: "1 day ago",
-      group: "Product Team"
-    },
-  ],
-  upcomingEvents: [
-    { id: 1, title: "Sprint Planning", date: "2025-12-23", time: "10:00 AM", rsvp: "accepted" },
-    { id: 2, title: "Team Lunch", date: "2025-12-24", time: "12:00 PM", rsvp: "pending" },
-    { id: 3, title: "Quarterly Review", date: "2025-12-28", time: "2:00 PM", rsvp: "accepted" },
-  ],
-  productivityInsights: {
-    weeklyScore: 82,
-    completionTrend: [
-      { day: "Mon", completed: 65 },
-      { day: "Tue", completed: 70 },
-      { day: "Wed", completed: 75 },
-      { day: "Thu", completed: 78 },
-      { day: "Fri", completed: 82 },
-    ]
-  }
-};
+import { format, isToday, isPast } from "date-fns";
 
 const StaffDashboard = () => {
   const { user } = useAuth();
+  const { data, loading, error } = useDashboard();
   const [dateRange, setDateRange] = useState("today");
-  const [selectedGroup, setSelectedGroup] = useState("all");
 
-  const handleAcceptTask = (taskId) => {
-    console.log("Accept task", taskId);
+  // Calculate derived stats from API data
+  const stats = {
+    myTasks: {
+      total: data.stats.totalTasksAssigned || 0,
+      completed: data.stats.totalTasksCompleted || 0,
+      pending: data.stats.totalTasksPending || 0,
+      inProgress: data.stats.totalTasksInProgress || 0
+    },
+    teamEvents: data.upcomingEvents.count || 0,
+    completionRate: data.stats.totalTasksAssigned > 0 
+      ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
+      : 0,
+    unreadNotifications: data.stats.unreadNotifications || 0
   };
 
-  const handleDeclineTask = (taskId) => {
-    console.log("Decline task", taskId);
-  };
+  // Filter tasks by status
+  const activeTasks = data.activeTasks.tasks || [];
+  const myTasks = activeTasks.filter(t => t.status !== 'Rejected');
+  const assignedToMe = activeTasks.filter(t => t.status === 'Pending');
+  const overdueTasks = activeTasks.filter(t => 
+    t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
+  );
 
-  const filteredActivity = selectedGroup === "all" 
-    ? mockData.teamActivity 
-    : mockData.teamActivity.filter(activity => activity.group === selectedGroup);
+  // Filter events happening today
+  const todaysEvents = (data.upcomingEvents.events || []).filter(event => 
+    isToday(new Date(event.startDate))
+  );
+
+  // Recent activity (last 5 notifications)
+  const recentActivity = data.recentActivity.notifications || [];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Card className="max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-3">
+              <AlertCircle className="h-12 w-12 mx-auto text-destructive" />
+              <h3 className="font-semibold">Failed to load dashboard</h3>
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -162,7 +120,7 @@ const StaffDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground">My Tasks</p>
                 <p className="text-2xl font-semibold mt-1">
-                  {mockData.stats.myTasks.completed}/{mockData.stats.myTasks.total}
+                  {stats.myTasks.completed}/{stats.myTasks.total}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">Completed</p>
               </div>
@@ -178,8 +136,8 @@ const StaffDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Team Events</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.stats.teamEvents}</p>
-                <p className="text-xs text-muted-foreground mt-1">This week</p>
+                <p className="text-2xl font-semibold mt-1">{stats.teamEvents}</p>
+                <p className="text-xs text-muted-foreground mt-1">Upcoming</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
                 <Calendar className="h-6 w-6 text-green-600" />
@@ -193,10 +151,10 @@ const StaffDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Completion Rate</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.stats.completionRate}%</p>
+                <p className="text-2xl font-semibold mt-1">{stats.completionRate}%</p>
                 <p className="text-xs text-success mt-1 flex items-center">
                   <TrendingUp className="h-3 w-3 mr-1" />
-                  +5% from last week
+                  Overall progress
                 </p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -206,13 +164,13 @@ const StaffDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className={`card-hover ${mockData.stats.overdueItems > 0 ? "border-red-500" : ""}`}>
+        <Card className={`card-hover ${overdueTasks.length > 0 ? "border-red-500" : ""}`}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Overdue Items</p>
-                <p className={`text-2xl font-semibold mt-1 ${mockData.stats.overdueItems > 0 ? "text-red-600" : ""}`}>
-                  {mockData.stats.overdueItems}
+                <p className={`text-2xl font-semibold mt-1 ${overdueTasks.length > 0 ? "text-red-600" : ""}`}>
+                  {overdueTasks.length}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">Requires attention</p>
               </div>
@@ -224,63 +182,75 @@ const StaffDashboard = () => {
         </Card>
       </div>
 
-      {/* Today's Focus - Full Width Gradient Card */}
+      {/* Today's Focus */}
       <Card className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/20">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Today's Focus</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Tasks Due Today */}
-            <div>
-              <h3 className="font-medium mb-3 flex items-center">
-                <CheckSquare className="h-4 w-4 mr-2" />
-                Tasks Due Today ({mockData.todaysFocus.tasksDueToday.length})
-              </h3>
-              <div className="space-y-2">
-                {mockData.todaysFocus.tasksDueToday.map((task) => (
-                  <div key={task.id} className="p-2 rounded bg-background/50">
-                    <p className="text-sm font-medium">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <PriorityBadge priority={task.priority} />
-                      <StatusBadge status={task.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Events Today */}
             <div>
               <h3 className="font-medium mb-3 flex items-center">
                 <Calendar className="h-4 w-4 mr-2" />
-                Events Today ({mockData.todaysFocus.eventsToday.length})
+                Events Today ({todaysEvents.length})
               </h3>
               <div className="space-y-2">
-                {mockData.todaysFocus.eventsToday.map((event) => (
-                  <div key={event.id} className="p-2 rounded bg-background/50">
-                    <p className="text-sm font-medium">{event.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{event.time}</p>
-                  </div>
-                ))}
+                {todaysEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No events scheduled</p>
+                ) : (
+                  todaysEvents.slice(0, 3).map((event) => (
+                    <div key={event._id} className="p-2 rounded bg-background/50">
+                      <p className="text-sm font-medium">{event.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(event.startDate), "h:mm a")}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            {/* Team Updates */}
+            {/* Tasks In Progress */}
+            <div>
+              <h3 className="font-medium mb-3 flex items-center">
+                <CheckSquare className="h-4 w-4 mr-2" />
+                In Progress ({stats.myTasks.inProgress})
+              </h3>
+              <div className="space-y-2">
+                {activeTasks
+                  .filter(t => t.status === 'In-Progress')
+                  .slice(0, 3)
+                  .map((task) => (
+                    <div key={task._id} className="p-2 rounded bg-background/50">
+                      <p className="text-sm font-medium">{task.title}</p>
+                      <StatusBadge status={task.status} className="mt-1" />
+                    </div>
+                  ))}
+                {stats.myTasks.inProgress === 0 && (
+                  <p className="text-sm text-muted-foreground">No tasks in progress</p>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Activity */}
             <div>
               <h3 className="font-medium mb-3 flex items-center">
                 <Users className="h-4 w-4 mr-2" />
-                Team Updates
+                Recent Activity
               </h3>
               <div className="space-y-2">
-                {mockData.todaysFocus.teamUpdates.map((update) => (
-                  <div key={update.id} className="p-2 rounded bg-background/50">
-                    <p className="text-sm">
-                      <span className="font-medium">{update.user}</span>{" "}
-                      {update.action} {update.item}
+                {recentActivity.slice(0, 3).map((notification) => (
+                  <div key={notification._id} className="p-2 rounded bg-background/50">
+                    <p className="text-sm truncate">{notification.message || "Notification"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {format(new Date(notification.createdAt), "MMM d, h:mm a")}
                     </p>
                   </div>
                 ))}
+                {recentActivity.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No recent activity</p>
+                )}
               </div>
             </div>
           </div>
@@ -289,26 +259,30 @@ const StaffDashboard = () => {
 
       {/* Main Content - Two Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-6">
-        {/* Left Column */}
-        <div className="space-y-6">
-          {/* My Tasks & Assignments - Tabs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">My Tasks & Assignments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="my-tasks" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
-                  <TabsTrigger value="assigned-to-me">Assigned to Me</TabsTrigger>
-                  <TabsTrigger value="overdue">Overdue</TabsTrigger>
-                </TabsList>
+        {/* Left Column - Tasks */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">My Tasks & Assignments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="all-tasks" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="all-tasks">All Tasks ({myTasks.length})</TabsTrigger>
+                <TabsTrigger value="assigned">Assigned ({assignedToMe.length})</TabsTrigger>
+                <TabsTrigger value="overdue">Overdue ({overdueTasks.length})</TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="my-tasks" className="mt-4">
-                  <div className="space-y-3">
-                    {mockData.tasks.personal.map((task) => (
+              <TabsContent value="all-tasks" className="mt-4">
+                <div className="space-y-3">
+                  {myTasks.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CheckSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No tasks found</p>
+                    </div>
+                  ) : (
+                    myTasks.map((task) => (
                       <div
-                        key={task.id}
+                        key={task._id}
                         className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
                       >
                         <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
@@ -319,153 +293,93 @@ const StaffDashboard = () => {
                           <div className="flex items-center gap-2 mt-1">
                             <PriorityBadge priority={task.priority} />
                             <StatusBadge status={task.status} />
-                            <Badge variant="outline" className="text-xs">
-                              Due: {new Date(task.dueDate).toLocaleDateString()}
+                            {task.dueDate && (
+                              <Badge variant="outline" className="text-xs">
+                                Due: {format(new Date(task.dueDate), "MMM d")}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="assigned" className="mt-4">
+                <div className="space-y-3">
+                  {assignedToMe.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No pending assignments</p>
+                    </div>
+                  ) : (
+                    assignedToMe.map((task) => (
+                      <div
+                        key={task._id}
+                        className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-orange-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">{task.title}</p>
+                            {task.createdBy && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Assigned by {task.createdBy.name}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              <PriorityBadge priority={task.priority} />
+                              {task.dueDate && (
+                                <Badge variant="outline" className="text-xs">
+                                  Due: {format(new Date(task.dueDate), "MMM d")}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="overdue" className="mt-4">
+                <div className="space-y-3">
+                  {overdueTasks.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CheckSquare className="h-12 w-12 mx-auto mb-3 opacity-50 text-green-600" />
+                      <p>No overdue tasks! 🎉</p>
+                    </div>
+                  ) : (
+                    overdueTasks.map((task) => (
+                      <div
+                        key={task._id}
+                        className="flex items-center gap-4 p-3 rounded-lg border border-red-500/50 bg-red-500/5 hover:bg-red-500/10 transition-colors"
+                      >
+                        <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                          <AlertCircle className="h-5 w-5 text-red-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{task.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <PriorityBadge priority={task.priority} />
+                            <StatusBadge status={task.status} />
+                            <Badge variant="destructive" className="text-xs">
+                              Overdue: {format(new Date(task.dueDate), "MMM d")}
                             </Badge>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="assigned-to-me" className="mt-4">
-                  <div className="space-y-3">
-                    {mockData.tasks.assignedToMe.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>No tasks assigned to you</p>
-                      </div>
-                    ) : (
-                      mockData.tasks.assignedToMe.map((task) => (
-                        <div
-                          key={task.id}
-                          className="flex flex-col gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                              <Clock className="h-5 w-5 text-orange-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm">{task.title}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Assigned by {task.assignedBy.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-2">
-                                <PriorityBadge priority={task.priority} />
-                                <Badge variant="outline" className="text-xs">
-                                  Due: {new Date(task.dueDate).toLocaleDateString()}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-13">
-                            <Button
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => handleAcceptTask(task.id)}
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-2" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1"
-                              onClick={() => handleDeclineTask(task.id)}
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Decline
-                            </Button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="overdue" className="mt-4">
-                  <div className="space-y-3">
-                    {mockData.tasks.overdue.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>No overdue tasks! Great job!</p>
-                      </div>
-                    ) : (
-                      mockData.tasks.overdue.map((task) => (
-                        <div
-                          key={task.id}
-                          className="flex items-center gap-4 p-3 rounded-lg border border-red-500/50 bg-red-500/5 hover:bg-red-500/10 transition-colors"
-                        >
-                          <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                            <AlertCircle className="h-5 w-5 text-red-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{task.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <PriorityBadge priority={task.priority} />
-                              <StatusBadge status={task.status} />
-                              <Badge variant="destructive" className="text-xs">
-                                Overdue: {new Date(task.dueDate).toLocaleDateString()}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          {/* Team Activity Feed */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Team Activity Feed</CardTitle>
-              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Groups</SelectItem>
-                  {mockData.groups.map((group) => (
-                    <SelectItem key={group.id} value={group.name}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {filteredActivity.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex gap-3 p-3 hover:bg-accent/50 rounded-lg transition-colors"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={activity.actor.avatar} />
-                      <AvatarFallback>{activity.actor.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm">
-                        <span className="font-medium">{activity.actor.name}</span>{" "}
-                        {activity.description}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {activity.group}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         {/* Right Column */}
         <div className="space-y-6">
@@ -474,70 +388,37 @@ const StaffDashboard = () => {
             <CardHeader>
               <CardTitle className="text-lg font-semibold">Upcoming Events</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-7 gap-1 text-xs text-center mb-4">
-                {["S", "M", "T", "W", "T", "F", "S"].map((day, i) => (
-                  <div key={i} className="p-2 font-medium">{day}</div>
-                ))}
-              </div>
+            <CardContent>
               <div className="space-y-3">
-                {mockData.upcomingEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Calendar className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{event.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString()} at {event.time}
-                      </p>
-                    </div>
-                    <Badge 
-                      variant={event.rsvp === "accepted" ? "default" : "outline"}
-                      className="text-xs"
-                    >
-                      {event.rsvp}
-                    </Badge>
+                {data.upcomingEvents.events.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No upcoming events</p>
                   </div>
-                ))}
+                ) : (
+                  data.upcomingEvents.events.slice(0, 5).map((event) => (
+                    <div
+                      key={event._id}
+                      className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{event.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(event.startDate), "MMM d, h:mm a")}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-              <Button variant="outline" size="sm" className="w-full" asChild>
+              <Button variant="outline" size="sm" className="w-full mt-4" asChild>
                 <Link to="/calendar">
                   View All Events <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* My Groups */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">My Groups</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {mockData.groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{group.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {group.memberCount} members • {group.role}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/calendar/group/${group.id}`}>
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
-                ))}
-              </div>
             </CardContent>
           </Card>
 
@@ -556,43 +437,15 @@ const StaffDashboard = () => {
               <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to="/calendar">
                   <Calendar className="h-4 w-4 mr-2" />
-                  Create Event
+                  View Calendar
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/calendar/day">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  View Team Calendar
+                <Link to="/notifications">
+                  <Badge className="mr-2">{stats.unreadNotifications}</Badge>
+                  Notifications
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Productivity Insights */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Productivity Insights</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <p className="text-2xl font-semibold">{mockData.productivityInsights.weeklyScore}</p>
-                <p className="text-sm text-muted-foreground">Weekly Score</p>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={mockData.productivityInsights.completionTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="completed" 
-                    stroke="#3b82f6" 
-                    strokeWidth={2}
-                    dot={{ fill: "#3b82f6" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>

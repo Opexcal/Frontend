@@ -14,7 +14,7 @@ import {
 import {
   Users, Building2, CheckSquare, Calendar, Activity,
   TrendingUp, Download, Settings, FileText, AlertTriangle,
-  Link as LinkIcon, Plus, Send, BarChart3
+  Plus, Send, BarChart3, Loader2, AlertCircle  // <- Add these two
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -32,16 +32,11 @@ import {
   ResponsiveContainer,
   Legend
 } from "recharts";
+import { useDashboard } from '@/hooks/useDashboard';
+import { format } from "date-fns";
 
-// Mock data
+// Mock data for charts (TODO: Replace with real analytics endpoint)
 const mockData = {
-  kpis: {
-    totalUsers: { count: 142, growth: "+12%" },
-    activeProjects: { count: 28, growth: "+3" },
-    taskCompletionRate: { percentage: 87, trend: "+5%" },
-    eventAttendanceRate: { percentage: 92, trend: "+2%" },
-    systemHealth: { uptime: 99.8, status: "healthy" }
-  },
   charts: {
     userGrowth: [
       { month: "Aug", users: 98 },
@@ -110,29 +105,6 @@ const mockData = {
       healthScore: 78
     },
   ],
-  recentActivity: [
-    {
-      id: 1,
-      type: "user_created",
-      description: "New user 'John Doe' registered",
-      timestamp: "2 hours ago",
-      severity: "info"
-    },
-    {
-      id: 2,
-      type: "group_created",
-      description: "New group 'Customer Success' created",
-      timestamp: "5 hours ago",
-      severity: "info"
-    },
-    {
-      id: 3,
-      type: "system_alert",
-      description: "High task load detected in Engineering team",
-      timestamp: "1 day ago",
-      severity: "warning"
-    },
-  ],
   systemAlerts: [
     {
       id: 1,
@@ -148,16 +120,65 @@ const mockData = {
       severity: "info",
       action: "Update now"
     },
-  ],
-  upcomingOrgEvents: [
-    { id: 1, title: "All-Hands Meeting", date: "2025-12-28", time: "10:00 AM" },
-    { id: 2, title: "Quarterly Planning", date: "2026-01-05", time: "2:00 PM" },
   ]
 };
 
 const ManagerDashboard = () => {
   const { user } = useAuth();
+  const { data, loading, error } = useDashboard();
   const [dateRange, setDateRange] = useState("month");
+
+  if (loading) {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="text-center space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    </div>
+  );
+}
+
+// Error state
+if (error) {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <Card className="max-w-md">
+        <div className="p-6">
+          <div className="text-center space-y-3">
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive" />
+            <h3 className="font-semibold">Failed to load dashboard</h3>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+ const kpis = {
+  totalUsers: data.stats.totalTasksAssigned || 0,
+  totalUsersGrowth: "+12%", // TODO: Calculate from historical data
+  activeProjects: 28, // TODO: Fetch from separate endpoint
+  taskCompletionRate: {
+    percentage: data.stats.totalTasksAssigned > 0 
+      ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
+      : 0,
+    trend: "+5%"
+  },
+  eventAttendanceRate: {
+    percentage: 92, // TODO: Calculate from events data if available
+    trend: "+2%"
+  },
+  systemHealth: {
+    uptime: 99.8,
+    status: "healthy"
+  }
+};
+
+const upcomingOrgEvents = (data.upcomingEvents.events || []).slice(0, 10);
+const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
 
   const getHealthColor = (score) => {
     if (score >= 80) return "text-green-600";
@@ -181,6 +202,8 @@ const ManagerDashboard = () => {
         return "text-blue-600 bg-blue-500/10 border-blue-500/20";
     }
   };
+
+  // Loading state
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -220,83 +243,83 @@ const ManagerDashboard = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Users</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.kpis.totalUsers.count}</p>
-                <p className="text-xs text-success mt-1 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  {mockData.kpis.totalUsers.growth} growth
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+<Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Total Users</p>
+        <p className="text-2xl font-semibold mt-1">{kpis.totalUsers}</p>
+        <p className="text-xs text-success mt-1 flex items-center">
+          <TrendingUp className="h-3 w-3 mr-1" />
+          {kpis.totalUsersGrowth} growth
+        </p>
+      </div>
+      <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
+        <Users className="h-6 w-6 text-blue-600" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Projects</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.kpis.activeProjects.count}</p>
-                <p className="text-xs text-success mt-1">+{mockData.kpis.activeProjects.growth} this month</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Building2 className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+<Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Active Projects</p>
+        <p className="text-2xl font-semibold mt-1">{kpis.activeProjects}</p>
+        <p className="text-xs text-success mt-1">+3 this month</p>
+      </div>
+      <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
+        <Building2 className="h-6 w-6 text-purple-600" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Task Completion</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.kpis.taskCompletionRate.percentage}%</p>
-                <p className="text-xs text-success mt-1">{mockData.kpis.taskCompletionRate.trend}</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <CheckSquare className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+<Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Task Completion</p>
+        <p className="text-2xl font-semibold mt-1">{kpis.taskCompletionRate.percentage}%</p>
+        <p className="text-xs text-success mt-1">{kpis.taskCompletionRate.trend}</p>
+      </div>
+      <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+        <CheckSquare className="h-6 w-6 text-green-600" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Event Attendance</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.kpis.eventAttendanceRate.percentage}%</p>
-                <p className="text-xs text-success mt-1">{mockData.kpis.eventAttendanceRate.trend}</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+<Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Event Attendance</p>
+        <p className="text-2xl font-semibold mt-1">{kpis.eventAttendanceRate.percentage}%</p>
+        <p className="text-xs text-success mt-1">{kpis.eventAttendanceRate.trend}</p>
+      </div>
+      <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+        <Calendar className="h-6 w-6 text-orange-600" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">System Health</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.kpis.systemHealth.uptime}%</p>
-                <p className="text-xs text-success mt-1">Uptime</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <Activity className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+<Card className="card-hover">
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">System Health</p>
+        <p className="text-2xl font-semibold mt-1">{kpis.systemHealth.uptime}%</p>
+        <p className="text-xs text-success mt-1">Uptime</p>
+      </div>
+      <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+        <Activity className="h-6 w-6 text-green-600" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
       </div>
 
       {/* Three Column Layout */}
@@ -517,18 +540,24 @@ const ManagerDashboard = () => {
               <CardTitle className="text-lg font-semibold">Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {mockData.recentActivity.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className={`p-3 rounded-lg border ${getSeverityColor(activity.severity)}`}
-                  >
-                    <p className="text-sm">{activity.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{activity.timestamp}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+  <div className="space-y-3">
+    {recentActivity.length === 0 ? (
+      <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+    ) : (
+      recentActivity.map((notification) => (
+        <div
+          key={notification._id}
+          className="p-3 rounded-lg border border-border"
+        >
+          <p className="text-sm">{notification.message || "Notification"}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {format(new Date(notification.createdAt), "MMM d, h:mm a")}
+          </p>
+        </div>
+      ))
+    )}
+  </div>
+</CardContent>
           </Card>
         </div>
 
@@ -569,25 +598,29 @@ const ManagerDashboard = () => {
               <CardTitle className="text-lg font-semibold">Upcoming Org Events</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {mockData.upcomingOrgEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Calendar className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{event.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString()} at {event.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+  <div className="space-y-3">
+    {upcomingOrgEvents.length === 0 ? (
+      <p className="text-sm text-muted-foreground text-center py-4">No upcoming events</p>
+    ) : (
+      upcomingOrgEvents.map((event) => (
+        <div
+          key={event._id}
+          className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+        >
+          <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Calendar className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{event.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {format(new Date(event.startDate), "MMM d, yyyy 'at' h:mm a")}
+            </p>
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+</CardContent>
           </Card>
 
           {/* System Alerts */}
