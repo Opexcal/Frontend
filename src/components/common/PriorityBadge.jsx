@@ -17,7 +17,7 @@ const priorityConfig = {
 };
 
 export const PriorityBadge = ({ priority, className }) => {
-  const config = priorityConfig[priority];
+  const config = priorityConfig[priority?.toLowerCase()] || priorityConfig.low;
   
   return (
     <Badge variant="outline" className={cn(config.className, className)}>

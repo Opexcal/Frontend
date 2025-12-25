@@ -81,23 +81,37 @@ const TaskLists = () => {
     }
   };
 
-  // Handle task status change
-  const handleStatusChange = async (taskId, newStatus) => {
-    try {
-      await tasksApi.updateTask(taskId, { status: newStatus });
+// ✅ CORRECT - Use handshake endpoints for status changes
+const handleStatusChange = async (taskId, newStatus) => {
+  try {
+    // Use the appropriate handshake endpoint based on the new status
+    if (newStatus === "In-Progress") {
+      await tasksApi.acceptTask(taskId);
+    } else if (newStatus === "Completed") {
+      await tasksApi.completeTask(taskId);
+    } else {
+      // For other status changes, show error as staff can't do them
       toast({
-        title: "Status updated",
-        description: "Task status has been updated successfully.",
-      });
-      setRefreshTrigger(prev => prev + 1);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to update status",
+        title: "Not allowed",
+        description: "You can only accept (start) or complete tasks assigned to you.",
         variant: "destructive",
       });
+      return;
     }
-  };
+    
+    toast({
+      title: "Status updated",
+      description: "Task status has been updated successfully.",
+    });
+    setRefreshTrigger(prev => prev + 1);
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: error.response?.data?.message || "Failed to update status",
+      variant: "destructive",
+    });
+  }
+};
 
   // Handle task creation success
   const handleTaskCreated = () => {
@@ -157,16 +171,17 @@ const TaskLists = () => {
                 </DropdownMenuItem>
                 
                 {/* Status change options */}
-                {task.status === "Pending" && (
-                  <DropdownMenuItem onClick={() => handleStatusChange(task._id, "In-Progress")}>
-                    Mark as In Progress
-                  </DropdownMenuItem>
-                )}
-                {task.status === "In-Progress" && (
-                  <DropdownMenuItem onClick={() => handleStatusChange(task._id, "Completed")}>
-                    Mark as Completed
-                  </DropdownMenuItem>
-                )}
+               {/* Status change options */}
+                  {task.status === "Pending" && (
+                    <DropdownMenuItem onClick={() => handleStatusChange(task._id, "In-Progress")}>
+                      Accept & Start Task
+                    </DropdownMenuItem>
+                  )}
+                  {task.status === "In-Progress" && (
+                    <DropdownMenuItem onClick={() => handleStatusChange(task._id, "Completed")}>
+                      Mark as Completed
+                    </DropdownMenuItem>
+                  )}
                 
                 <DropdownMenuItem onClick={() => handleDeleteTask(task._id)} className="text-destructive">
                   Delete

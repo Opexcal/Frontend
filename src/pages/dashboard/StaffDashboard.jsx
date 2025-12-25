@@ -26,29 +26,28 @@ const StaffDashboard = () => {
   const { user } = useAuth();
   const { data, loading, error } = useDashboard();
   const [dateRange, setDateRange] = useState("today");
-
-  // Calculate derived stats from API data
-  const stats = {
-    myTasks: {
-      total: data.stats.totalTasksAssigned || 0,
-      completed: data.stats.totalTasksCompleted || 0,
-      pending: data.stats.totalTasksPending || 0,
-      inProgress: data.stats.totalTasksInProgress || 0
-    },
-    teamEvents: data.upcomingEvents.count || 0,
-    completionRate: data.stats.totalTasksAssigned > 0 
-      ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
-      : 0,
-    unreadNotifications: data.stats.unreadNotifications || 0
-  };
-
-  // Filter tasks by status
   const activeTasks = data.activeTasks.tasks || [];
-  const myTasks = activeTasks.filter(t => t.status !== 'Rejected');
-  const assignedToMe = activeTasks.filter(t => t.status === 'Pending');
-  const overdueTasks = activeTasks.filter(t => 
-    t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
-  );
+  // Calculate derived stats from API data
+const stats = {
+  myTasks: {
+    total: activeTasks.length, // Total tasks assigned to me
+    completed: activeTasks.filter(t => t.status === 'Completed').length,
+    pending: activeTasks.filter(t => t.status === 'Pending').length,
+    inProgress: activeTasks.filter(t => t.status === 'In-Progress').length
+  },
+  teamEvents: data.upcomingEvents.count || 0,
+  completionRate: activeTasks.length > 0 
+    ? Math.round((activeTasks.filter(t => t.status === 'Completed').length / activeTasks.length) * 100)
+    : 0,
+  unreadNotifications: data.stats.unreadNotifications || 0
+};
+
+// Filter tasks by status - use capitalized backend values
+const myTasks = activeTasks.filter(t => t.status !== 'Rejected');
+const assignedToMe = activeTasks.filter(t => t.status === 'Pending');
+const overdueTasks = activeTasks.filter(t => 
+  t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
+);
 
   // Filter events happening today
   const todaysEvents = (data.upcomingEvents.events || []).filter(event => 
