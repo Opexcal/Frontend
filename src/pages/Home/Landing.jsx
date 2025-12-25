@@ -53,7 +53,7 @@ const Landing = () => {
       {/* Hero Section */}
       <section className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
         <div className="max-w-4xl mx-auto animate-slide-up">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-semibold text-foreground leading-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-semibold text-foreground leading-tight font-roboto">
             Your organization's heartbeat,
             <br />
             <span className="text-foreground">on one calendar</span>

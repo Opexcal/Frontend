@@ -1,12 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import AddUserModal from "./users/AddUserModal";
 import CreateGroupModal from "./groups/CreateGroupModal";
 import { useDashboard } from '@/hooks/useDashboard';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { Loader2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { dashboardApi } from '@/api/dashboardApi';
+import { groupsApi } from '@/api/groupsApi';
+import { usersApi } from '@/api/usersApi';
+
 
 const StatCard = ({ title, value, subtitle }) => (
   <Card className="p-4">
@@ -20,10 +25,10 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [showAddUser, setShowAddUser] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const { data, loading, error } = useDashboard();
-
+  const { data, loading: dashboardLoading, error } = useDashboard();
+  const { adminStats, groupsOverview, loading: adminLoading } = useAdminDashboard();
   // Loading state
-  if (loading) {
+if (dashboardLoading || adminLoading)  {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-3">
@@ -52,26 +57,36 @@ const AdminDashboard = () => {
     );
   }
 
+  // Add null check for data
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Calculate stats safely with fallbacks
-  const statsData = {
-    totalUsers: data.stats.totalTasksAssigned || 0,
-    userChange: "+12%", // TODO: Calculate from historical data or fetch from admin endpoint
-    activeGroups: 8, // TODO: Fetch from groups API
-    eventsThisMonth: data.upcomingEvents.count || 0,
-    totalTasks: data.activeTasks.count || 0,
-    completionRate: data.stats.totalTasksAssigned > 0 
+const statsData = {
+  totalUsers: adminStats?.totalUsers || 0,
+    userChange: adminStats?.userGrowth || "+0%",
+    activeGroups: groupsOverview.length || 0,
+    eventsThisMonth: data?.upcomingEvents?.count || 0,
+    totalTasks: data?.activeTasks?.count || 0,
+    completionRate: data?.stats?.totalTasksAssigned > 0 
       ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
       : 0,
-    pendingInvites: 5, // TODO: Fetch from separate endpoint
+    pendingInvites: adminStats?.pendingInvites || 0,
   };
 
   // Map notifications to activity format
-  const recentActivities = (data.recentActivity.notifications || []).slice(0, 8).map((notification, index) => ({
+  const recentActivities = (data?.recentActivity?.notifications || []).slice(0, 8).map((notification, index) => ({
     id: notification._id || index,
     timestamp: notification.createdAt,
     message: notification.message || "Activity notification",
-    // Backend doesn't provide user/description in current structure
-    // You may need to enhance the notification model or use a different endpoint
   }));
 
   return (
@@ -92,15 +107,9 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard 
-          title="Total Users" 
-          value={statsData.totalUsers} 
-          subtitle={statsData.userChange} 
-        />
-        <StatCard 
-          title="Active Groups" 
-          value={statsData.activeGroups} 
-        />
+      <StatCard title="Total Users" value={adminStats?.totalUsers || 0} subtitle={adminStats?.userGrowth} />
+<StatCard title="Active Groups" value={adminStats?.totalGroups || 0} />
+<StatCard title="Pending Invites" value={adminStats?.pendingInvites || 0} />
         <StatCard 
           title="Events This Month" 
           value={statsData.eventsThisMonth} 
@@ -109,10 +118,6 @@ const AdminDashboard = () => {
           title="Total Tasks" 
           value={statsData.totalTasks} 
           subtitle={`${statsData.completionRate}% completion`} 
-        />
-        <StatCard 
-          title="Pending Invites" 
-          value={statsData.pendingInvites} 
         />
         <StatCard 
           title="System Health" 
@@ -194,6 +199,7 @@ const AdminDashboard = () => {
         onOpenChange={setShowCreateGroup} 
         onSuccess={() => setShowCreateGroup(false)} 
       />
+     
     </div>
   );
 };

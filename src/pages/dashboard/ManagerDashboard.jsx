@@ -34,6 +34,7 @@ import {
 } from "recharts";
 import { useDashboard } from '@/hooks/useDashboard';
 import { format } from "date-fns";
+import { analyticsApi } from '@/api/analyticsApi';
 
 // Mock data for charts (TODO: Replace with real analytics endpoint)
 const mockData = {
@@ -127,6 +128,43 @@ const ManagerDashboard = () => {
   const { user } = useAuth();
   const { data, loading, error } = useDashboard();
   const [dateRange, setDateRange] = useState("month");
+
+    const [chartData, setChartData] = useState({
+    userGrowth: [],
+    taskCompletion: [],
+    eventAttendance: []
+  });
+  const [topPerformers, setTopPerformers] = useState([]);
+  const [departmentData, setDepartmentData] = useState([]);
+
+  // Fetch analytics data
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const [userGrowth, taskComp, eventAtt, performers, deptPerf] = await Promise.all([
+          analyticsApi.getUserGrowth(dateRange).catch(() => ({ data: [] })),
+          analyticsApi.getTaskCompletion(dateRange).catch(() => ({ data: [] })),
+          analyticsApi.getEventAttendance(dateRange).catch(() => ({ data: [] })),
+          analyticsApi.getTopPerformers().catch(() => ({ data: [] })),
+          analyticsApi.getDepartmentPerformance().catch(() => ({ data: [] }))
+        ]);
+
+        setChartData({
+          userGrowth: userGrowth.data || [],
+          taskCompletion: taskComp.data || [],
+          eventAttendance: eventAtt.data || []
+        });
+        setTopPerformers(performers.data || []);
+        setDepartmentData(deptPerf.data || []);
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err);
+      }
+    };
+
+    if (!loading && !error) {
+      fetchAnalytics();
+    }
+  }, [loading, error, dateRange]);
 
   if (loading) {
   return (
