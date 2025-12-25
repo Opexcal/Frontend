@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,93 +37,22 @@ import { format } from "date-fns";
 import { analyticsApi } from '@/api/analyticsApi';
 
 // Mock data for charts (TODO: Replace with real analytics endpoint)
+// Mock data for fallback when API data is empty
 const mockData = {
   charts: {
-    userGrowth: [
-      { month: "Aug", users: 98 },
-      { month: "Sep", users: 105 },
-      { month: "Oct", users: 118 },
-      { month: "Nov", users: 132 },
-      { month: "Dec", users: 142 },
-    ],
-    taskCompletion: [
-      { week: "Week 1", completed: 450, total: 520 },
-      { week: "Week 2", completed: 480, total: 540 },
-      { week: "Week 3", completed: 510, total: 560 },
-      { week: "Week 4", completed: 530, total: 570 },
-    ],
-    eventAttendance: [
-      { month: "Aug", attendance: 85 },
-      { month: "Sep", attendance: 88 },
-      { month: "Oct", attendance: 90 },
-      { month: "Nov", attendance: 91 },
-      { month: "Dec", attendance: 92 },
-    ]
+    userGrowth: [],
+    taskCompletion: [],
+    eventAttendance: []
   },
-  topPerformers: [
-    { id: 1, name: "Sarah Johnson", completion: 95, attendance: 98, avatar: "" },
-    { id: 2, name: "Mike Chen", completion: 92, attendance: 95, avatar: "" },
-    { id: 3, name: "Alex Rivera", completion: 90, attendance: 92, avatar: "" },
-    { id: 4, name: "Emma Wilson", completion: 88, attendance: 90, avatar: "" },
-    { id: 5, name: "David Kim", completion: 87, attendance: 89, avatar: "" },
-  ],
+  topPerformers: [],
+  groups: [],
   pendingActions: {
-    userApprovals: 3,
-    unassignedGroups: 1,
-    systemAlerts: 2
+    userApprovals: 0,
+    unassignedGroups: 0,
+    systemAlerts: 0
   },
-  groups: [
-    {
-      id: 1,
-      name: "Engineering",
-      memberCount: 24,
-      activeTasks: 45,
-      events: 12,
-      healthScore: 92
-    },
-    {
-      id: 2,
-      name: "Product",
-      memberCount: 12,
-      activeTasks: 28,
-      events: 8,
-      healthScore: 88
-    },
-    {
-      id: 3,
-      name: "Marketing",
-      memberCount: 18,
-      activeTasks: 32,
-      events: 15,
-      healthScore: 85
-    },
-    {
-      id: 4,
-      name: "Sales",
-      memberCount: 22,
-      activeTasks: 38,
-      events: 10,
-      healthScore: 78
-    },
-  ],
-  systemAlerts: [
-    {
-      id: 1,
-      type: "storage",
-      message: "Storage usage at 78%",
-      severity: "warning",
-      action: "Upgrade plan"
-    },
-    {
-      id: 2,
-      type: "update",
-      message: "New version available (v2.1.0)",
-      severity: "info",
-      action: "Update now"
-    },
-  ]
+  systemAlerts: []
 };
-
 const ManagerDashboard = () => {
   const { user } = useAuth();
   const { data, loading, error } = useDashboard();
@@ -136,35 +65,45 @@ const ManagerDashboard = () => {
   });
   const [topPerformers, setTopPerformers] = useState([]);
   const [departmentData, setDepartmentData] = useState([]);
+  const [kpisData, setKpisData] = useState(null);
 
   // Fetch analytics data
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const [userGrowth, taskComp, eventAtt, performers, deptPerf] = await Promise.all([
-          analyticsApi.getUserGrowth(dateRange).catch(() => ({ data: [] })),
-          analyticsApi.getTaskCompletion(dateRange).catch(() => ({ data: [] })),
-          analyticsApi.getEventAttendance(dateRange).catch(() => ({ data: [] })),
-          analyticsApi.getTopPerformers().catch(() => ({ data: [] })),
-          analyticsApi.getDepartmentPerformance().catch(() => ({ data: [] }))
-        ]);
+useEffect(() => {
+  const fetchAnalytics = async () => {
+    try {
+      const [userGrowth, taskComp, eventAtt, performers, deptPerf, kpis] = await Promise.all([
+        analyticsApi.getUserGrowth(dateRange).catch(() => ({ data: [] })),
+        analyticsApi.getTaskCompletion(dateRange).catch(() => ({ data: [] })),
+        analyticsApi.getEventAttendance(dateRange).catch(() => ({ data: [] })),
+        analyticsApi.getTopPerformers().catch(() => ({ data: [] })),
+        analyticsApi.getDepartmentPerformance().catch(() => ({ data: [] })),
+        analyticsApi.getKPIs().catch(() => ({ data: null }))
+      ]);
 
-        setChartData({
-          userGrowth: userGrowth.data || [],
-          taskCompletion: taskComp.data || [],
-          eventAttendance: eventAtt.data || []
-        });
-        setTopPerformers(performers.data || []);
-        setDepartmentData(deptPerf.data || []);
-      } catch (err) {
-        console.error('Failed to fetch analytics:', err);
-      }
-    };
-
-    if (!loading && !error) {
-      fetchAnalytics();
+      // Debug logging
+      console.log('📊 KPIs Raw Response:', kpis);
+      console.log('📊 KPIs Data:', kpis.data);
+      
+      setChartData({
+        userGrowth: userGrowth.data || [],
+        taskCompletion: taskComp.data || [],
+        eventAttendance: eventAtt.data || []
+      });
+      setTopPerformers(performers.data || []);
+      setDepartmentData(deptPerf.data || []);
+      setKpisData(kpis.data);
+      
+      // Debug what was set
+      console.log('✅ KPIs Data Set:', kpis.data);
+    } catch (err) {
+      console.error('Failed to fetch analytics:', err);
     }
-  }, [loading, error, dateRange]);
+  };
+
+  if (!loading && !error) {
+    fetchAnalytics();
+  }
+}, [loading, error, dateRange]);
 
   if (loading) {
   return (
@@ -195,25 +134,44 @@ if (error) {
   );
 }
 
- const kpis = {
-  totalUsers: data.stats.totalTasksAssigned || 0,
-  totalUsersGrowth: "+12%", // TODO: Calculate from historical data
-  activeProjects: 28, // TODO: Fetch from separate endpoint
+
+const kpis = kpisData ? {
+  totalUsers: kpisData.totalUsers || 0,
+  totalUsersGrowth: kpisData.totalUsersGrowth || "+0%",
+  activeProjects: kpisData.activeProjects || 0,
   taskCompletionRate: {
-    percentage: data.stats.totalTasksAssigned > 0 
-      ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
-      : 0,
-    trend: "+5%"
+    percentage: kpisData.taskCompletionRate?.percentage || 0,
+    trend: kpisData.taskCompletionRate?.trend || "+0%"
   },
   eventAttendanceRate: {
-    percentage: 92, // TODO: Calculate from events data if available
-    trend: "+2%"
+    percentage: kpisData.eventAttendanceRate?.percentage || 0,
+    trend: kpisData.eventAttendanceRate?.trend || "+0%"
   },
   systemHealth: {
-    uptime: 99.8,
-    status: "healthy"
+    uptime: kpisData.systemHealth?.uptime || 0,
+    status: kpisData.systemHealth?.status || "unknown"
+  }
+} : {
+  totalUsers: 0,
+  totalUsersGrowth: "+0%",
+  activeProjects: 0,
+  taskCompletionRate: {
+    percentage: 0,
+    trend: "+0%"
+  },
+  eventAttendanceRate: {
+    percentage: 0,
+    trend: "+0%"
+  },
+  systemHealth: {
+    uptime: 0,
+    status: "unknown"
   }
 };
+
+// Add this logging
+console.log('🎯 Final KPIs Object:', kpis);
+console.log('📌 kpisData state:', kpisData);
 
 const upcomingOrgEvents = (data.upcomingEvents.events || []).slice(0, 10);
 const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
@@ -379,7 +337,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
 
                 <TabsContent value="user-growth" className="mt-4">
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={mockData.charts.userGrowth}>
+                    <LineChart data={chartData.userGrowth}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -397,7 +355,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
 
                 <TabsContent value="task-completion" className="mt-4">
                   <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={mockData.charts.taskCompletion}>
+                    <AreaChart data={chartData.taskCompletion}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="week" />
                       <YAxis />
@@ -422,7 +380,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
 
                 <TabsContent value="attendance" className="mt-4">
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={mockData.charts.eventAttendance}>
+                    <BarChart data={chartData.eventAttendance}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -442,7 +400,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockData.topPerformers.map((performer, index) => (
+                {topPerformers.map((performer, index) => (
                   <div
                     key={performer.id}
                     className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
@@ -477,55 +435,13 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
               <CardTitle className="text-lg font-semibold">Pending Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {mockData.pendingActions.userApprovals > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div className="flex items-center gap-3">
-                      <Users className="h-5 w-5 text-orange-600" />
-                      <div>
-                        <p className="font-medium text-sm">User Approvals</p>
-                        <p className="text-xs text-muted-foreground">
-                          {mockData.pendingActions.userApprovals} pending
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to="/admin/users">Review</Link>
-                    </Button>
-                  </div>
-                )}
-                {mockData.pendingActions.unassignedGroups > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-blue-600" />
-                      <div>
-                        <p className="font-medium text-sm">Unassigned Groups</p>
-                        <p className="text-xs text-muted-foreground">
-                          {mockData.pendingActions.unassignedGroups} needs assignment
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to="/admin/groups">Review</Link>
-                    </Button>
-                  </div>
-                )}
-                {mockData.pendingActions.systemAlerts > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-yellow-500/50 bg-yellow-500/5">
-                    <div className="flex items-center gap-3">
-                      <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                      <div>
-                        <p className="font-medium text-sm">System Alerts</p>
-                        <p className="text-xs text-muted-foreground">
-                          {mockData.pendingActions.systemAlerts} require attention
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">View</Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
+  <div className="space-y-3">
+    {/* This section uses mockData - you'll need a real API endpoint for pending actions */}
+    <p className="text-sm text-muted-foreground text-center py-4">
+      No pending actions
+    </p>
+  </div>
+</CardContent>
           </Card>
         </div>
 
@@ -538,7 +454,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockData.groups.map((group) => (
+                {departmentData.map((group) => (
                   <div
                     key={group.id}
                     className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
@@ -666,25 +582,13 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
             <CardHeader>
               <CardTitle className="text-lg font-semibold">System Alerts</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {mockData.systemAlerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={`p-3 rounded-lg border ${getSeverityColor(alert.severity)}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{alert.message}</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" className="mt-2 w-full">
-                      {alert.action}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+           <CardContent>
+  <div className="space-y-3">
+    <p className="text-sm text-muted-foreground text-center py-4">
+      No system alerts
+    </p>
+  </div>
+</CardContent>
           </Card>
 
           {/* Reports */}
@@ -728,7 +632,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
                 </tr>
               </thead>
               <tbody>
-                {mockData.groups.map((group) => (
+                {departmentData.map((group) => (
                   <tr key={group.id} className="border-b hover:bg-accent/50 transition-colors">
                     <td className="p-3">
                       <p className="font-medium text-sm">{group.name}</p>
@@ -756,3 +660,5 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
 };
 
 export default ManagerDashboard;
+
+
