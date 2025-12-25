@@ -14,7 +14,7 @@ import {
 import {
   Users, Building2, CheckSquare, Calendar, Activity,
   TrendingUp, Download, Settings, FileText, AlertTriangle,
-  Plus, Send, BarChart3, Loader2, AlertCircle  // <- Add these two
+  Plus, Send, BarChart3, Loader2, AlertCircle,MessageSquare  // <- Add these two
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -238,88 +238,158 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-<Card className="card-hover">
-  <CardContent className="p-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Total Users</p>
-        <p className="text-2xl font-semibold mt-1">{kpis.totalUsers}</p>
-        <p className="text-xs text-success mt-1 flex items-center">
-          <TrendingUp className="h-3 w-3 mr-1" />
-          {kpis.totalUsersGrowth} growth
-        </p>
+{/* KPI Cards - Keep these 5 only */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Total Users</p>
+          <p className="text-2xl font-semibold mt-1">{kpis.totalUsers}</p>
+          <p className="text-xs text-success mt-1 flex items-center">
+            <TrendingUp className="h-3 w-3 mr-1" />
+            {kpis.totalUsersGrowth} growth
+          </p>
+        </div>
+        <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
+          <Users className="h-6 w-6 text-blue-600" />
+        </div>
       </div>
-      <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-        <Users className="h-6 w-6 text-blue-600" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+    </CardContent>
+  </Card>
 
-<Card className="card-hover">
-  <CardContent className="p-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Active Projects</p>
-        <p className="text-2xl font-semibold mt-1">{kpis.activeProjects}</p>
-        <p className="text-xs text-success mt-1">+3 this month</p>
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Active Projects</p>
+          <p className="text-2xl font-semibold mt-1">{kpis.activeProjects}</p>
+          <p className="text-xs text-success mt-1">+3 this month</p>
+        </div>
+        <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
+          <Building2 className="h-6 w-6 text-purple-600" />
+        </div>
       </div>
-      <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-        <Building2 className="h-6 w-6 text-purple-600" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+    </CardContent>
+  </Card>
 
-<Card className="card-hover">
-  <CardContent className="p-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Task Completion</p>
-        <p className="text-2xl font-semibold mt-1">{kpis.taskCompletionRate.percentage}%</p>
-        <p className="text-xs text-success mt-1">{kpis.taskCompletionRate.trend}</p>
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Task Completion</p>
+          <p className="text-2xl font-semibold mt-1">{kpis.taskCompletionRate.percentage}%</p>
+          <p className="text-xs text-success mt-1">{kpis.taskCompletionRate.trend}</p>
+        </div>
+        <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+          <CheckSquare className="h-6 w-6 text-green-600" />
+        </div>
       </div>
-      <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-        <CheckSquare className="h-6 w-6 text-green-600" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+    </CardContent>
+  </Card>
 
-<Card className="card-hover">
-  <CardContent className="p-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Event Attendance</p>
-        <p className="text-2xl font-semibold mt-1">{kpis.eventAttendanceRate.percentage}%</p>
-        <p className="text-xs text-success mt-1">{kpis.eventAttendanceRate.trend}</p>
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Event Attendance</p>
+          <p className="text-2xl font-semibold mt-1">{kpis.eventAttendanceRate.percentage}%</p>
+          <p className="text-xs text-success mt-1">{kpis.eventAttendanceRate.trend}</p>
+        </div>
+        <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+          <Calendar className="h-6 w-6 text-orange-600" />
+        </div>
       </div>
-      <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-        <Calendar className="h-6 w-6 text-orange-600" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
+    </CardContent>
+  </Card>
 
-<Card className="card-hover">
-  <CardContent className="p-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">System Health</p>
-        <p className="text-2xl font-semibold mt-1">{kpis.systemHealth.uptime}%</p>
-        <p className="text-xs text-success mt-1">Uptime</p>
+  <Card className="card-hover">
+    <CardContent className="p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">System Health</p>
+          <p className="text-2xl font-semibold mt-1">{kpis.systemHealth.uptime}%</p>
+          <p className="text-xs text-success mt-1">Uptime</p>
+        </div>
+        <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+          <Activity className="h-6 w-6 text-green-600" />
+        </div>
       </div>
-      <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-        <Activity className="h-6 w-6 text-green-600" />
-      </div>
-    </div>
-  </CardContent>
-</Card>
-      </div>
+    </CardContent>
+  </Card>
+</div>
 
-      {/* Three Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[40%_35%_25%] gap-6">
+{/* Quick Actions - NEW SECTION AFTER KPI CARDS */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  {/* Team Management Quick Actions */}
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5" />
+        Team Management
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-2">
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/dashboard">
+          <Users className="h-4 w-4 mr-2" />
+          Team Dashboard
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/tasks">
+          <CheckSquare className="h-4 w-4 mr-2" />
+          Manage Team Tasks
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/calendar">
+          <Calendar className="h-4 w-4 mr-2" />
+          Team Calendar
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/reports">
+          <BarChart3 className="h-4 w-4 mr-2" />
+          View Team Reports
+        </Link>
+      </Button>
+    </CardContent>
+  </Card>
+
+  {/* Mass Operations Quick Actions */}
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <MessageSquare className="h-5 w-5" />
+        Mass Operations
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-2">
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/mass/task">
+          <CheckSquare className="h-4 w-4 mr-2" />
+          Assign Mass Tasks
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/mass/message">
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Send Mass Message
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/mass/event">
+          <Calendar className="h-4 w-4 mr-2" />
+          Create Mass Event
+        </Link>
+      </Button>
+    </CardContent>
+  </Card>
+</div>
+
+{/* Three Column Layout continues below... */}
+<div className="grid grid-cols-1 lg:grid-cols-[40%_35%_25%] gap-6">
         {/* Left Column */}
         <div className="space-y-6">
           {/* Organization Metrics Chart */}

@@ -20,27 +20,54 @@ const MassMessaging = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const handleSend = async () => {
-    setSending(true);
-    try {
-      await massOpsApi.sendMessage({
-        ...messageData,
-        recipients: {
-          groupIds: messageData.selectedGroups.map(g => g.id),
-          userIds: messageData.selectedUsers.map(u => u.id),
-        },
+const handleSend = async () => {
+  setSending(true);
+  try {
+    const groupId = messageData.selectedGroups[0]?.id;
+    
+    if (!groupId) {
+      toast({
+        title: "Select a group",
+        description: "Mass messaging requires at least one group.",
+        variant: "destructive",
       });
-      
-      // showToast(`Message sent to ${recipientCount} recipients`, 'success');
-      // Reset form or redirect
-    } catch (error) {
-      // showToast('Failed to send message', 'error');
-      console.error(error);
-    } finally {
-      setSending(false);
-      setShowPreview(false);
+      return;
     }
-  };
+    
+    await massOpsApi.sendMessage({
+      groupId,
+      message: messageData.message,
+      // subject not in backend yet
+    });
+    
+    toast({
+      title: "Message sent",
+      description: `Successfully sent to ${recipientCount} members.`,
+    });
+
+    // Reset form
+    setMessageData({
+      subject: '',
+      message: '',
+      priority: 'normal',
+      selectedGroups: [],
+      selectedUsers: [],
+      sendInApp: true,
+      sendEmail: true,
+    });
+    setRecipientCount(0);
+    
+  } catch (error) {
+    toast({
+      title: "Failed to send message",
+      description: error?.response?.data?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  } finally {
+    setSending(false);
+    setShowPreview(false);
+  }
+};
 
   return (
     <div className="max-w-4xl mx-auto p-6">

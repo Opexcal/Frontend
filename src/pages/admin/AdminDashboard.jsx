@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import AddUserModal from "./users/AddUserModal";
 import CreateGroupModal from "./groups/CreateGroupModal";
 import { useDashboard } from '@/hooks/useDashboard';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle,Users, CheckSquare, MessageSquare, Calendar, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import { dashboardApi } from '@/api/dashboardApi';
 import { groupsApi } from '@/api/groupsApi';
 import { usersApi } from '@/api/usersApi';
+
 
 
 const StatCard = ({ title, value, subtitle }) => (
@@ -126,7 +127,77 @@ const statsData = {
         />
       </div>
 
-      <div className="flex items-start gap-6">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  {/* Team Management Quick Actions */}
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5" />
+        Team Management
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-2">
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/dashboard">
+          <Users className="h-4 w-4 mr-2" />
+          Team Dashboard
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/tasks">
+          <CheckSquare className="h-4 w-4 mr-2" />
+          Manage Team Tasks
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/calendar">
+          <Calendar className="h-4 w-4 mr-2" />
+          Team Calendar
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/team/reports">
+          <BarChart3 className="h-4 w-4 mr-2" />
+          View Team Reports
+        </Link>
+      </Button>
+    </CardContent>
+  </Card>
+
+  {/* Mass Operations Quick Actions */}
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <MessageSquare className="h-5 w-5" />
+        Mass Operations
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-2">
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/mass/task">
+          <CheckSquare className="h-4 w-4 mr-2" />
+          Assign Mass Tasks
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/mass/message">
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Send Mass Message
+        </Link>
+      </Button>
+      <Button asChild variant="outline" className="w-full justify-start">
+        <Link to="/mass/event">
+          <Calendar className="h-4 w-4 mr-2" />
+          Create Mass Event
+        </Link>
+      </Button>
+    </CardContent>
+  </Card>
+</div>
+
+{/* Recent Activity and Quick Actions sidebar continue below... */}
+<div className="flex items-start gap-6">
+
         <div className="flex-1">
           <Card className="p-4">
             <div className="flex items-center justify-between">

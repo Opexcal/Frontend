@@ -25,13 +25,17 @@ import {
 
 import TaskCard from "@/components/team/TaskCard";
 import AssignmentModal from "@/components/team/AssignmentModal";
-import { getTeamTasks, mockTeamMembers } from "@/lib/mockTeamData";
+import { getTeamTasks, mockTeamMembers } from "@/lib/mockTeamData";import { teamApi } from '@/api/teamApi';
+import { groupsApi } from '@/api/groupsApi';
+import { tasksApi } from '@/api/taskApi';
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * TeamTasks - Comprehensive view of team tasks with assignment
  */
 const TeamTasks = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
   const [tasks, setTasks] = useState([]);
@@ -52,23 +56,79 @@ const TeamTasks = () => {
     fetchTasks();
   }, [statusFilter, priorityFilter, assigneeFilter]);
 
-  const fetchTasks = async () => {
-    setLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const filters = {
-        status: statusFilter === "all" ? undefined : statusFilter,
-        priority: priorityFilter === "all" ? undefined : priorityFilter,
-        assignee: assigneeFilter === "all" ? undefined : assigneeFilter,
+const fetchTasks = async () => {
+  setLoading(true);
+  try {
+    const filters = {};
+    
+    if (statusFilter !== "all") {
+      const statusMap = {
+        'not_started': 'Pending',
+        'in_progress': 'In-Progress',
+        'completed': 'Completed'
       };
-      const data = getTeamTasks(filters);
-      setTasks(data);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-    } finally {
-      setLoading(false);
+      filters.status = statusMap[statusFilter];
     }
-  };
+    
+    if (priorityFilter !== "all") {
+      filters.priority = priorityFilter.charAt(0).toUpperCase() + priorityFilter.slice(1);
+    }
+    
+    // 🔥 FIX: Consolidate the response handling
+    let rawTasks = [];
+    
+    if (assigneeFilter !== "all") {
+      const response = await tasksApi.getTasks(filters);
+      const allTasks = response.tasks || response.data?.tasks || [];
+      rawTasks = allTasks.filter(t => 
+        t.assignees?.some(a => (a._id || a.id) === assigneeFilter)
+      );
+    } else {
+      const response = await teamApi.getTasks(filters);
+      rawTasks = response.tasks || response.data?.tasks || [];
+    }
+    
+    // 🔥 FIX: Filter valid tasks ONCE
+    const validTasks = rawTasks.filter(task => {
+      return task && (task._id || task.id) && task.title;
+    });
+    
+    setTasks(formatTasks(validTasks));
+    
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    toast({
+      title: "Failed to load tasks",
+      description: error?.message || "Please try again",
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Add helper function:
+const formatTasks = (tasks) => {
+  if (!Array.isArray(tasks)) return [];
+  
+  return tasks
+    .filter(t => t && (t._id || t.id)) // Extra safety
+    .map(t => ({
+      id: t._id || t.id,
+      title: t.title || 'Untitled',
+      description: t.description || '',
+      priority: (t.priority || 'medium').toLowerCase(),
+      status: (t.status || 'pending').toLowerCase().replace('-', '_'),
+      dueDate: t.dueDate,
+      assignedTo: (t.assignees || []).map(a => ({
+        id: a._id || a.id,
+        name: a.name || 'Unknown',
+        email: a.email || '',
+        avatar: a.avatar
+      })),
+      conferenceLink: t.conferenceLink
+    }));
+};
 
   const handleSelectTask = (taskId) => {
     const newSelected = new Set(selectedTasks);

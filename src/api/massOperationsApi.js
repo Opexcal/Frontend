@@ -5,17 +5,20 @@ import apiClient from "./client";
 
 export const massOpsApi = {
   // Bulk tasks (implemented in backend)
-  createMassTasks: (data) => apiClient.post("/mass/task", data),
+    createMassTasks: (data) => apiClient.post("/mass/task", data),
 
+  // ✅ Mass messaging (NEW - now working)
+  sendMessage: (data) => apiClient.post("/mass/message", data),
+
+  // ✅ Mass events (NEW - now working)
+  createMassEvent: (data) => apiClient.post("/mass/event", data),
   // --- Pending backend endpoints below ---
   // Messaging (not yet implemented server-side)
   getRecipients: () => apiClient.get("/mass/recipients"),
-  sendMessage: (data) => apiClient.post("/mass/message", data),
   scheduleMessage: (data) => apiClient.post("/mass/message/schedule", data),
   getMessageHistory: () => apiClient.get("/mass/message/history"),
 
   // Bulk events (not yet implemented server-side)
-  createMassEvent: (data) => apiClient.post("/mass/event/create", data),
   getEventRSVP: (eventId) => apiClient.get(`/mass/event/${eventId}/rsvp`),
   sendEventReminder: (eventId) =>
     apiClient.post(`/mass/event/${eventId}/reminder`),

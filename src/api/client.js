@@ -20,6 +20,22 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// apiClient.interceptors.response.use(
+//   (response) => {
+//     // Check if response has async status
+//     const data = response.data;
+//     if (data.status && ['pending', 'in_progress'].includes(data.status)) {
+//       console.warn('Request still processing:', data.status);
+//       // You could implement retry logic here
+//     }
+//     return response;
+//   },
+//   (error) => {
+//     console.error('API Error:', error);
+//     return Promise.reject(error);
+//   }
+// );
+
 // RESPONSE INTERCEPTOR - Handle responses and errors
 apiClient.interceptors.response.use(
   (response) => response.data, // Return only the data

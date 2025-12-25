@@ -6,40 +6,137 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import TeamMemberCard from "@/components/team/TeamMemberCard";
 import AssignmentModal from "@/components/team/AssignmentModal";
-import { getTeamDashboard, mockTeamMembers } from "@/lib/mockTeamData";
 import { format } from "date-fns";
+import { teamApi } from '@/api/teamApi';
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * TeamDashboard - Overview of team workload and performance
  */
 const TeamDashboard = () => {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const data = getTeamDashboard();
-        setDashboardData(data);
-      } catch (error) {
-        console.error("Error fetching dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
+  // 🔥 Extract fetch logic into reusable function
+// 🔥 FIXED fetch logic - proper task status counting
+const fetchDashboard = async () => {
+  setLoading(true);
+  try {
+    const response = await teamApi.getDashboard();
+    const teams = response.data?.teams || response.teams || [];
+    
+    // Fetch ALL tasks (not just pending)
+    const tasksResponse = await teamApi.getTasks();
+    const allTasks = tasksResponse.data?.tasks || tasksResponse.tasks || [];
+    
+    // Calculate stats from ACTUAL task statuses
+    const now = new Date();
+    const stats = {
+      totalTasks: allTasks.length,
+      notStarted: allTasks.filter(t => t.status === 'Not Started').length,
+      inProgress: allTasks.filter(t => t.status === 'In Progress').length,
+      completed: allTasks.filter(t => t.status === 'Completed').length,
+      overdue: allTasks.filter(t => {
+        if (!t.dueDate || t.status === 'Completed') return false;
+        return new Date(t.dueDate) < now;
+      }).length,
+      completionRate: allTasks.length > 0 
+        ? Math.round((allTasks.filter(t => t.status === 'Completed').length / allTasks.length) * 100)
+        : 0
     };
+    
+    // Get members with proper task counts
+    const membersResponse = await teamApi.getMembers();
+    const members = (membersResponse.data?.members || membersResponse.members || []).map(m => {
+      const memberTasks = allTasks.filter(t => 
+        t.assignees?.some(a => (a.id || a._id) === (m.id || m._id))
+      );
+      
+      return {
+        id: m.id || m._id,
+        name: m.name,
+        email: m.email,
+        role: m.role,
+        teams: m.teams || [],
+        taskCount: memberTasks.length,
+        completedCount: memberTasks.filter(t => t.status === 'Completed').length,
+        overdueCount: memberTasks.filter(t => {
+          if (!t.dueDate || t.status === 'Completed') return false;
+          return new Date(t.dueDate) < now;
+        }).length,
+      };
+    });
+    
+    // Get upcoming deadlines (non-completed tasks with future due dates)
+    const upcomingDeadlines = allTasks
+      .filter(t => {
+        if (!t.dueDate || t.status === 'Completed') return false;
+        return new Date(t.dueDate) > now;
+      })
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+      .slice(0, 5)
+      .map(t => ({
+        id: t._id || t.id,
+        title: t.title,
+        dueDate: t.dueDate,
+        assigneeName: t.assignees?.[0]?.name || 'Unassigned',
+        status: t.status
+      }));
+    
+    setDashboardData({
+      stats,
+      members,
+      upcomingDeadlines
+    });
+    
+  } catch (error) {
+    console.error("Error fetching dashboard:", error);
+    toast({
+      title: "Failed to load dashboard",
+      description: error?.response?.data?.message || error?.message || "Please try again",
+      variant: "destructive"
+    });
+    setDashboardData(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
+  useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [toast]);
 
+  // 🔥 Updated assignment handler
   const handleAssignTask = async (data) => {
-    console.log("Assigning task:", data);
-    // TODO: Call API to create and assign task
-    setShowAssignmentModal(false);
+    try {
+      const { tasksApi } = await import('../../api/taskApi');
+      
+      await tasksApi.createTask(data);
+      
+      toast({
+        title: "Task assigned successfully",
+        description: `Task "${data.title}" has been assigned`,
+      });
+      
+      setShowAssignmentModal(false);
+      
+      // Refresh dashboard
+      await fetchDashboard();
+      
+    } catch (error) {
+      console.error("Error assigning task:", error);
+      toast({
+        title: "Failed to assign task",
+        description: error?.response?.data?.message || error?.message,
+        variant: "destructive"
+      });
+    }
   };
+
+  // ... rest of component
 
   if (loading) {
     return (
@@ -214,13 +311,13 @@ const TeamDashboard = () => {
       </div>
 
       {/* Assignment Modal */}
-      <AssignmentModal
-        isOpen={showAssignmentModal}
-        onClose={() => setShowAssignmentModal(false)}
-        teamMembers={mockTeamMembers}
-        onSubmit={handleAssignTask}
-        mode="create"
-      />
+<AssignmentModal
+  isOpen={showAssignmentModal}
+  onClose={() => setShowAssignmentModal(false)}
+  teamMembers={dashboardData?.members || []}  // ✅ Use real members
+  onSubmit={handleAssignTask}
+  mode="create"
+/>
     </div>
   );
 };

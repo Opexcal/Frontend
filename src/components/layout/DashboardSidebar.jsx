@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Plus,
   Clock,
+  BarChart3, MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -177,6 +178,116 @@ export const DashboardSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+{(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
+  <SidebarGroup>
+    <SidebarGroupLabel>Team Management</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/team/dashboard")}
+            tooltip="Team Dashboard"
+          >
+            <Link to="/team/dashboard">
+              <Users className="h-4 w-4" />
+              <span>Team Dashboard</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/team/tasks")}
+            tooltip="Team Tasks"
+          >
+            <Link to="/team/tasks">
+              <CheckSquare className="h-4 w-4" />
+              <span>Team Tasks</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/team/calendar")}
+            tooltip="Team Calendar"
+          >
+            <Link to="/team/calendar">
+              <Calendar className="h-4 w-4" />
+              <span>Team Calendar</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/team/reports")}
+            tooltip="Team Reports"
+          >
+            <Link to="/team/reports">
+              <BarChart3 className="h-4 w-4" />
+              <span>Team Reports</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+)}
+
+{/* Mass Operations - Also Admin/Manager only */}
+{(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
+  <SidebarGroup>
+    <SidebarGroupLabel>Mass Operations</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/mass/task")}
+            tooltip="Mass Task Assignment"
+          >
+            <Link to="/mass/task">
+              <CheckSquare className="h-4 w-4" />
+              <span>Mass Tasks</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/mass/message")}
+            tooltip="Mass Messaging"
+          >
+            <Link to="/mass/message">
+              <MessageSquare className="h-4 w-4" />
+              <span>Mass Messages</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/mass/event")}
+            tooltip="Mass Event Creation"
+          >
+            <Link to="/mass/event">
+              <Calendar className="h-4 w-4" />
+              <span>Mass Events</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+)}
               
         {(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
           <SidebarGroup>

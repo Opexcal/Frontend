@@ -4,8 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import RecipientSelector from '../../components/RecipientSelector';
 import RichTextEditor from '../../components/RichTextEditor';
 import PreviewModal from '../../components/PreviewModal';
+import { useToast } from '../../hooks/use-toast';
 
 const MassEventCreation = () => {
+  const toast = useToast();
   const { user } = useAuth();
   const [eventData, setEventData] = useState({
     title: '',
@@ -20,30 +22,58 @@ const MassEventCreation = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const handleCreateEvent = async () => {
-    setSending(true);
-    try {
-      await massOpsApi.createMassEvent({
-        event: {
-          title: eventData.title,
-          description: eventData.description,
-          startDateTime: eventData.startDateTime,
-          endDateTime: eventData.endDateTime,
-          location: eventData.location,
-        },
-        attendees: {
-          groupIds: eventData.selectedGroups.map(g => g.id),
-          userIds: eventData.selectedUsers.map(u => u.id),
-        },
+const handleCreateEvent = async () => {
+  setSending(true);
+  try {
+    const groupId = eventData.selectedGroups[0]?.id;
+    
+    if (!groupId) {
+      toast({
+        title: "Select a group",
+        description: "Mass event creation requires at least one group.",
+        variant: "destructive",
       });
-      // Success handling
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setSending(false);
-      setShowPreview(false);
+      return;
     }
-  };
+    
+    await massOpsApi.createMassEvent({
+      groupId,
+      title: eventData.title,
+      description: eventData.description,
+      startDate: new Date(eventData.startDateTime).toISOString(),
+      endDate: new Date(eventData.endDateTime).toISOString(),
+      type: 'Meeting',
+      // location not in backend yet
+    });
+    
+    toast({
+      title: "Event created",
+      description: `Successfully created event for ${recipientCount} members.`,
+    });
+
+    // Reset form
+    setEventData({
+      title: '',
+      description: '',
+      startDateTime: '',
+      endDateTime: '',
+      location: '',
+      selectedGroups: [],
+      selectedUsers: [],
+    });
+    setRecipientCount(0);
+    
+  } catch (error) {
+    toast({
+      title: "Failed to create event",
+      description: error?.response?.data?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  } finally {
+    setSending(false);
+    setShowPreview(false);
+  }
+};
 
   return (
     <div className="max-w-4xl mx-auto p-6">

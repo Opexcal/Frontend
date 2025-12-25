@@ -7,3 +7,4 @@ export { notificationsApi } from './notificationsApi';
 export { usersApi } from './usersApi';
 export { analyticsApi } from './analyticsApi'; // Add this
 export { default as apiClient } from './client';
+export { teamApi } from './teamApi';
