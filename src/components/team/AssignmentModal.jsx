@@ -31,6 +31,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import PriorityBadge from "./PriorityBadge";
+import { tasksApi } from '@/api/taskApi';
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * Validation schema
@@ -38,17 +40,20 @@ import PriorityBadge from "./PriorityBadge";
 const assignmentSchema = yup.object({
   title: yup
     .string()
-    .min(3, "Title must be at least 3 characters")
+    .max(200, "Title cannot exceed 200 characters") // Backend limit
     .required("Title is required"),
   description: yup
     .string()
-    .min(10, "Description must be at least 10 characters"),
+    .max(2000, "Description cannot exceed 2000 characters"), // Backend limit
   assignee: yup
     .string()
     .required("Please select an assignee"),
-  priority: yup.string().required("Priority is required"),
+  priority: yup
+    .string()
+    .oneOf(['High', 'Medium', 'Low'], "Invalid priority") // Match backend enum
+    .required("Priority is required"),
   dueDate: yup.string().required("Due date is required"),
-  conferenceLink: yup.string().url("Invalid URL").nullable(),
+  // Remove conferenceLink - not in backend schema
 });
 
 /**
@@ -62,6 +67,7 @@ const AssignmentModal = ({
   mode = "create", // 'create' | 'reassign'
   existingTask = null,
 }) => {
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm({
@@ -70,24 +76,43 @@ const AssignmentModal = ({
       title: existingTask?.title || "",
       description: existingTask?.description || "",
       assignee: existingTask?.assigneeId || "",
-      priority: existingTask?.priority || "medium",
+priority: existingTask?.priority || "Medium", // ✅ Match backend enum
       dueDate: existingTask?.dueDate || "",
-      conferenceLink: existingTask?.conferenceLink || "",
+      // conferenceLink: existingTask?.conferenceLink || "",
     },
   });
 
-  const handleSubmit = async (data) => {
-    setIsLoading(true);
-    try {
-      await onSubmit(data);
-      form.reset();
-      onClose();
-    } catch (error) {
-      console.error("Error submitting assignment:", error);
-    } finally {
-      setIsLoading(false);
+const handleSubmit = async (data) => {
+  setIsLoading(true);
+  try {
+    if (mode === 'create') {
+      await tasksApi.createTask({
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        assignees: [data.assignee], // Backend expects array
+        dueDate: new Date(data.dueDate).toISOString(),
+      });
+    } else if (mode === 'reassign') {
+      // For reassign, update the task's assignees
+      await tasksApi.updateTask(existingTask._id, {
+        assignees: [data.assignee],
+      });
     }
-  };
+    
+    form.reset();
+    onClose();
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: error.response?.data?.message || "Failed to save task",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const title =
     mode === "reassign" ? "Reassign Task" : "Create & Assign Task";
@@ -192,10 +217,10 @@ const AssignmentModal = ({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="low">🟢 Low</SelectItem>
-                          <SelectItem value="medium">🟡 Medium</SelectItem>
-                          <SelectItem value="high">🔴 High</SelectItem>
-                        </SelectContent>
+  <SelectItem value="Low">🟢 Low</SelectItem>
+  <SelectItem value="Medium">🟡 Medium</SelectItem>
+  <SelectItem value="High">🔴 High</SelectItem>
+</SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>

@@ -11,7 +11,7 @@ const MassTaskCreation = () => {
   const [taskData, setTaskData] = useState({
     title: '',
     description: '',
-    priority: 'medium',
+    priority: 'Medium',
     dueDate: '',
     selectedGroups: [],
     selectedUsers: [],
@@ -20,61 +20,59 @@ const MassTaskCreation = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const handleCreateTask = async () => {
-    // Guard against duplicate submissions
-    if (sending) return;
+const handleCreateTask = async () => {
+  if (sending) return;
 
-    setSending(true);
-    const groupId = taskData.selectedGroups[0]?.id;
-    if (!groupId) {
-      toast({
-        title: "Select a group",
-        description: "Mass task creation requires at least one group.",
-        variant: "destructive",
-      });
-      setSending(false);
-      return;
-    }
+  setSending(true);
+  const groupId = taskData.selectedGroups[0]?.id;
+  
+  if (!groupId) {
+    toast({
+      title: "Select a group",
+      description: "Mass task creation requires at least one group.",
+      variant: "destructive",
+    });
+    setSending(false);
+    return;
+  }
 
-    try {
-      await massOpsApi.createMassTasks({
-        title: taskData.title,
-        description: taskData.description,
-        priority: taskData.priority,
-        dueDate: taskData.dueDate,
-        groupId,
-      });
-      toast({
-        title: "Mass tasks created",
-        description: `Successfully created tasks for ${recipientCount} assignees.`,
-      });
+  try {
+    // Backend expects: POST /api/mass/task
+    // Body: { title, description, priority, dueDate, groupId }
+    await massOpsApi.createMassTasks({
+      title: taskData.title,
+      description: taskData.description,
+      priority: taskData.priority, // Must be 'High', 'Medium', or 'Low'
+      dueDate: new Date(taskData.dueDate).toISOString(), // Send as ISO string
+      groupId,
+    });
+    
+    toast({
+      title: "Mass tasks created",
+      description: `Successfully created tasks for ${recipientCount} assignees.`,
+    });
 
-      // Optionally reset form after success
-      setTaskData((prev) => ({
-        ...prev,
-        title: "",
-        description: "",
-        priority: "medium",
-        dueDate: "",
-        selectedGroups: [],
-        selectedUsers: [],
-      }));
-      setRecipientCount(0);
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Failed to create mass tasks",
-        description:
-          error?.response?.data?.message ||
-          "Something went wrong while creating tasks. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSending(false);
-      setShowPreview(false);
-    }
-  };
-
+    // Reset form
+    setTaskData({
+      title: "",
+      description: "",
+      priority: "Medium", // Changed default
+      dueDate: "",
+      selectedGroups: [],
+      selectedUsers: [],
+    });
+    setRecipientCount(0);
+  } catch (error) {
+    toast({
+      title: "Failed to create mass tasks",
+      description: error?.response?.data?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  } finally {
+    setSending(false);
+    setShowPreview(false);
+  }
+};
   return (
     <div className="relative max-w-4xl mx-auto p-6">
       {/* High-end processing overlay for heavy mass task creation */}
@@ -139,15 +137,15 @@ const MassTaskCreation = () => {
           <div>
             <label className="block text-sm font-medium mb-2">Priority</label>
             <select
-              value={taskData.priority}
-              onChange={(e) => setTaskData(prev => ({ ...prev, priority: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
+  value={taskData.priority}
+  onChange={(e) => setTaskData(prev => ({ ...prev, priority: e.target.value }))}
+  className="w-full border rounded-lg px-4 py-2"
+>
+  <option value="Low">Low</option>
+  <option value="Medium">Medium</option>
+  <option value="High">High</option>
+  {/* Remove 'urgent' - not in backend enum */}
+</select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Due Date</label>

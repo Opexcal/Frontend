@@ -19,6 +19,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { tasksApi } from '@/api/taskApi';
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * TaskCard - Reusable task card component
@@ -39,6 +41,16 @@ const TaskCard = ({
   onClick,
   className = "",
 }) => {
+  const { toast } = useToast();
+  const [filters, setFilters] = useState({ status: '', priority: '' });
+
+useEffect(() => {
+  const fetchTasks = async () => {
+    const response = await tasksApi.getTasks(filters);
+    setTasks(response.data.tasks);
+  };
+  fetchTasks();
+}, [filters, refreshTrigger]);
   const daysUntilDue = task.dueDate
     ? Math.ceil(
         (new Date(task.dueDate) - new Date()) / (1000 * 60 * 60 * 24)
@@ -87,10 +99,12 @@ const TaskCard = ({
             <div className="flex items-center flex-wrap gap-2 mb-3">
               <PriorityBadge priority={task.priority} />
               {showAssignee && (
-                <Badge variant="secondary" className="text-xs">
-                  {task.assigneeName}
-                </Badge>
-              )}
+  <Badge variant="secondary" className="text-xs">
+    {/* Changed from task.assigneeName to: */}
+    {task.assignees?.map(a => a.name).join(', ')}
+  </Badge>
+)}
+
               {isOverdue && (
                 <Badge variant="destructive" className="text-xs">
                   ⚠️ Overdue
@@ -279,15 +293,28 @@ const TaskCard = ({
         {showActions && (
           <div className="task-actions flex items-center gap-2">
             {onAccept && (
-              <Button
-                size="sm"
-                className="gap-1"
-                onClick={() => onAccept(task)}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Accept
-              </Button>
-            )}
+  <Button
+    size="sm"
+    className="gap-1"
+    onClick={async () => {
+      try {
+        await tasksApi.acceptTask(task._id);
+        toast({ title: "Task accepted" });
+        // Refresh task list or update local state
+      } catch (error) {
+        toast({ 
+          title: "Error", 
+          description: error.response?.data?.message,
+          variant: "destructive" 
+        });
+      }
+    }}
+  >
+    <CheckCircle2 className="h-4 w-4" />
+    Accept
+  </Button>
+)}
+
             {onDecline && (
               <Button
                 size="sm"

@@ -4,16 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Save } from "lucide-react";
-// Add at the top
+import { Save, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
-import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 
 const UserSettings = () => {
-  const { user: currentUser } = useAuth();
+const { user: currentUser } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -30,7 +31,7 @@ const UserSettings = () => {
       setLoading(true);
       try {
         const res = await usersApi.get(currentUser.id);
-        const userData = res.data?.user || res.user;
+        const userData = res.data?.user || res.user || res.data || res;
         setUser(userData);
         setFormData(prev => ({
           ...prev,
@@ -39,6 +40,11 @@ const UserSettings = () => {
         }));
       } catch (error) {
         console.error("Failed to load user:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load user data",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
@@ -61,15 +67,95 @@ const UserSettings = () => {
   //   { id: "4", name: "Customer Support", roles: ["Staff"] },
   //   { id: "5", name: "Human Resources", roles: ["Admin", "Staff"] },
   // ];
-  const groupMemberships = user?.groups || [];
+  const groupMemberships = (user?.groups || []).map(group => {
+    // If group is a string (just ID), return a basic object
+    if (typeof group === 'string') {
+      return {
+        id: group,
+        name: 'Unknown Group',
+        _id: group
+      };
+    }
+    // If group is an object, use it as is
+    return {
+      id: group._id || group.id,
+      name: group.name || 'Unknown Group',
+      _id: group._id || group.id,
+      memberCount: group.members?.length || 0
+    };
+  });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveChanges = () => {
-    console.log("Saving changes:", formData);
+  const handleSaveChanges = async () => {
+    // Validate password fields if user is trying to change password
+    if (formData.newPassword || formData.confirmPassword || formData.currentPassword) {
+      if (!formData.currentPassword) {
+        toast({
+          title: "Validation Error",
+          description: "Current password is required to change password",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.newPassword !== formData.confirmPassword) {
+        toast({
+          title: "Validation Error",
+          description: "New passwords do not match",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.newPassword.length < 8) {
+        toast({
+          title: "Validation Error",
+          description: "New password must be at least 8 characters",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setSaving(true);
+    try {
+      const updateData = {
+        name: formData.name,
+        // Only include password fields if user is changing password
+        ...(formData.newPassword && {
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        })
+      };
+
+      await usersApi.update(currentUser.id, updateData);
+      
+      toast({
+        title: "Success",
+        description: "Your settings have been updated",
+      });
+
+      // Clear password fields after successful save
+      if (formData.newPassword) {
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to save changes:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to save changes",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleResetPassword = () => {
@@ -81,58 +167,72 @@ const UserSettings = () => {
     }));
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">User Settings</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your profile information and application preferences.
-          </p>
-        </div>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-semibold text-foreground">User Settings</h1>
+        <p className="text-muted-foreground mt-1">
+          Manage your profile information and application preferences.
+        </p>
+      </div>
 
-        {/* Profile Settings Tab */}
-        <div className="flex justify-center mb-6">
-          <Button className="w-full max-w-md bg-primary hover:bg-primary/90">
-            Profile Settings
-          </Button>
-        </div>
+      {/* Profile Settings Tab */}
+      <div className="flex justify-center mb-6">
+        <Button className="w-full max-w-md bg-primary hover:bg-primary/90">
+          Profile Settings
+        </Button>
+      </div>
 
-        {/* Personal Details Card */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Personal Details</h2>
-              <p className="text-sm text-muted-foreground">
-                Update your personal information and manage your password.
+      {/* Personal Details Card */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Personal Details</h2>
+            <p className="text-sm text-muted-foreground">
+              Update your personal information and manage your password.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="John Doe"
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="john.doe@opexcal.com"
+                disabled // Email usually shouldn't be editable
+              />
+              <p className="text-xs text-muted-foreground">
+                Contact your administrator to change your email
               </p>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="John Doe"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="john.doe@opexcal.com"
-                />
-              </div>
-            </div>
-
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-md font-medium mb-4">Change Password</h3>
+            
             <div className="space-y-2 mb-4">
               <Label htmlFor="currentPassword">Current Password</Label>
               <Input
@@ -142,6 +242,7 @@ const UserSettings = () => {
                 value={formData.currentPassword}
                 onChange={handleInputChange}
                 placeholder="••••••••"
+                disabled={saving}
               />
             </div>
 
@@ -155,6 +256,7 @@ const UserSettings = () => {
                   value={formData.newPassword}
                   onChange={handleInputChange}
                   placeholder="Enter new password"
+                  disabled={saving}
                 />
               </div>
               <div className="space-y-2">
@@ -166,63 +268,117 @@ const UserSettings = () => {
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   placeholder="Confirm new password"
+                  disabled={saving}
                 />
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={handleResetPassword}>
-                Reset Password
-              </Button>
-              <Button onClick={handleSaveChanges} className="bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={handleResetPassword}
+              disabled={saving}
+            >
+              Clear Password Fields
+            </Button>
+            <Button 
+              onClick={handleSaveChanges} 
+              disabled={saving}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Group Memberships Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
+            Group Memberships
+          </h2>
+
+          {groupMemberships.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                You are not a member of any groups yet
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Group Memberships Card */}
-        <Card>
-          <CardContent className="pt-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Group Memberships</h2>
-
+          ) : (
             <div className="space-y-4">
               {groupMemberships.map((group) => (
                 <div
                   key={group.id}
                   className="flex items-center justify-between py-3 border-b border-border last:border-0"
                 >
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-foreground">{group.name}</p>
-                    <div className="flex gap-2 mt-1">
-                      {group.roles.map((role) => (
-                        <Badge
-                          key={role}
-                          variant={role === "Admin" ? "default" : "secondary"}
-                          className={
-                            role === "Admin"
-                              ? "bg-green-600 hover:bg-green-700 text-white"
-                              : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                          }
-                        >
-                          {role}
-                        </Badge>
-                      ))}
-                    </div>
+                    {group.memberCount > 0 && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {group.memberCount} member{group.memberCount !== 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="secondary">
+                      {user?.role || 'Member'}
+                    </Badge>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Role Display */}
+      {user?.role && (
+        <Card className="mt-6">
+          <CardContent className="pt-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
+              System Role
+            </h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Your current role in the organization
+                </p>
+              </div>
+              <Badge 
+                variant={user.role === 'SuperAdmin' ? 'default' : 'secondary'}
+                className={
+                  user.role === 'SuperAdmin'
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : user.role === 'Admin'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : ''
+                }
+              >
+                {user.role}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Footer Links */}
-        <div className="flex justify-center gap-8 mt-8 text-sm text-muted-foreground">
-          <span className="hover:text-foreground cursor-pointer">Company</span>
-          <span className="hover:text-foreground cursor-pointer">Resources</span>
-          <span className="hover:text-foreground cursor-pointer">Legal</span>
-        </div>
+      {/* Footer Links */}
+      <div className="flex justify-center gap-8 mt-8 text-sm text-muted-foreground">
+        <span className="hover:text-foreground cursor-pointer">Company</span>
+        <span className="hover:text-foreground cursor-pointer">Resources</span>
+        <span className="hover:text-foreground cursor-pointer">Legal</span>
+      </div>
     </div>
   );
 };

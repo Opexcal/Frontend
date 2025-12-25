@@ -1,45 +1,61 @@
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-/**
- * StatusBadge - Visual indicator for task status
- */
-const StatusBadge = ({ status, className = "" }) => {
-  const statusConfig = {
-    not_started: {
-      icon: "⭕",
-      color: "text-gray-600 bg-gray-50",
-      label: "Not Started",
-    },
-    in_progress: {
-      icon: "🔵",
-      color: "text-blue-600 bg-blue-50",
-      label: "In Progress",
-    },
-    completed: {
-      icon: "✅",
-      color: "text-green-600 bg-green-50",
-      label: "Completed",
-    },
-    on_hold: {
-      icon: "⏸️",
-      color: "text-orange-600 bg-orange-50",
-      label: "On Hold",
-    },
-  };
+const statusConfig = {
+  // Backend values (capitalized)
+  "Pending": {
+    label: "Pending",
+    className: "bg-muted text-muted-foreground",
+  },
+  "In-Progress": {
+    label: "In Progress",
+    className: "bg-primary/10 text-primary",
+  },
+  "Completed": {
+    label: "Completed",
+    className: "bg-success/10 text-success",
+  },
+  "Rejected": {
+    label: "Rejected",
+    className: "bg-destructive/10 text-destructive", // Add this for rejected tasks
+  },
+  
+  // Legacy frontend values (for backward compatibility during migration)
+  "not-started": {
+    label: "Not Started",
+    className: "bg-muted text-muted-foreground",
+  },
+  "in-progress": {
+    label: "In Progress",
+    className: "bg-primary/10 text-primary",
+  },
+  "completed": {
+    label: "Completed",
+    className: "bg-success/10 text-success",
+  },
+  "on-hold": {
+    label: "On Hold",
+    className: "bg-warning/10 text-warning",
+  },
+};
 
-  const config = statusConfig[status] || statusConfig.not_started;
-
+const StatusBadge = ({ status, className }) => {
+  const config = statusConfig[status];
+  
+  // Fallback for unknown status
+  if (!config) {
+    console.warn(`Unknown status: ${status}`);
+    return (
+      <Badge variant="secondary" className={cn("bg-muted text-muted-foreground", className)}>
+        {status}
+      </Badge>
+    );
+  }
+  
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium",
-        config.color,
-        className
-      )}
-    >
-      <span>{config.icon}</span>
-      <span>{config.label}</span>
-    </span>
+    <Badge variant="secondary" className={cn(config.className, className)}>
+      {config.label}
+    </Badge>
   );
 };
 

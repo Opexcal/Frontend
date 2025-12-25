@@ -36,6 +36,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "../../context/AuthContext";
 import { roleDisplayMap } from '@/constant/roleMapDisplay';
+import { useNavigate } from 'react-router-dom';
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -52,13 +53,19 @@ const adminNavItems = [
 
 export const DashboardSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, logout } = useAuth();
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + "/");
 
   // Role display mapping and helpers
+ // Add this handler
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   const formatRole = (role) => {
   if (!role) return "User";
@@ -234,11 +241,12 @@ export const DashboardSidebar = () => {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" asChild>
-              <Link to="/login">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </Link>
+            <DropdownMenuItem 
+              className="text-destructive cursor-pointer"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
