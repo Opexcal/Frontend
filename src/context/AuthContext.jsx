@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi } from "@/api/authApi";
-import { roleDisplayMap, backendToFrontendRole } from '@/constant/roleMapDisplay';
-import apiClient from '@/api/client';
+import { backendToFrontendRole } from '@/constant/roleMapDisplay';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 const AuthContext = createContext();
 
@@ -16,6 +16,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
 const loadCurrentUser = useCallback(async () => {
+    const publicRoutes = ['/login', '/register', '/forgot-password'];
+  if (publicRoutes.includes(window.location.pathname)) {
+    setLoading(false);
+    return;
+  }
   try {
     const res = await authApi.getMe();
     const apiUser = res.data?.user || res.user || res.data || res;
@@ -48,11 +53,15 @@ const login = async (credentials) => {
   try {
     const res = await authApi.login(credentials);
     
+    // ✅ ADD TOKEN HANDLING
+    const token = res.data?.token || res.token;
     const userData = res.data?.user || res.user;
     
-    if (!userData) {
-      throw new Error('No user data received');
+    if (!token) {
+      throw new Error('No authentication token received');
     }
+    
+    localStorage.setItem('authToken', token); // ✅ ADD THIS
     
     const normalizedUser = {
       ...userData,
@@ -128,7 +137,7 @@ const logout = async () => {
         hasPermission,
       }}
     >
-      {children}
+      {loading ? <LoadingScreen /> : children}
     </AuthContext.Provider>
   );
 };

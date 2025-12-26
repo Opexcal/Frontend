@@ -29,7 +29,7 @@ export const TeamProvider = ({ children }) => {
   const [selectedTeam, setSelectedTeam] = useState(null);
 
   // Fetch team dashboard
- const fetchTeamDashboard = useCallback(async (teamId) => {
+ const fetchTeamDashboard = useCallback(async () => {
   setTeamData((prev) => ({ ...prev, loading: true, error: null }));
   try {
     const response = await teamApi.getDashboard();
@@ -48,14 +48,17 @@ export const TeamProvider = ({ children }) => {
 }, []);
 
 const fetchTeamMembers = useCallback(async (teamId) => {
+  setTeamData(prev => ({ ...prev, loading: true })); // ✅ ADD THIS
   try {
     const response = await teamApi.getMembers(teamId);
     setTeamData(prev => ({
       ...prev,
-      members: response.members || response.data?.members || []
+      members: response.members || response.data?.members || [],
+      loading: false // ✅ ADD THIS
     }));
   } catch (error) {
-    console.error("Error fetching team members:", error);
+    setTeamData(prev => ({ ...prev, error: error.message, loading: false })); // ✅ ADD THIS
+    throw error; // ✅ ADD THIS
   }
 }, []);
 
@@ -78,43 +81,43 @@ const fetchTeamTasks = useCallback(async (teamId, filters) => {
 }, []);
 
 const createTask = useCallback(async (taskData) => {
+  setTeamData(prev => ({ ...prev, loading: true }));
   try {
     const response = await tasksApi.createTask(taskData);
     const newTask = response.task || response.data?.task;
     setTeamData(prev => ({
       ...prev,
-      tasks: [...prev.tasks, newTask]
+      tasks: [...prev.tasks, newTask],
+      loading: false
     }));
     return newTask;
   } catch (error) {
-    console.error("Error creating task:", error);
+    setTeamData(prev => ({ ...prev, error: error.message, loading: false })); // ✅ ADD THIS
     throw error;
   }
 }, []);
 
 const updateTask = useCallback(async (taskId, updates) => {
+  setTeamData(prev => ({ ...prev, loading: true }));
   try {
     const response = await tasksApi.updateTask(taskId, updates);
     const updatedTask = response.task || response.data?.task;
-    setTeamData(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => t._id === taskId || t.id === taskId ? updatedTask : t)
-    }));
+      setTeamData(prev => ({ ...prev, tasks: prev.tasks.map(t => t._id === taskId || t.id === taskId ? updatedTask : t), loading: false }));
     return updatedTask;
   } catch (error) {
+     setTeamData(prev => ({ ...prev, error: error.message, loading: false }));
     console.error("Error updating task:", error);
     throw error;
   }
 }, []);
 
 const deleteTask = useCallback(async (taskId) => {
+  setTeamData(prev => ({ ...prev, loading: true }));
   try {
     await tasksApi.deleteTask(taskId);
-    setTeamData(prev => ({
-      ...prev,
-      tasks: prev.tasks.filter(t => t._id !== taskId && t.id !== taskId)
-    }));
+     setTeamData(prev => ({ ...prev, tasks: prev.tasks.map(t => t._id === taskId || t.id === taskId ? deleteTask : t), loading: false }));
   } catch (error) {
+     setTeamData(prev => ({ ...prev, error: error.message, loading: false }));
     console.error("Error deleting task:", error);
     throw error;
   }
@@ -160,7 +163,7 @@ const acceptAssignment = useCallback(async (assignmentId) => {
         a._id === assignmentId || a.id === assignmentId 
           ? updatedTask 
           : a
-      )
+      ), loading: false
     }));
   } catch (error) {
     console.error("Error accepting assignment:", error);
@@ -180,7 +183,7 @@ const declineAssignment = useCallback(async (assignmentId, reason) => {
         a._id === assignmentId || a.id === assignmentId 
           ? updatedTask 
           : a
-      )
+      ), loading: false
     }));
   } catch (error) {
     console.error("Error declining assignment:", error);
