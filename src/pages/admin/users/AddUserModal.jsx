@@ -3,11 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Info } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usersApi } from "@/api/usersApi";
 import { groupsApi } from "@/api/groupsApi";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
   const { toast } = useToast();
@@ -23,6 +24,9 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
 
+  // Track if user wants to create "Unassigned" (Wanderer)
+  const [isUnassigned, setIsUnassigned] = useState(false);
+
   useEffect(() => {
     if (open) {
       loadGroups();
@@ -33,31 +37,43 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
       setRole("Staff");
       setSelectedGroups([]);
       setSendWelcomeEmail(true);
+      setIsUnassigned(false);
       setError(null);
     }
   }, [open]);
 
   const loadGroups = async () => {
-  setLoadingGroups(true);
-  try {
-    const res = await groupsApi.getGroups();
-    // Handle the response structure properly
-    const groupsData = res.data || res || [];
-    console.log('✅ Loaded groups for modal:', groupsData);
-    setGroups(Array.isArray(groupsData) ? groupsData : []);
-  } catch (err) {
-    console.error("Failed to load groups:", err);
-    setGroups([]);
-  } finally {
-    setLoadingGroups(false);
-  }
-};
+    setLoadingGroups(true);
+    try {
+      const res = await groupsApi.getGroups();
+      const groupsData = res.data || res || [];
+      setGroups(Array.isArray(groupsData) ? groupsData : []);
+    } catch (err) {
+      console.error("Failed to load groups:", err);
+      setGroups([]);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
   const handleGroupToggle = (groupId) => {
     setSelectedGroups(prev =>
       prev.includes(groupId)
         ? prev.filter(id => id !== groupId)
         : [...prev, groupId]
     );
+  };
+
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    
+    // If changing to "Unassigned", clear all groups
+    if (newRole === "Unassigned") {
+      setIsUnassigned(true);
+      setSelectedGroups([]);
+    } else {
+      setIsUnassigned(false);
+    }
   };
 
   const submit = async () => {
@@ -74,14 +90,20 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
       return setError("Password must be at least 8 characters");
     }
 
+    // Warn if creating unassigned user
+    if (isUnassigned && selectedGroups.length > 0) {
+      return setError("Unassigned users cannot be in groups. Please deselect all groups.");
+    }
+
     setLoading(true);
     try {
       const userData = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        role,
-        groups: selectedGroups,
+        // ✅ Always send backend-compatible role
+        role: isUnassigned ? "Staff" : role, // Backend will auto-assign "Unassigned" if no groups
+        groups: isUnassigned ? [] : selectedGroups, // Empty groups for wanderers
         sendWelcomeEmail
       };
 
@@ -89,7 +111,9 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
 
       toast({
         title: "User created successfully",
-        description: `${name} has been added to your organization`,
+        description: isUnassigned 
+          ? `${name} has been added as an unassigned user (Wanderer)`
+          : `${name} has been added to your organization`,
       });
 
       onSuccess(response.data || response.user);
@@ -158,55 +182,73 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
               User will change this on first login
             </p>
           </div>
+          
+          {/* Role Selection */}
           <div>
             <Label>Role</Label>
             <select 
               className="w-full border rounded p-2" 
-              value={role} 
-              onChange={(e) => setRole(e.target.value)}
+              value={isUnassigned ? "Unassigned" : role} 
+              onChange={(e) => handleRoleChange(e.target.value)}
               disabled={loading}
             >
+              <option value="Unassigned">Unassigned (Wanderer)</option>
               <option value="Staff">Staff</option>
               <option value="Admin">Admin</option>
               <option value="SuperAdmin">SuperAdmin</option>
             </select>
+            {isUnassigned && (
+              <Alert className="mt-2">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Unassigned users can only manage personal tasks until assigned to a group.
+                  They will not have access to team features.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
-          {/* Groups */}
-         {/* Groups */}
-{groups.length > 0 && (
-  <div>
-    <Label>Assign to Groups (Optional)</Label>
-    {loadingGroups ? (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading groups...
-      </div>
-    ) : (
-      <div className="border rounded p-3 space-y-2 max-h-40 overflow-y-auto">
-        {groups.map((group) => {
-          const groupId = group._id || group.id; // ✅ Get the correct ID
-          return (
-            <div key={groupId} className="flex items-center space-x-2">
-              <Checkbox
-                id={`group-${groupId}`}
-                checked={selectedGroups.includes(groupId)}
-                onCheckedChange={() => handleGroupToggle(groupId)}
-                disabled={loading}
-              />
-              <Label
-                htmlFor={`group-${groupId}`}
-                className="text-sm font-normal cursor-pointer"
-              >
-                {group.name}
+          {/* Groups - Disabled for Unassigned users */}
+          {groups.length > 0 && (
+            <div>
+              <Label className={isUnassigned ? "text-muted-foreground" : ""}>
+                Assign to Groups {isUnassigned && "(Disabled for Unassigned)"}
               </Label>
+              {loadingGroups ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading groups...
+                </div>
+              ) : (
+                <div className={`border rounded p-3 space-y-2 max-h-40 overflow-y-auto ${isUnassigned ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {groups.map((group) => {
+                    const groupId = group._id || group.id;
+                    return (
+                      <div key={groupId} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`group-${groupId}`}
+                          checked={selectedGroups.includes(groupId)}
+                          onCheckedChange={() => handleGroupToggle(groupId)}
+                          disabled={loading || isUnassigned}
+                        />
+                        <Label
+                          htmlFor={`group-${groupId}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
+                          {group.name}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {isUnassigned && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Unassigned users cannot be in groups
+                </p>
+              )}
             </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-)}
+          )}
 
           {/* Welcome Email */}
           <div className="flex items-center space-x-2">

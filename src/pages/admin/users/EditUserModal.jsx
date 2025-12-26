@@ -134,23 +134,24 @@ const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
             </div>
 
             <div>
-              <Label>Role</Label>
-              <select 
-                className="w-full border rounded p-2" 
-                value={role} 
-                onChange={(e) => setRole(e.target.value)}
-                disabled={loading || isEditingSelf}
-              >
-                <option value="Staff">Staff</option>
-                <option value="Admin">Admin</option>
-                <option value="SuperAdmin">SuperAdmin</option>
-              </select>
-              {isEditingSelf && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  You cannot change your own role
-                </p>
-              )}
-            </div>
+  <Label>Role</Label>
+  <select 
+    className="w-full border rounded p-2" 
+    value={role} 
+    onChange={(e) => setRole(e.target.value)}
+    disabled={loading || isEditingSelf}
+  >
+    <option value="Unassigned">Unassigned (Wanderer)</option>
+    <option value="Staff">Staff</option>
+    <option value="Admin">Admin</option>
+    <option value="SuperAdmin">SuperAdmin</option>
+  </select>
+  {isEditingSelf && (
+    <p className="text-xs text-muted-foreground mt-1">
+      You cannot change your own role
+    </p>
+  )}
+</div>
 
 {groups.length > 0 && (
   <div>
