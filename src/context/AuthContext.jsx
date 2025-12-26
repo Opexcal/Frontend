@@ -17,11 +17,7 @@ export const AuthProvider = ({ children }) => {
 
 const loadCurrentUser = useCallback(async () => {
   try {
-    console.log('🔄 Loading current user...');
     const res = await authApi.getMe();
-    
-    console.log('📦 getMe response:', res);
-    
     const apiUser = res.data?.user || res.user || res.data || res;
     
     if (!apiUser || !apiUser.email) {
@@ -33,18 +29,14 @@ const loadCurrentUser = useCallback(async () => {
       role: backendToFrontendRole[apiUser.role] || "wanderer",
     };
     
-    console.log('✅ User loaded:', normalizedUser);
     setUser(normalizedUser);
-    
   } catch (err) {
-    console.error('❌ Failed to load user:', err);
-    // Cookie is invalid/expired - backend handles clearing
+    // Silently handle - user not logged in is expected on initial load
     setUser(null);
   } finally {
     setLoading(false);
   }
 }, []);
-
 
   useEffect(() => {
     loadCurrentUser();
@@ -99,11 +91,13 @@ const register = async (data) => {
 
 const logout = async () => {
   try {
-    await authApi.logout(); // ✅ Call backend to clear cookie
+    await authApi.logout();
     setUser(null);
   } catch (error) {
-    console.error('Logout error:', error);
-    setUser(null); // Clear user even if API fails
+    if (import.meta.env.DEV) {
+      console.error('Logout error:', error);
+    }
+    setUser(null);
   }
 };
 
