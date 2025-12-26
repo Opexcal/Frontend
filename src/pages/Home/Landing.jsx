@@ -47,18 +47,18 @@ const features = [
 
 const Landing = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background font-roboto ">
       <PublicNavbar showLogin showSignUp />
 
       {/* Hero Section */}
-      <section className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
+      <section className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center font-roboto">
         <div className="max-w-4xl mx-auto animate-slide-up">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-semibold text-foreground leading-tight font-roboto">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-medium text-foreground leading-tight font-roboto tracking-wider">
             Your organization's heartbeat,
             <br />
             <span className="text-foreground">on one calendar</span>
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-10 text-lg md:text-xl text-foreground max-w-3xl mx-auto font-roboto">
             Manage tasks, track progress, and stay aligned — from meetings to milestones.
           </p>
           
@@ -79,7 +79,7 @@ const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 bg-secondary/30">
+      <section className="py-20 px-4 bg-secondary/30 font-roboto">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-display font-semibold text-foreground">
