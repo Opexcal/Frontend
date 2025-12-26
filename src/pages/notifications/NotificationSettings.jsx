@@ -26,7 +26,7 @@ import {
 
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNotifications } from "@/context/NotificationContext";
 
 /**
@@ -35,7 +35,6 @@ import { useNotifications } from "@/context/NotificationContext";
  */
 const NotificationSettings = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { updateSettings, getSettings } = useNotifications();
 
   const defaultSettings = {
@@ -130,15 +129,12 @@ const NotificationSettings = () => {
     try {
       await updateSettings(settings);
       setHasChanges(false);
-      toast({
-        title: "Success",
+      toast.success("Success", {
         description: "Notification settings saved successfully",
       });
     } catch (error) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to save settings",
-        variant: "destructive",
       });
     }
   };
@@ -150,8 +146,7 @@ const NotificationSettings = () => {
   };
 
   const handleTestNotification = () => {
-    toast({
-      title: "Test Notification",
+    toast.success("Test Notification", {
       description: "This is a test notification to verify your settings",
     });
   };

@@ -8,13 +8,13 @@ import TeamMemberCard from "@/components/team/TeamMemberCard";
 import AssignmentModal from "@/components/team/AssignmentModal";
 import { format } from "date-fns";
 import { teamApi } from '@/api/teamApi';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 /**
  * TeamDashboard - Overview of team workload and performance
  */
 const TeamDashboard = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,10 +94,8 @@ const fetchDashboard = async () => {
     
   } catch (error) {
     console.error("Error fetching dashboard:", error);
-    toast({
-      title: "Failed to load dashboard",
-      description: error?.response?.data?.message || error?.message || "Please try again",
-      variant: "destructive"
+    toast.error("Failed to load dashboard", {
+      description: error?.response?.data?.message || error?.message || "Please try again"
     });
     setDashboardData(null);
   } finally {
@@ -107,7 +105,7 @@ const fetchDashboard = async () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, [toast]);
+  }, []);
 
   // 🔥 Updated assignment handler
   const handleAssignTask = async (data) => {
@@ -115,9 +113,8 @@ const fetchDashboard = async () => {
       const { tasksApi } = await import('../../api/taskApi');
       
       await tasksApi.createTask(data);
-      
-      toast({
-        title: "Task assigned successfully",
+
+      toast.success("Task assigned successfully", {
         description: `Task "${data.title}" has been assigned`,
       });
       
@@ -128,10 +125,8 @@ const fetchDashboard = async () => {
       
     } catch (error) {
       console.error("Error assigning task:", error);
-      toast({
-        title: "Failed to assign task",
-        description: error?.response?.data?.message || error?.message,
-        variant: "destructive"
+      toast.error("Failed to assign task", {
+        description: error?.response?.data?.message || error?.message
       });
     }
   };

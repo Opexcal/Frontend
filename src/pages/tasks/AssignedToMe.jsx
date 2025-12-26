@@ -26,11 +26,11 @@ import {
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
 import { tasksApi } from "@/api/taskApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 const AssignedToMe = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -61,20 +61,18 @@ const AssignedToMe = () => {
           }))
         );
       } catch (error) {
-        toast({
-          title: "Failed to load tasks",
+        toast.error("Failed to load tasks", {
           description:
             error?.message ||
             error?.data?.message ||
             "Please try again later.",
-          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [user?.id, toast]);
+  }, [user?.id]);
 
   const handleAccept = (taskId) => {
     tasksApi
@@ -87,13 +85,11 @@ const AssignedToMe = () => {
               : task
           )
         );
-        toast({ title: "Task accepted" });
+        toast.success("Task accepted");
       })
       .catch((error) =>
-        toast({
-          title: "Failed to accept task",
+        toast.error("Failed to accept task", {
           description: error?.message || error?.data?.message,
-          variant: "destructive",
         })
       );
   };
@@ -109,13 +105,11 @@ const AssignedToMe = () => {
               : task
           )
         );
-        toast({ title: "Task declined" });
+        toast.success("Task declined");
       })
       .catch((error) =>
-        toast({
-          title: "Failed to decline task",
+        toast.error("Failed to decline task", {
           description: error?.message || error?.data?.message,
-          variant: "destructive",
         })
       );
   };

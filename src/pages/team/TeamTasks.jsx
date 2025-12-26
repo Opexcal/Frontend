@@ -28,14 +28,13 @@ import AssignmentModal from "@/components/team/AssignmentModal";
 import { getTeamTasks, mockTeamMembers } from "@/lib/mockTeamData";import { teamApi } from '@/api/teamApi';
 import { groupsApi } from '@/api/groupsApi';
 import { tasksApi } from '@/api/taskApi';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 
 /**
  * TeamTasks - Comprehensive view of team tasks with assignment
  */
 const TeamTasks = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
   const [tasks, setTasks] = useState([]);
@@ -97,10 +96,8 @@ const fetchTasks = async () => {
     
   } catch (error) {
     console.error("Error fetching tasks:", error);
-    toast({
-      title: "Failed to load tasks",
-      description: error?.message || "Please try again",
-      variant: "destructive"
+    toast.error("Failed to load tasks", {
+      description: error?.message || "Please try again"
     });
   } finally {
     setLoading(false);

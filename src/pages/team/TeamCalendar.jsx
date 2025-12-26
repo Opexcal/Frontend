@@ -33,10 +33,10 @@ import {
   isSameDay,
 } from "date-fns";
 import { teamApi } from '@/api/teamApi'
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
+
 
 const TeamCalendar = () => {
-  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 20));
   const [viewMode, setViewMode] = useState("month");
   const [selectedMember, setSelectedMember] = useState("all");
@@ -74,10 +74,8 @@ const TeamCalendar = () => {
       setMembers(membersList);
     } catch (error) {
   console.error("Error fetching members:", error);
-  toast({
-    title: "Failed to load members",
-    description: "Member filter unavailable",
-    variant: "destructive"
+  toast.error("Failed to load members", {
+    description: "Member filter unavailable"
   });
   setMembers([]); // Empty array instead of mock
 } finally {
@@ -154,10 +152,8 @@ const TeamCalendar = () => {
       
 } catch (error) {
   logApiError('Team Calendar Events', error);
-  toast({
-    title: "Failed to load events",
-    description: error?.response?.data?.message || "Unable to fetch data",
-    variant: "destructive"
+  toast.error("Failed to load events", {
+    description: error?.response?.data?.message || "Unable to fetch data"
   });
   setEvents([]);
 } finally {
@@ -243,16 +239,13 @@ const TeamCalendar = () => {
   const handleCreateEvent = async (eventData) => {
     try {
       await teamApi.createEvent(eventData);
-      toast({
-        title: "Event created",
+      toast.success("Event created", {
         description: "The event has been added to the calendar",
       });
       fetchEvents();
     } catch (error) {
-      toast({
-        title: "Failed to create event",
-        description: error?.message || "Please try again",
-        variant: "destructive"
+      toast.error("Failed to create event", {
+        description: error?.message || "Please try again"
       });
     }
   };

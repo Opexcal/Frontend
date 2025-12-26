@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import RecipientSelector from '../../components/RecipientSelector';
 import RichTextEditor from '../../components/RichTextEditor';
 import PreviewModal from '../../components/PreviewModal';
+import { toast } from "sonner";
 
 const MassMessaging = () => {
   const { user } = useAuth();
@@ -26,11 +27,9 @@ const handleSend = async () => {
     const groupId = messageData.selectedGroups[0]?.id;
     
     if (!groupId) {
-      toast({
-        title: "Select a group",
-        description: "Mass messaging requires at least one group.",
-        variant: "destructive",
-      });
+      toast.error("Group Required", {
+  description: "Mass messaging requires at least one group.",
+});
       return;
     }
     
@@ -39,9 +38,8 @@ const handleSend = async () => {
       message: messageData.message,
       // subject not in backend yet
     });
-    
-    toast({
-      title: "Message sent",
+
+    toast.success("Message Sent", {
       description: `Successfully sent to ${recipientCount} members.`,
     });
 
@@ -58,11 +56,11 @@ const handleSend = async () => {
     setRecipientCount(0);
     
   } catch (error) {
-    toast({
-      title: "Failed to send message",
-      description: error?.response?.data?.message || "Something went wrong",
-      variant: "destructive",
-    });
+    toast.error("Message Sending Failed", {
+  description:
+    error?.response?.data?.message ||
+    "Something went wrong while sending the message.",
+});
   } finally {
     setSending(false);
     setShowPreview(false);

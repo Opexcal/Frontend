@@ -27,10 +27,10 @@ import {
 } from "recharts";
 
 import { teamApi } from '@/api/teamApi';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 const TeamReports = () => {
-  const { toast } = useToast();
   const [dateRange, setDateRange] = useState("30days");
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -260,10 +260,8 @@ console.log('Member performance:', memberPerformance);
     
   } catch (error) {
     logApiError('Team Reports', error);
-    toast({
-      title: "Failed to load reports",
+    toast.error("Failed to load reports", {
       description: error?.response?.data?.message || error?.message || "Unable to fetch data",
-      variant: "destructive"
     });
     setReportData(null);
   } finally {
@@ -291,10 +289,8 @@ console.log('Member performance:', memberPerformance);
 
   const handleExport = async () => {
     if (!reportData) {
-      toast({
-        title: "No data to export",
+      toast.error("No data to export", {
         description: "Please wait for the report to load",
-        variant: "destructive"
       });
       return;
     }
@@ -334,15 +330,13 @@ console.log('Member performance:', memberPerformance);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Report exported",
+
+      toast.success("Report exported", {
         description: "CSV file downloaded successfully",
       });
     } catch (error) {
       console.error("Export error:", error);
-      toast({
-        title: "Export failed",
+      toast.error("Export failed", {
         description: "Could not generate report file",
         variant: "destructive"
       });

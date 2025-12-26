@@ -4,10 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import RecipientSelector from '../../components/RecipientSelector';
 import RichTextEditor from '../../components/RichTextEditor';
 import PreviewModal from '../../components/PreviewModal';
-import { useToast } from '../../hooks/use-toast';
+import { toast } from "sonner";
+
 
 const MassEventCreation = () => {
-  const toast = useToast();
   const { user } = useAuth();
   const [eventData, setEventData] = useState({
     title: '',
@@ -28,11 +28,10 @@ const handleCreateEvent = async () => {
     const groupId = eventData.selectedGroups[0]?.id;
     
     if (!groupId) {
-      toast({
-        title: "Select a group",
-        description: "Mass event creation requires at least one group.",
-        variant: "destructive",
-      });
+      toast.error("Group Required", {
+  description: "Mass event creation requires at least one group.",
+});
+
       return;
     }
     
@@ -46,10 +45,10 @@ const handleCreateEvent = async () => {
       // location not in backend yet
     });
     
-    toast({
-      title: "Event created",
-      description: `Successfully created event for ${recipientCount} members.`,
-    });
+    toast.success("Event Created", {
+  description: `Successfully created the event for ${recipientCount} members.`,
+});
+
 
     // Reset form
     setEventData({
@@ -64,11 +63,12 @@ const handleCreateEvent = async () => {
     setRecipientCount(0);
     
   } catch (error) {
-    toast({
-      title: "Failed to create event",
-      description: error?.response?.data?.message || "Something went wrong",
-      variant: "destructive",
-    });
+    toast.error("Event Creation Failed", {
+  description:
+    error?.response?.data?.message ||
+    "Something went wrong while creating the event.",
+});
+
   } finally {
     setSending(false);
     setShowPreview(false);

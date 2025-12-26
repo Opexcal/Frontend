@@ -26,11 +26,11 @@ import {
 import { format, parseISO, isPast, isToday, isThisWeek } from "date-fns";
 import { useAuth } from "@/context/AuthContext";
 import { tasksApi } from "@/api/taskApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 const MyTasks = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -62,20 +62,18 @@ const MyTasks = () => {
           }))
         );
       } catch (error) {
-        toast({
-          title: "Failed to load tasks",
+        toast.error("Failed to load tasks", {
           description:
             error?.message ||
             error?.data?.message ||
             "Please try again later.",
-          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [user?.id, toast]);
+  }, [user?.id]);
 
   const filteredTasks = useMemo(() => {
     return tasks

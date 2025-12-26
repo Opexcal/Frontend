@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import RecipientSelector from '../../components/RecipientSelector';
 import RichTextEditor from '../../components/RichTextEditor';
 import PreviewModal from '../../components/PreviewModal';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 const MassTaskCreation = () => {
   const { user } = useAuth();
@@ -25,19 +26,15 @@ const MassTaskCreation = () => {
 
     // Validate inputs
     if (!taskData.title.trim()) {
-      toast({
-        title: "Missing title",
+      toast.error("Missing title", {
         description: "Please enter a task title",
-        variant: "destructive",
       });
       return;
     }
 
     if (taskData.selectedGroups.length === 0 && taskData.selectedUsers.length === 0) {
-      toast({
-        title: "No recipients selected",
+      toast.error("No recipients selected", {
         description: "Please select at least one group or user",
-        variant: "destructive",
       });
       return;
     }
@@ -75,9 +72,8 @@ const MassTaskCreation = () => {
         
         await Promise.all(promises);
       }
-      
-      toast({
-        title: "Mass tasks created",
+
+      toast.success("Mass tasks created", {
         description: `Successfully created tasks for ${recipientCount} assignee${recipientCount !== 1 ? 's' : ''}.`,
       });
 
@@ -95,10 +91,8 @@ const MassTaskCreation = () => {
       
     } catch (error) {
       console.error("Mass task creation error:", error);
-      toast({
-        title: "Failed to create mass tasks",
+      toast.error("Failed to create mass tasks", {
         description: error?.response?.data?.message || error?.message || "Something went wrong",
-        variant: "destructive",
       });
     } finally {
       setSending(false);
