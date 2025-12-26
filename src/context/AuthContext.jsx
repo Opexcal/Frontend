@@ -48,59 +48,49 @@ const loadCurrentUser = useCallback(async () => {
     loadCurrentUser();
   }, [loadCurrentUser]);
 
-  // In AuthContext.jsx
-// src/context/AuthContext.jsx
-const login = async (credentials) => {
-  try {
-    const res = await authApi.login(credentials);
-    
-    console.log('Full API response:', res);
-    
-    // ✅ If using cookies, you don't need the token in the response
-    const userData = res.data?.user || res.user;
-    
-    if (!userData) {
-      throw new Error('No user data received');
-    }
-    
-    // ❌ REMOVE THESE LINES if using cookie-based auth:
-    // const token = res.data?.token || res.token;
-    // if (!token) {
-    //   throw new Error('No authentication token received');
-    // }
-    // localStorage.setItem('authToken', token);
-    
-    const normalizedUser = {
-      ...userData,
-      role: backendToFrontendRole[userData.role] || "wanderer",
-    };
-    setUser(normalizedUser);
-    
-    return normalizedUser;
-  } catch (error) {
-    throw error;
+  const login = async (credentials) => {
+  const res = await authApi.login(credentials);
+  
+  console.log('Full API response:', res);
+  
+  // ✅ If using cookies, you don't need the token in the response
+  const userData = res.data?.user || res.user;
+  
+  if (!userData) {
+    throw new Error('No user data received');
   }
+  
+  // ❌ REMOVE THESE LINES if using cookie-based auth:
+  // const token = res.data?.token || res.token;
+  // if (!token) {
+  //   throw new Error('No authentication token received');
+  // }
+  // localStorage.setItem('authToken', token);
+  
+  const normalizedUser = {
+    ...userData,
+    role: backendToFrontendRole[userData.role] || "wanderer",
+  };
+  setUser(normalizedUser);
+  
+  return normalizedUser;
 };
 const register = async (data) => {
-  try {
-    const res = await authApi.register(data);
-    
-    const userData = res.data?.user || res.user;
-    
-    if (!userData) {
-      throw new Error('No user data received');
-    }
-    
-    const normalizedUser = {
-      ...userData,
-      role: backendToFrontendRole[userData.role] || "wanderer",
-    };
-    setUser(normalizedUser);
-    
-    return normalizedUser;
-  } catch (error) {
-    throw error;
+  const res = await authApi.register(data);
+  
+  const userData = res.data?.user || res.user;
+  
+  if (!userData) {
+    throw new Error('No user data received');
   }
+  
+  const normalizedUser = {
+    ...userData,
+    role: backendToFrontendRole[userData.role] || "wanderer",
+  };
+  setUser(normalizedUser);
+  
+  return normalizedUser;
 };
 
 
