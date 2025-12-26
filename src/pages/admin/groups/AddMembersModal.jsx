@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usersApi } from "@/api/usersApi"; // You'll need this
 import { groupsApi } from "@/api/groupsApi";
-import { useToast } from "@/hooks/use-toast";
+import {toast} from 'sonner';
 const AddMembersModal = ({ open, onOpenChange, groupId, existingMemberIds = [], onSuccess }) => {
-  const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -63,10 +62,9 @@ const handleSubmit = async () => {
     await groupsApi.manageMembers(groupId, 'add', selectedUsers);
     
     // ✅ Add success toast
-    toast({
-      title: "Members added successfully",
-      description: `${selectedUsers.length} member(s) added to the group`,
-    });
+    toast.success("Members added successfully", {
+  description: `${selectedUsers.length} member(s) added to the group`,
+});
     
     onSuccess();
   } catch (err) {
@@ -74,11 +72,9 @@ const handleSubmit = async () => {
     setError(errorMsg);
     
     // ✅ Add error toast
-    toast({
-      title: "Failed to add members",
-      description: errorMsg,
-      variant: "destructive",
-    });
+    toast.error("Failed to add members", {
+  description: errorMsg,
+});
   } finally {
     setLoading(false);
   }

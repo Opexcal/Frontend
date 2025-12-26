@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import EditUserModal from "./EditUserModal";
 
 const UserDetails = () => {
   const { id } = useParams();
   const { user: currentUser } = useAuth();
-  const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showEdit,setShowEdit] = useState(false)
@@ -24,11 +23,9 @@ const UserDetails = () => {
       const u = res.user || res.data?.user || res.data;
       setUser(u);
     } catch (error) {
-      toast({
-        title: "Failed to load user",
-        description: error?.message || "Please try again later.",
-        variant: "destructive",
-      });
+      toast.error("Failed to load user", {
+  description: error?.message || "Please try again later.",
+});
     } finally {
       setLoading(false);
     }

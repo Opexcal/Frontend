@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usersApi } from "@/api/usersApi";
 import { groupsApi } from "@/api/groupsApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
 const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
@@ -54,11 +54,9 @@ const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
     
   } catch (err) {
     console.error('❌ Failed to load user:', err);
-    toast({
-      title: "Failed to load user",
-      description: err?.message || "Please try again",
-      variant: "destructive",
-    });
+    toast.error("Failed to load user", {
+  description: err?.message || "Please try again",
+});
   } finally {
     setLoadingUser(false);
   }
@@ -99,17 +97,15 @@ const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
         groups: selectedGroups,
       });
 
-      toast({ title: "User updated successfully" });
+      toast.success("User updated successfully");
       onSuccess();
       onOpenChange(false);
     } catch (err) {
       const errorMsg = err?.message || err?.data?.message || "Failed to update user";
       setError(errorMsg);
-      toast({
-        title: "Failed to update user",
-        description: errorMsg,
-        variant: "destructive",
-      });
+      toast.error("Failed to update user", {
+  description: errorMsg,
+});
     } finally {
       setLoading(false);
     }

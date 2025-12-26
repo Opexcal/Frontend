@@ -23,14 +23,14 @@ import {
 } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
 import { eventsApi } from "../../api/eventsApi"
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 
 
 const GroupCalendar = () => {
   const { id } = useParams(); // groupId
   const { user } = useAuth();
-  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("month");
   const [events, setEvents] = useState([]);
@@ -84,11 +84,10 @@ const fetchGroupEvents = async () => {
 
     setEvents(mappedEvents);
   } catch (error) {
-    toast({
-      title: "Error",
-      description: "Failed to load group events.",
-      variant: "destructive"
-    });
+toast.error("Failed to Load Group Events", {
+  description: "Unable to fetch events for this group. Please try again."
+});
+
   } finally {
     setIsLoading(false);
   }

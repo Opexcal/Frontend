@@ -9,10 +9,10 @@ import { PriorityBadge } from "@/components/common/PriorityBadge";
 import StatusBadge from "../../components/common/StatusBadge";
 import CreateTaskForm from "../../components/forms/CreateTaskForms";
 import { tasksApi } from "@/api/taskApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 const TaskLists = () => {
-  const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,11 +26,10 @@ const TaskLists = () => {
         const response = await tasksApi.getTasks();
         setTasks(response.data.tasks);
       } catch (error) {
-        toast({
-          title: "Error",
-          description: error.response?.data?.message || "Failed to load tasks",
-          variant: "destructive",
-        });
+        toast.error("Failed to Load Tasks", {
+  description: error.response?.data?.message || "Unable to fetch tasks. Please try again.",
+});
+
       } finally {
         setLoading(false);
       }
@@ -67,17 +66,16 @@ const TaskLists = () => {
 
     try {
       await tasksApi.deleteTask(taskId);
-      toast({
-        title: "Task deleted",
-        description: "The task has been successfully deleted.",
-      });
+     toast.success("Task Deleted", {
+  description: "The task has been successfully removed.",
+});
+
       setRefreshTrigger(prev => prev + 1); // Refresh task list
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to delete task",
-        variant: "destructive",
-      });
+      toast.error("Delete Failed", {
+  description: error.response?.data?.message || "Unable to delete task. Please try again.",
+});
+
     }
   };
 
@@ -91,25 +89,23 @@ const handleStatusChange = async (taskId, newStatus) => {
       await tasksApi.completeTask(taskId);
     } else {
       // For other status changes, show error as staff can't do them
-      toast({
-        title: "Not allowed",
-        description: "You can only accept (start) or complete tasks assigned to you.",
-        variant: "destructive",
-      });
+      toast.error("Action Not Allowed", {
+  description: "You can only accept or complete tasks assigned to you.",
+});
+
       return;
     }
     
-    toast({
-      title: "Status updated",
-      description: "Task status has been updated successfully.",
-    });
+    toast.success("Status Updated", {
+  description: "The task status was updated successfully.",
+});
+
     setRefreshTrigger(prev => prev + 1);
   } catch (error) {
-    toast({
-      title: "Error",
-      description: error.response?.data?.message || "Failed to update status",
-      variant: "destructive",
-    });
+    toast.error("Update Failed", {
+  description: error.response?.data?.message || "Unable to update task status.",
+});
+
   }
 };
 
@@ -165,7 +161,10 @@ const handleStatusChange = async (taskId, newStatus) => {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => {
                   // TODO: Open edit modal
-                  toast({ title: "Edit feature coming soon" });
+                 toast.info("Coming Soon", {
+  description: "Task editing will be available in a future update.",
+});
+
                 }}>
                   Edit Task
                 </DropdownMenuItem>
@@ -389,7 +388,10 @@ const handleStatusChange = async (taskId, newStatus) => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toast({ title: "Edit feature coming soon" })}>
+                          <DropdownMenuItem onClick={() => toast.info("Coming Soon", {
+  description: "Task editing will be available in a future update.",
+})
+}>
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeleteTask(task._id)} className="text-destructive">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { eventsApi } from "../../api/eventsApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,49 +31,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Mock data
-// const mockEvent = {
-//   id: 1,
-//   title: "Sprint Planning Meeting",
-//   description: "Quarterly sprint planning session to discuss Q1 goals, assign tasks, and plan the upcoming sprint. All team members are expected to attend and contribute to the planning process.",
-//   start: "2025-12-23T10:00:00",
-//   end: "2025-12-23T12:00:00",
-//   location: "Conference Room A",
-//   onlineLink: "https://zoom.us/j/123456789",
-//   type: "meeting",
-//   isRecurring: false,
-//   createdAt: "2025-12-20T10:00:00",
-//   updatedAt: "2025-12-22T14:30:00",
-//   organizer: {
-//     id: "1",
-//     name: "Sarah Johnson",
-//     avatar: "",
-//     email: "sarah@example.com"
-//   },
-//   attendees: [
-//     { id: "2", name: "Mike Chen", avatar: "", email: "mike@example.com", rsvp: "accepted" },
-//     { id: "3", name: "Alex Rivera", avatar: "", email: "alex@example.com", rsvp: "accepted" },
-//     { id: "4", name: "Emma Wilson", avatar: "", email: "emma@example.com", rsvp: "pending" },
-//     { id: "5", name: "David Kim", avatar: "", email: "david@example.com", rsvp: "declined" },
-//   ],
-//   attachments: [
-//     { id: 1, name: "sprint_planning_agenda.pdf", size: "1.2 MB", uploadedAt: "2025-12-20" },
-//   ],
-//   comments: [
-//     {
-//       id: 1,
-//       author: { id: "2", name: "Mike Chen", avatar: "" },
-//       content: "Looking forward to this meeting! I'll prepare my updates beforehand.",
-//       createdAt: "2025-12-21T09:15:00",
-//     },
-//   ],
-// };
 
 const EventDetails = () => {
  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   
   const [event, setEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,11 +75,10 @@ useEffect(() => {
         }
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load event details.",
-        variant: "destructive"
-      });
+      toast.error("Failed to Load Event", {
+  description: "Unable to load event details. Please try again."
+});
+
       navigate("/calendar");
     } finally {
       setIsLoading(false);
@@ -144,6 +105,10 @@ const isEventToday = event ? isToday(parseISO(event.start)) : false;
     // API call here
     setRsvpStatus(status);
     setIsRSVPDialogOpen(false);
+    toast.success("RSVP Updated", {
+  description: `Your response has been set to ${status}.`
+});
+
   };
 
   const handleAddComment = () => {
@@ -158,17 +123,16 @@ const handleDelete = async () => {
     
     try {
       await eventsApi.deleteEvent(id);
-      toast({
-        title: "Success",
-        description: "Event deleted successfully."
-      });
+      toast.success("Event Deleted", {
+  description: "The event has been removed successfully."
+});
+
       navigate("/calendar");
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete event.",
-        variant: "destructive"
-      });
+      toast.error("Delete Failed", {
+  description: error.message || "Unable to delete the event."
+});
+
     }
   };
   // Add to EventDetails.jsx
@@ -196,20 +160,19 @@ const handleUpdateEvent = async (updates) => {
     setEvent(response.data);
     setIsEditDialogOpen(false);
     
-    toast({
-      title: "Success",
-      description: "Event updated successfully."
-    });
+    toast.success("Event Updated", {
+  description: "Your changes have been saved successfully."
+});
+
 
     // Trigger refresh in other components
     window.dispatchEvent(new CustomEvent('eventUpdated', { detail: response.data }));
     
   } catch (error) {
-    toast({
-      title: "Error",
-      description: error.message || "Failed to update event.",
-      variant: "destructive"
-    });
+    toast.error("Update Failed", {
+  description: error.message || "Unable to update the event."
+});
+
   } finally {
     setIsLoading(false);
   }

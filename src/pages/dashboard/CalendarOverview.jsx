@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { eventsApi } from "../../api/eventsApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { startOfMonth, endOfMonth, parseISO, isSameDay } from "date-fns";
@@ -20,7 +20,6 @@ const [isCreateOpen, setIsCreateOpen] = useState(false);
 // Add these new states:
 const [events, setEvents] = useState([]);
 const [isLoading, setIsLoading] = useState(true);
-const { toast } = useToast();
 const navigate = useNavigate();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -45,8 +44,7 @@ const fetchMonthEvents = async () => {
     
     setEvents(mappedEvents);
   } catch (error) {
-    toast({
-      title: "Error",
+    toast.error("Error", {
       description: "Failed to load events.",
       variant: "destructive"
     });

@@ -7,7 +7,7 @@ import { Loader2, Eye, EyeOff, Info } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usersApi } from "@/api/usersApi";
 import { groupsApi } from "@/api/groupsApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
@@ -109,12 +109,11 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
 
       const response = await usersApi.create(userData);
 
-      toast({
-        title: "User created successfully",
-        description: isUnassigned 
-          ? `${name} has been added as an unassigned user (Wanderer)`
-          : `${name} has been added to your organization`,
-      });
+     toast.success("User created successfully", {
+  description: isUnassigned 
+    ? `${name} has been added as an unassigned user (Wanderer)`
+    : `${name} has been added to your organization`,
+});
 
       onSuccess(response.data || response.user);
       onOpenChange(false);
@@ -123,11 +122,9 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
       const errorMsg = err?.message || err?.data?.message || "Failed to create user";
       setError(errorMsg);
       
-      toast({
-        title: "Failed to create user",
-        description: errorMsg,
-        variant: "destructive",
-      });
+      toast.error("Failed to create user", {
+  description: errorMsg,
+});
     } finally {
       setLoading(false);
     }

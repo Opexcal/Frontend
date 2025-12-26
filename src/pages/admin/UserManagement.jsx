@@ -8,14 +8,13 @@ import { Link } from "react-router-dom";
 import AddUserModal from "./users/AddUserModal";
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { roleDisplayMap as roleLabelMap, roleColors } from '../../constant/roleMapDisplay';
 import EditUserModal from "./users/EditUserModal"
 
 
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
-  const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -47,11 +46,9 @@ const loadUsers = async () => {
       }))
     );
   } catch (error) {
-    toast({
-      title: "Failed to load users",
-      description: error?.message || "Please try again later.",
-      variant: "destructive",
-    });
+    toast.error("Failed to load users", {
+  description: error?.message || "Please try again later.",
+});
   } finally {
     setLoading(false);
   }
@@ -71,10 +68,9 @@ const loadUsers = async () => {
   // ✅ Now handleUserCreated can access loadUsers
   const handleUserCreated = (newUser) => {
     loadUsers();
-    toast({
-      title: "Success!",
-      description: `${newUser.name} has been added`,
-    });
+    toast.success("Success!", {
+  description: `${newUser.name} has been added`,
+});
   };
 
   const filteredUsers = useMemo(() => {
@@ -92,16 +88,13 @@ const loadUsers = async () => {
       setUsers((prev) =>
         prev.map((u) => (u.id === id ? { ...u, isActive: false, status: "archived" } : u))
       );
-      toast({
-        title: "User deactivated",
-        description: "The user was moved to Archived.",
-      });
+      toast.success("User deactivated", {
+  description: "The user was moved to Archived.",
+});
     } catch (error) {
-      toast({
-        title: "Failed to deactivate",
-        description: error?.message || error?.data?.message || "Please try again later.",
-        variant: "destructive",
-      });
+     toast.error("Failed to deactivate", {
+  description: error?.message || error?.data?.message || "Please try again later.",
+});
     }
   };
 
@@ -111,16 +104,13 @@ const loadUsers = async () => {
       setUsers((prev) =>
         prev.map((u) => (u.id === id ? { ...u, isActive: true, status: "active" } : u))
       );
-      toast({
-        title: "User restored",
-        description: "The user has been reactivated.",
-      });
+      toast.success("User restored", {
+  description: "The user has been reactivated.",
+});
     } catch (error) {
-      toast({
-        title: "Failed to restore",
-        description: error?.message || error?.data?.message || "Please try again later.",
-        variant: "destructive",
-      });
+     toast.error("Failed to restore", {
+  description: error?.message || error?.data?.message || "Please try again later.",
+});
     }
   };
 
@@ -263,7 +253,7 @@ const loadUsers = async () => {
   onSuccess={() => {
     loadUsers();
     setEditingUser(null);
-    toast({ title: "User updated successfully" });
+    toast.success("User updated successfully");
   }}
 />
     </div>

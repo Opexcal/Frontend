@@ -3,11 +3,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import {toast } from 'sonner';
 import { organizationApi } from "@/api/organizationApi";
 
 const OrganizationSettings = () => {
-  const { toast } = useToast();
 const [settings, setSettings] = useState({
   name: "",
   primaryColor: "#3B82F6",
@@ -28,20 +27,18 @@ const org = res.data?.organization || res.organization || {};
   logoUrl: org.branding?.logoUrl || "",
 });
       } catch (error) {
-        toast({
-          title: "Failed to load organization",
+        toast.error( "Failed to load organization",{
           description:
             error?.message ||
             error?.data?.message ||
             "Please try again later.",
-          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [toast]);
+  }, []);
 
 const save = async () => {
   setLoading(true);
@@ -53,19 +50,13 @@ const save = async () => {
         logoUrl: settings.logoUrl || null
       }
     });
-    toast({
-      title: "Settings saved",
-      description: "Organization settings updated successfully.",
-    });
+    toast.success("Settings saved", {
+  description: "Organization settings updated successfully.",
+});
   } catch (error) {
-    toast({
-      title: "Save failed",
-      description:
-        error?.message ||
-        error?.data?.message ||
-        "Please try again later.",
-      variant: "destructive",
-    });
+    toast.error("Save failed", {
+  description: error?.message || error?.data?.message || "Please try again later.",
+});
   } finally {
     setLoading(false);
   }

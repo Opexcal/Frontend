@@ -14,12 +14,12 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval,
   addMonths, subMonths, parseISO, getDay, addDays
 } from "date-fns";
 import { eventsApi } from "../../api/eventsApi"
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 
 
 
 const PersonalCalendar = () => {
-  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState("month");
   const [events, setEvents] = useState([]);
@@ -84,11 +84,10 @@ const fetchPersonalEvents = async () => {
         
         setEvents(personalEvents);
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load personal events.",
-          variant: "destructive"
-        });
+        toast.error("Failed to Load Personal Events", {
+  description: "Unable to fetch your calendar events. Please try again."
+});
+
       } finally {
         setIsLoading(false);
       }

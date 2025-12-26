@@ -7,13 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Save, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+
 import { roleDisplayMap } from "../../constant/roleMapDisplay";
 
 
 const UserSettings = () => {
 const { user: currentUser, refreshUser } = useAuth();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
@@ -75,27 +75,24 @@ const handleSaveChanges = async () => {
   // Validate password fields if user is trying to change password
   if (formData.newPassword || formData.confirmPassword || formData.currentPassword) {
     if (!formData.currentPassword) {
-      toast({
-        title: "Validation Error",
-        description: "Current password is required to change password",
-        variant: "destructive",
-      });
+     toast.error("Validation Error", {
+  description: "Current password is required to change your password.",
+});
+
       return;
     }
     if (formData.newPassword !== formData.confirmPassword) {
-      toast({
-        title: "Validation Error",
-        description: "New passwords do not match",
-        variant: "destructive",
-      });
+      toast.error("Validation Error", {
+  description: "New passwords do not match.",
+});
+
       return;
     }
     if (formData.newPassword.length < 8) {
-      toast({
-        title: "Validation Error",
-        description: "New password must be at least 8 characters",
-        variant: "destructive",
-      });
+      toast.error("Validation Error", {
+  description: "New password must be at least 8 characters long.",
+});
+
       return;
     }
   }
@@ -116,10 +113,10 @@ const handleSaveChanges = async () => {
     // ✅ Refresh user data in AuthContext
     await refreshUser();
     
-    toast({
-      title: "Success",
-      description: "Your settings have been updated",
-    });
+    toast.success("Settings Updated", {
+  description: "Your profile changes have been saved successfully.",
+});
+
 
     // Clear password fields after successful save
     if (formData.newPassword) {
@@ -132,11 +129,13 @@ const handleSaveChanges = async () => {
     }
   } catch (error) {
     console.error("Failed to save changes:", error);
-    toast({
-      title: "Error",
-      description: error?.message || error?.data?.message || "Failed to save changes",
-      variant: "destructive",
-    });
+    toast.error("Save Failed", {
+  description:
+    error?.message ||
+    error?.data?.message ||
+    "Unable to save your changes. Please try again.",
+});
+
   } finally {
     setSaving(false);
   }
