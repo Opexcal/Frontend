@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi } from "@/api/authApi";
-import { backendToFrontendRole } from '@/constant/roleMapDisplay';
+import { roleDisplayMap, backendToFrontendRole } from '@/constant/roleMapDisplay';
+import apiClient from '@/api/client';
 import { LoadingScreen } from '@/components/LoadingScreen';
 
 const AuthContext = createContext();
@@ -53,15 +54,21 @@ const login = async (credentials) => {
   try {
     const res = await authApi.login(credentials);
     
-    // ✅ ADD TOKEN HANDLING
-    const token = res.data?.token || res.token;
+    console.log('Full API response:', res);
+    
+    // ✅ If using cookies, you don't need the token in the response
     const userData = res.data?.user || res.user;
     
-    if (!token) {
-      throw new Error('No authentication token received');
+    if (!userData) {
+      throw new Error('No user data received');
     }
     
-    localStorage.setItem('authToken', token); // ✅ ADD THIS
+    // ❌ REMOVE THESE LINES if using cookie-based auth:
+    // const token = res.data?.token || res.token;
+    // if (!token) {
+    //   throw new Error('No authentication token received');
+    // }
+    // localStorage.setItem('authToken', token);
     
     const normalizedUser = {
       ...userData,
@@ -74,7 +81,6 @@ const login = async (credentials) => {
     throw error;
   }
 };
-
 const register = async (data) => {
   try {
     const res = await authApi.register(data);
