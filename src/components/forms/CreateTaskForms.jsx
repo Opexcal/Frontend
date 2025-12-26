@@ -9,13 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react"; // ✅ Remove unused imports
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import {toast} from 'sonner'; // ✅ CHANGE to sonner toast
 import { tasksApi } from '@/api/taskApi';
 import { usersApi } from '@/api/usersApi';
 import UserMultiSelect from '@/components/UserMultiSelect'; // ✅ ADD this import
 
 const CreateTaskForm = ({ onClose }) => {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [dueDate, setDueDate] = useState();
   const [formData, setFormData] = useState({
@@ -34,35 +33,29 @@ const CreateTaskForm = ({ onClose }) => {
         setTeamMembers(response.data.users);
       } catch (error) {
         console.error("Failed to fetch users:", error);
-        toast({
-          title: "Error",
+        toast.error("Error", {
           description: "Failed to load team members",
-          variant: "destructive",
         });
       }
     };
     fetchUsers();
-  }, [toast]); // ✅ Add toast to dependencies
+  }, []); // ✅ Add toast to dependencies
 
   // ✅ SINGLE handleSubmit function (removed duplicate)
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!dueDate) {
-      toast({
-        title: "Due date required",
-        description: "Please select a due date for the task.",
-        variant: "destructive",
-      });
+      toast.error("Due date required", {
+  description: "Please select a due date for the task.",
+});
       return;
     }
 
     if (formData.assignees.length === 0) {
-      toast({
-        title: "Assignee required",
-        description: "Please select at least one assignee.",
-        variant: "destructive",
-      });
+      toast.error("Assignee required", {
+  description: "Please select at least one assignee.",
+});
       return;
     }
 
@@ -77,17 +70,14 @@ const CreateTaskForm = ({ onClose }) => {
         dueDate: dueDate.toISOString(),
       });
       
-      toast({
-        title: "Task created",
-        description: "Your task has been created and assignees notified.",
-      });
+      toast.success("Task created", {
+  description: "Your task has been created and assignees notified.",
+});
       onClose();
     } catch (error) {
-      toast({
-        title: "Error creating task",
-        description: error.response?.data?.message || "Something went wrong",
-        variant: "destructive",
-      });
+      toast.error("Error creating task", {
+  description: error.response?.data?.message || "Something went wrong",
+});
     } finally {
       setIsLoading(false);
     }

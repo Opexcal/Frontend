@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { teamApi } from '../api/teamApi';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -42,11 +42,9 @@ const RecipientSelector = ({ mode = 'task', onSelect, allowOrganizationWide = fa
         
       } catch (error) {
         console.error('Failed to fetch recipients', error);
-        toast({
-          title: "Failed to load recipients",
-          description: error?.response?.data?.message || "Could not fetch teams and members",
-          variant: "destructive"
-        });
+        toast.error("Failed to load recipients", {
+  description: error?.response?.data?.message || "Could not fetch teams and members",
+});
       } finally {
         setLoading(false);
       }

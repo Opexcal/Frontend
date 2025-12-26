@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { tasksApi } from '@/api/taskApi';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import RejectTaskDialog from '../../components/RejectTaskDialog'; // ✅ Make sure path is correct
 
 /**
@@ -44,26 +44,22 @@ const TaskCard = ({
   onRefresh,
   className = "",
 }) => {
-  const { toast } = useToast();
   const [showRejectDialog, setShowRejectDialog] = useState(false);
 
   // ✅ Single handleDeclineConfirm for the dialog
   const handleDeclineConfirm = async (rejectionReason) => {
     try {
       await tasksApi.rejectTask(task._id, rejectionReason);
-      toast({ 
-        title: "Task rejected",
-        description: "The task creator has been notified" 
-      });
+      toast.success("Task rejected", {
+  description: "The task creator has been notified",
+});;
       setShowRejectDialog(false);
       if (onRefresh) onRefresh();
       if (onDecline) onDecline(task);
     } catch (error) {
-      toast({ 
-        title: "Error", 
-        description: error.response?.data?.message || "Failed to reject task",
-        variant: "destructive" 
-      });
+     toast.error("Error", {
+  description: error.response?.data?.message || "Failed to reject task",
+});
     }
   };
 
@@ -85,18 +81,15 @@ const TaskCard = ({
   const handleAccept = async () => {
     try {
       await tasksApi.acceptTask(task._id);
-      toast({ 
-        title: "Task accepted",
-        description: "Status updated to In-Progress" 
-      });
+     toast.success("Task accepted", {
+  description: "Status updated to In-Progress",
+});
       if (onRefresh) onRefresh();
       if (onAccept) onAccept(task);
     } catch (error) {
-      toast({ 
-        title: "Error", 
-        description: error.response?.data?.message || "Failed to accept task",
-        variant: "destructive" 
-      });
+      toast.error("Error", {
+  description: error.response?.data?.message || "Failed to accept task",
+});
     }
   };
 

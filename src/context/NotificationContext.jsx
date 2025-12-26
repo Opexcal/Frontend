@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { notificationsApi } from '@/api/notificationsApi';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext();
@@ -10,7 +10,6 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
 const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
 
 
   // Helper: Generate title from type
@@ -60,11 +59,9 @@ const { user, loading: authLoading } = useAuth();
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load notifications',
-        variant: 'destructive',
-      });
+      toast.error('Error', {
+  description: 'Failed to load notifications',
+});
     } finally {
       setNotifLoading(false);
     }
@@ -81,11 +78,9 @@ const { user, loading: authLoading } = useAuth();
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark notification as read',
-        variant: 'destructive',
-      });
+      toast.error('Error', {
+  description: 'Failed to mark notification as read',
+});
     }
   };
 
@@ -97,17 +92,14 @@ const { user, loading: authLoading } = useAuth();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
       
-      toast({
-        title: 'Success',
-        description: 'All notifications marked as read',
-      });
+      toast.success('Success', {
+  description: 'All notifications marked as read',
+});
     } catch (error) {
       console.error('Failed to mark all as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark all notifications as read',
-        variant: 'destructive',
-      });
+      toast.error('Error', {
+  description: 'Failed to mark all notifications as read',
+});
     }
   };
 
@@ -122,18 +114,14 @@ const { user, loading: authLoading } = useAuth();
       if (wasUnread) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-      
-      toast({
-        title: 'Success',
-        description: 'Notification deleted',
-      });
+     toast.success('Success', {
+  description: 'Notification deleted',
+});
     } catch (error) {
       console.error('Failed to delete notification:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notification',
-        variant: 'destructive',
-      });
+      toast.error('Error', {
+  description: 'Failed to delete notification',
+});
     }
   };
 
@@ -151,17 +139,14 @@ const { user, loading: authLoading } = useAuth();
       ).length;
       setUnreadCount(prev => Math.max(0, prev - markedCount));
       
-      toast({
-        title: 'Success',
-        description: `${notificationIds.length} notifications marked as read`,
-      });
+      toast.success('Success', {
+  description: `${notificationIds.length} notifications marked as read`,
+});
     } catch (error) {
       console.error('Failed to bulk mark as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark notifications as read',
-        variant: 'destructive',
-      });
+      toast.error('Error', {
+  description: 'Failed to mark notifications as read',
+});
     }
   };
 
@@ -177,17 +162,14 @@ const { user, loading: authLoading } = useAuth();
       setNotifications(prev => prev.filter(n => !notificationIds.includes(n.id)));
       setUnreadCount(prev => Math.max(0, prev - deletedUnreadCount));
       
-      toast({
-        title: 'Success',
-        description: `${notificationIds.length} notifications deleted`,
-      });
+      toast.success('Success', {
+  description: `${notificationIds.length} notifications deleted`,
+});
     } catch (error) {
       console.error('Failed to bulk delete:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notifications',
-        variant: 'destructive',
-      });
+      toast.error('Error', {
+  description: 'Failed to delete notifications',
+});
     }
   };
 

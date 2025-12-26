@@ -59,28 +59,59 @@ const loadCurrentUser = useCallback(async () => {
   }, [loadCurrentUser]);
 
   // In AuthContext.jsx
+// src/context/AuthContext.jsx
 const login = async (credentials) => {
-  const res = await authApi.login(credentials);
-  
-  // After interceptor: res = { success: true, message: '...', data: { token, user } }
-  const token = res.data?.token || res.token;
-  const userData = res.data?.user || res.user;
-  
-  if (!token) {
-    throw new Error('No authentication token received');
+  try {
+    const res = await authApi.login(credentials);
+    
+    const token = res.data?.token || res.token;
+    const userData = res.data?.user || res.user;
+    
+    if (!token) {
+      throw new Error('No authentication token received');
+    }
+    
+    localStorage.setItem("authToken", token);
+    
+    const normalizedUser = {
+      ...userData,
+      role: backendToFrontendRole[userData.role] || "wanderer",
+    };
+    setUser(normalizedUser);
+    
+    return normalizedUser; // ✅ Return user on success
+  } catch (error) {
+    // ❌ DON'T show toast here
+    // ✅ Just re-throw the error to Login.jsx
+    throw error;
   }
-  
-  localStorage.setItem("authToken", token);
-  
-  const normalizedUser = {
-    ...userData,
-    role: backendToFrontendRole[userData.role] || "wanderer",
-  };
-  setUser(normalizedUser);
-  
-  return userData;
 };
 
+const register = async (data) => {
+  try {
+    const res = await authApi.register(data);
+    
+    const token = res.data?.token || res.token;
+    const userData = res.data?.user || res.user;
+    
+    if (!token) {
+      throw new Error('No authentication token received');
+    }
+    
+    localStorage.setItem("authToken", token);
+    
+    const normalizedUser = {
+      ...userData,
+      role: backendToFrontendRole[userData.role] || "wanderer",
+    };
+    setUser(normalizedUser);
+    
+    return normalizedUser; // ✅ Return user on success
+  } catch (error) {
+    // ✅ Re-throw to Signup.jsx
+    throw error;
+  }
+};
 const refreshToken = async () => {
   try {
     const res = await authApi.post('/auth/refresh');
@@ -98,26 +129,7 @@ const refreshToken = async () => {
   }
 };
 
-const register = async (data) => {
-  const res = await authApi.register(data);
-  
-  const token = res.data?.token || res.token;
-  const userData = res.data?.user || res.user;
-  
-  if (!token) {
-    throw new Error('No authentication token received');
-  }
-  
-  localStorage.setItem("authToken", token);
-  
-  const normalizedUser = {
-    ...userData,
-    role: backendToFrontendRole[userData.role] || "wanderer",
-  };
-  setUser(normalizedUser);
-  
-  return userData;
-};
+
   const logout = () => {
     authApi.logout();
     setUser(null);
@@ -148,6 +160,7 @@ const register = async (data) => {
         logout,
         refreshUser: loadCurrentUser,
         hasPermission,
+        refreshToken,
       }}
     >
       {children}

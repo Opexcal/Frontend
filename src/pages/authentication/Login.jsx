@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const { login,user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -21,46 +20,44 @@ const Login = () => {
     password: "",
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
+// src/pages/authentication/Login.jsx
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  
+  try {
+    const userData = await login({
+      email: formData.email,
+      password: formData.password,
+    });
     
-    try {
-      console.log('🔐 Attempting login with:', formData.email);
-      
-      await login({
-        email: formData.email,
-        password: formData.password,
+    // ✅ SUCCESS - Show toast
+    toast.success("Welcome back! 👋", {
+        description: `Logged in as ${userData.name}`,
       });
-      
-      console.log('✅ Login successful, token stored');
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-      });
-      
-      // Redirect to the page they were trying to access, or dashboard
+    
+    // Navigate after short delay
+    setTimeout(() => {
       const from = location.state?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
-      
-    } catch (error) {
-      console.error("❌ Login error:", error);
-      
-      const errorMessage = 
-        error?.message || 
-        error?.data?.message || 
-        "Invalid email or password.";
-      
-      toast({
-        title: "Login failed",
+    }, 500);
+    
+  } catch (error) {
+    // ✅ ERROR - Show toast
+    console.error("Login error:", error);
+    
+    const errorMessage = 
+      error?.message?.toLowerCase().includes("credentials") 
+        ? "Invalid email or password"
+        : error?.message || "Login failed. Please try again.";
+    
+    toast.error("Login Failed", {
         description: errorMessage,
-        variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
     useEffect(() => {
     if (!loading && user) {

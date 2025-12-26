@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { register ,user, loading} = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -37,72 +36,78 @@ const Signup = () => {
     );
   }
   
-  const validateForm = () => {
-    if (formData.password.length < 8) {
-      toast({
-        title: "Invalid password",
+const validateForm = () => {
+  if (formData.password.length < 8) {
+    toast.error("Password Too Short", {
         description: "Password must be at least 8 characters long.",
-        variant: "destructive",
       });
-      return false;
-    }
+    return false;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-        variant: "destructive",
+  if (formData.password !== formData.confirmPassword) {
+     toast.error("Passwords Don't Match", {
+        description: "Please make sure both password fields match.",
       });
-      return false;
-    }
+    return false;
+  }
 
-    return true;
-  };
+  // ✅ Optional: Check password strength
+  if (!/[A-Z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
+    toast.warning("Weak Password", {
+        description: "For better security, include at least one uppercase letter and one number.",
+      });
+    return false;
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  return true;
+};
+
+// src/pages/authentication/Signup.jsx
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
+
+  setIsLoading(true);
+  
+  try {
+    const userData = await register({
+      name: formData.fullName,
+      email: formData.email,
+      password: formData.password,
+      orgName: formData.organizationName,
+    });
     
-    if (!validateForm()) return;
-
-    setIsLoading(true);
+    // ✅ SUCCESS - Show toast
+   toast.success("Welcome to OpexCal! 🎉", {
+        description: `Account created for ${userData.name}`,
+      });
     
-    try {
-      await register({
-        name: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        orgName: formData.organizationName,
-      });
-      
-      toast({
-        title: "Account created successfully!",
-        description: "Welcome to OpexCal! Redirecting...",
-      });
-      
-      // ✅ Small delay for better UX
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 500);
-      
-    } catch (error) {
-      console.error("Signup error:", error);
-      
-      // ✅ Better error message handling
-      const errorMessage = 
-        error?.message || 
-        error?.data?.message || 
-        error?.error ||
-        "Failed to create account. Please try again.";
-      
-      toast({
-        title: "Sign up failed",
+    setTimeout(() => {
+      navigate("/dashboard", { replace: true });
+    }, 500);
+    
+  } catch (error) {
+    // ✅ ERROR - Show toast
+    console.error("Signup error:", error);
+    
+    let errorMessage = "Failed to create account";
+    
+    if (error?.message?.includes("exists")) {
+      errorMessage = "This email is already registered. Try logging in.";
+    } else if (error?.message?.includes("organization")) {
+      errorMessage = "Organization name is already taken.";
+    } else {
+      errorMessage = error?.message || "An unexpected error occurred";
+    }
+    
+     toast.error("Sign Up Failed", {
         description: errorMessage,
-        variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="w-full max-w-md animate-fade-in py-8">

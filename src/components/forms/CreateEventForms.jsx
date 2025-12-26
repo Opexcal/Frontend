@@ -9,11 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Clock, MapPin, Users, Link as LinkIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import { eventsApi } from "../../api/eventsApi";
 
  const CreateEventForm = ({ onClose }) => {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [startDate, setStartDate] = useState();
   const [endDate, setEndDate] = useState();
@@ -35,10 +34,8 @@ import { eventsApi } from "../../api/eventsApi";
   
   // Validation
   if (!formData.title || !startDate || !endDate) {
-    toast({
-      title: "Validation Error",
-      description: "Title, start date, and end date are required.",
-      variant: "destructive"
+    toast.error("Validation Error", {
+      description: "Please fill in all required fields: Title, Start Date, and End Date.",
     });
     return;
   }
@@ -74,10 +71,10 @@ import { eventsApi } from "../../api/eventsApi";
 
     const response = await eventsApi.createEvent(eventData);
     
-    toast({
-      title: "Success",
+    toast.success("Success", {
       description: response.message || "Event created successfully.",
     });
+  
     
     onClose();
     
@@ -85,10 +82,8 @@ import { eventsApi } from "../../api/eventsApi";
     window.dispatchEvent(new CustomEvent('eventCreated', { detail: response.data }));
     
   } catch (error) {
-    toast({
-      title: "Error",
+    toast.error("Error",{
       description: error.message || "Failed to create event.",
-      variant: "destructive"
     });
   } finally {
     setIsLoading(false);

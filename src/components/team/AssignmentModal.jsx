@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/form";
 import PriorityBadge from "./PriorityBadge";
 import { tasksApi } from '@/api/taskApi';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 /**
  * Validation schema
@@ -67,7 +67,6 @@ const AssignmentModal = ({
   mode = "create", // 'create' | 'reassign'
   existingTask = null,
 }) => {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm({
@@ -99,15 +98,21 @@ const handleSubmit = async (data) => {
         assignees: [data.assignee],
       });
     }
+    toast.success(
+  mode === 'create' ? "Task created" : "Task reassigned",
+  {
+    description: mode === 'create' 
+      ? "Your task has been created and assigned." 
+      : "The task has been successfully reassigned.",
+  }
+);
     
     form.reset();
     onClose();
   } catch (error) {
-    toast({
-      title: "Error",
-      description: error.response?.data?.message || "Failed to save task",
-      variant: "destructive",
-    });
+    toast.error("Error", {
+  description: error.response?.data?.message || "Failed to save task",
+});
   } finally {
     setIsLoading(false);
   }
