@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
+import React, { useCallback, useMemo,memo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -37,7 +38,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "../../context/AuthContext";
 import { roleDisplayMap } from '@/constant/roleMapDisplay';
-import { useNavigate } from 'react-router-dom';
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -52,30 +52,49 @@ const adminNavItems = [
   { title: "Organization", url: "/admin/settings", icon: Settings },
 ];
 
-export const DashboardSidebar = () => {
+const DashboardSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, hasPermission, logout } = useAuth();
 
-  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + "/");
+// ✅ ADD these inside the component
+const isActive = useCallback(
+  (path) => location.pathname === path || location.pathname.startsWith(path + "/"),
+  [location.pathname]
+);
 
-  // Role display mapping and helpers
- // Add this handler
-  const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
-  };
-
-  const formatRole = (role) => {
+const formatRole = useCallback((role) => {
   if (!role) return "User";
   return roleDisplayMap[role] ?? "User";
-};
+}, []);
 
-  const isSuperAdmin = (role) => ["manager", "SuperAdmin"].includes(role);
-  const isUnassigned = (role) => ["wanderer", "Unassigned"].includes(role);
+const isSuperAdmin = useCallback(
+  (role) => ["manager", "SuperAdmin"].includes(role),
+  []
+);
 
+const isUnassigned = useCallback(
+  (role) => ["wanderer", "Unassigned"].includes(role),
+  []
+);
+
+const handleLogout = useCallback(() => {
+  logout();
+  navigate('/login', { replace: true });
+}, [logout, navigate]);
+
+// ✅ ADD this
+const showTeamManagement = useMemo(
+  () => hasPermission("manage_groups") || isSuperAdmin(user?.role),
+  [hasPermission, user?.role, isSuperAdmin]
+);
+
+const showAdminSection = useMemo(
+  () => hasPermission("manage_groups") || isSuperAdmin(user?.role),
+  [hasPermission, user?.role, isSuperAdmin]
+);
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
@@ -179,7 +198,7 @@ export const DashboardSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
-{(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
+{showTeamManagement && (
   <SidebarGroup>
     <SidebarGroupLabel>Team Management</SidebarGroupLabel>
     <SidebarGroupContent>
@@ -241,7 +260,7 @@ export const DashboardSidebar = () => {
 )}
 
 {/* Mass Operations - Also Admin/Manager only */}
-{(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
+{showAdminSection && (
   <SidebarGroup>
     <SidebarGroupLabel>Mass Operations</SidebarGroupLabel>
     <SidebarGroupContent>
@@ -289,9 +308,9 @@ export const DashboardSidebar = () => {
   </SidebarGroup>
 )}
               
-        {(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+{showAdminSection && (
+  <SidebarGroup>
+    <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminNavItems.map((item) => (
@@ -365,3 +384,5 @@ export const DashboardSidebar = () => {
     </Sidebar>
   );
 };
+// ✅ At the bottom
+export default memo(DashboardSidebar);

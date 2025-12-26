@@ -7,15 +7,9 @@ export const notificationsApi = {
    * @returns {Promise} { notifications, unreadCount }
    */
   getNotifications: () => {
-  const token = localStorage.getItem("authToken");
-  if (!token) {
-    return Promise.reject({
-      success: false,
-      message: "No auth token available"
-    });
-  }
-  return apiClient.get("/notifications");
-},
+    // ✅ No token check needed - cookie is sent automatically
+    return apiClient.get('/notifications');
+  },
 
   /**
    * Mark notification as read

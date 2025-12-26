@@ -32,9 +32,9 @@ export const authApi = {
   /**
    * Logout (client-side only - clear token)
    */
-  logout: () => {
-    localStorage.removeItem('authToken');
-  }
+logout: async () => {
+  return await apiClient.post('/auth/logout');
+},
 };
 
 

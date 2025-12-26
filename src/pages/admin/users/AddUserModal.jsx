@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
-  const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

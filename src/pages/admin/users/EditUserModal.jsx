@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
 const EditUserModal = ({ open, onOpenChange, userId, onSuccess }) => {
-  const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const [name, setName] = useState("");
   const [role, setRole] = useState("Staff");

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi } from "@/api/authApi";
 import { roleDisplayMap, backendToFrontendRole } from '@/constant/roleMapDisplay';
+import apiClient from '@/api/client';
 
 const AuthContext = createContext();
 
@@ -15,19 +16,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
 const loadCurrentUser = useCallback(async () => {
-  const token = localStorage.getItem("authToken");
-  
-  if (!token) {
-    setUser(null);
-    setLoading(false);
-    return;
-  }
-  
   try {
     console.log('🔄 Loading current user...');
     const res = await authApi.getMe();
     
-    // After interceptor unwraps: res = { success: true, data: { user: {...} } }
     console.log('📦 getMe response:', res);
     
     const apiUser = res.data?.user || res.user || res.data || res;
@@ -46,13 +38,13 @@ const loadCurrentUser = useCallback(async () => {
     
   } catch (err) {
     console.error('❌ Failed to load user:', err);
-    // Token invalid/expired; clear it
-    localStorage.removeItem("authToken");
+    // Cookie is invalid/expired - backend handles clearing
     setUser(null);
   } finally {
     setLoading(false);
   }
 }, []);
+
 
   useEffect(() => {
     loadCurrentUser();
@@ -64,14 +56,11 @@ const login = async (credentials) => {
   try {
     const res = await authApi.login(credentials);
     
-    const token = res.data?.token || res.token;
     const userData = res.data?.user || res.user;
     
-    if (!token) {
-      throw new Error('No authentication token received');
+    if (!userData) {
+      throw new Error('No user data received');
     }
-    
-    localStorage.setItem("authToken", token);
     
     const normalizedUser = {
       ...userData,
@@ -79,10 +68,8 @@ const login = async (credentials) => {
     };
     setUser(normalizedUser);
     
-    return normalizedUser; // ✅ Return user on success
+    return normalizedUser;
   } catch (error) {
-    // ❌ DON'T show toast here
-    // ✅ Just re-throw the error to Login.jsx
     throw error;
   }
 };
@@ -91,14 +78,11 @@ const register = async (data) => {
   try {
     const res = await authApi.register(data);
     
-    const token = res.data?.token || res.token;
     const userData = res.data?.user || res.user;
     
-    if (!token) {
-      throw new Error('No authentication token received');
+    if (!userData) {
+      throw new Error('No user data received');
     }
-    
-    localStorage.setItem("authToken", token);
     
     const normalizedUser = {
       ...userData,
@@ -106,34 +90,22 @@ const register = async (data) => {
     };
     setUser(normalizedUser);
     
-    return normalizedUser; // ✅ Return user on success
+    return normalizedUser;
   } catch (error) {
-    // ✅ Re-throw to Signup.jsx
     throw error;
   }
 };
-const refreshToken = async () => {
+
+
+const logout = async () => {
   try {
-    const res = await authApi.post('/auth/refresh');
-    const newToken = res.data?.token;
-    
-    if (newToken) {
-      localStorage.setItem('authToken', newToken);
-      return true;
-    }
-    return false;
-  } catch (err) {
-    localStorage.removeItem('authToken');
+    await authApi.logout(); // ✅ Call backend to clear cookie
     setUser(null);
-    return false;
+  } catch (error) {
+    console.error('Logout error:', error);
+    setUser(null); // Clear user even if API fails
   }
 };
-
-
-  const logout = () => {
-    authApi.logout();
-    setUser(null);
-  };
 
   const hasPermission = (permission) => {
   if (!user?.role) return false;
@@ -160,7 +132,6 @@ const refreshToken = async () => {
         logout,
         refreshUser: loadCurrentUser,
         hasPermission,
-        refreshToken,
       }}
     >
       {children}

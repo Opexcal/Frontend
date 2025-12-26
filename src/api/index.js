@@ -1,6 +1,6 @@
 export { authApi } from './authApi';
 export { dashboardApi } from './dashboardApi';
-export { tasksApi } from './tasksApi';
+export { tasksApi } from './taskApi';
 export { eventsApi } from './eventsApi';
 export { groupsApi } from './groupsApi';
 export { notificationsApi } from './notificationsApi';

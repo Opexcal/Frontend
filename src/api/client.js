@@ -1,64 +1,68 @@
-// src/api/client.js
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // ✅ CRITICAL: Send cookies with every request
 });
 
-// REQUEST INTERCEPTOR - Attach token to every request
+// ✅ Request interceptor - log outgoing requests
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    console.log(`🚀 ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
 );
 
-// apiClient.interceptors.response.use(
-//   (response) => {
-//     // Check if response has async status
-//     const data = response.data;
-//     if (data.status && ['pending', 'in_progress'].includes(data.status)) {
-//       console.warn('Request still processing:', data.status);
-//       // You could implement retry logic here
-//     }
-//     return response;
-//   },
-//   (error) => {
-//     console.error('API Error:', error);
-//     return Promise.reject(error);
-//   }
-// );
-
-// RESPONSE INTERCEPTOR - Handle responses and errors
+// ✅ Response interceptor - handle responses and errors
 apiClient.interceptors.response.use(
-  (response) => response.data, // Return only the data
+  (response) => {
+    console.log(`✅ ${response.config.method.toUpperCase()} ${response.config.url} - ${response.status}`);
+    return response.data; // Return only the data portion
+  },
   (error) => {
+    console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+    
+    // Handle specific error cases
     if (error.response) {
+      // Server responded with error status
       const { status, data } = error.response;
-      const hasToken = !!localStorage.getItem("authToken");
-
-      // Only logout if a token existed and was rejected
-      if (status === 401 && hasToken) {
-        localStorage.removeItem("authToken");
-        if (!window.location.pathname.includes("/login")) {
-          window.location.href = "/login";
-        }
+      
+      if (status === 401) {
+        console.error('🔒 Unauthorized - Token may be invalid or expired');
       }
-
+      
+      if (status === 403) {
+        console.error('🚫 Forbidden - Insufficient permissions');
+      }
+      
+      if (status >= 500) {
+        console.error('🔥 Server Error');
+      }
+      
+      // Return the error data from backend
       return Promise.reject(data);
+    } else if (error.request) {
+      // Request made but no response received
+      console.error('📡 No response from server');
+      return Promise.reject({
+        success: false,
+        message: 'No response from server. Please check your connection.',
+      });
+    } else {
+      // Something else happened
+      console.error('⚠️ Error:', error.message);
+      return Promise.reject({
+        success: false,
+        message: error.message,
+      });
     }
-
-    return Promise.reject({
-      success: false,
-      message: "Network error. Please check your connection."
-    });
   }
 );
 

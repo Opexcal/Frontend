@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { Download, BarChart3, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,6 +29,21 @@ import {
 import { teamApi } from '@/api/teamApi';
 import { toast } from "sonner";
 
+// ✅ Memoized sub-components to prevent unnecessary re-renders
+const SummaryCard = memo(({ title, value, subtitle, icon: Icon, color }) => (
+  <Card className="p-4">
+    <div className="flex items-center justify-between mb-2">
+      <p className="text-sm text-muted-foreground">{title}</p>
+      <Icon className={`h-4 w-4 ${color || 'text-muted-foreground'}`} />
+    </div>
+    <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    {subtitle && (
+      <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+    )}
+  </Card>
+));
+
+SummaryCard.displayName = 'SummaryCard';
 
 const TeamReports = () => {
   const [dateRange, setDateRange] = useState("30days");
@@ -37,239 +52,19 @@ const TeamReports = () => {
   const [groupId, setGroupId] = useState(null);
   const [groups, setGroups] = useState([]);
 
-  const logApiError = (context, error) => {
-  console.error(`[API Error - ${context}]`, {
-    message: error?.message,
-    status: error?.response?.status,
-    statusText: error?.response?.statusText,
-    data: error?.response?.data,
-    url: error?.config?.url
-  });
-};
-
-  useEffect(() => {
-    fetchGroups();
+  // ✅ Memoize helper function
+  const logApiError = useCallback((context, error) => {
+    console.error(`[API Error - ${context}]`, {
+      message: error?.message,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+      url: error?.config?.url
+    });
   }, []);
 
-  useEffect(() => {
-    fetchReports();
-  }, [dateRange, groupId]);
-
-  const fetchGroups = async () => {
-    try {
-      const response = await teamApi.getDashboard();
-      const teamGroups = response.teams || response.data?.teams || [];
-      setGroups(teamGroups);
-    } catch (error) {
-      console.error("Error fetching groups:", error);
-    }
-  };
-
-const fetchReports = async () => {
-  setLoading(true);
-  try {
-    const periodMap = {
-      '7days': 'week',
-      '30days': 'month',
-      '90days': 'quarter'
-    };
-    
-    const params = { 
-      period: periodMap[dateRange] || 'month'
-    };
-    
-    if (groupId) {
-      params.groupId = groupId;
-    }
-    
-    // Fetch both reports AND actual tasks
-    const [reportsResponse, tasksResponse] = await Promise.all([
-      teamApi.getReports(params),
-      teamApi.getTasks(groupId ? { groupId } : {})
-    ]);
-    
-    console.log('===== API RESPONSES =====');
-    console.log('Reports:', reportsResponse);
-    console.log('Tasks:', tasksResponse);
-    console.log('========================');
-    
-    const reportData = reportsResponse.data || reportsResponse;
-    const tasksData = tasksResponse.tasks || tasksResponse.data?.tasks || [];
-    
-    console.log('Extracted tasks:', tasksData);
-    
-    // 🔥 Calculate breakdown from actual tasks
-    let pending = 0, inProgress = 0, completed = 0, rejected = 0;
-    
-    tasksData.forEach(task => {
-      const status = (task.status || '').toLowerCase().trim();
-      console.log('Task status:', status); // Debug each task
-      
-      if (status === 'pending') {
-        pending++;
-      } else if (status === 'in-progress' || status === 'in progress') {
-        inProgress++;
-      } else if (status === 'completed') {
-        completed++;
-      } else if (status === 'rejected') {
-        rejected++;
-      }
-    });
-    
-    console.log('Calculated breakdown:', { pending, inProgress, completed, rejected });
-    
-    // If reports API has valid data, use it; otherwise use calculated
-    const useCalculated = (reportData.taskBreakdown?.pending === 0 && 
-                          reportData.taskBreakdown?.inProgress === 0 && 
-                          reportData.taskBreakdown?.completed === 0 && 
-                          reportData.taskBreakdown?.rejected === 0 &&
-                          tasksData.length > 0);
-    
-    if (useCalculated) {
-      console.log('Using calculated breakdown instead of API zeros');
-    }
-    
-    const tasksByStatus = [
-      { status: 'Pending', count: useCalculated ? pending : (reportData.taskBreakdown?.pending || 0) },
-      { status: 'In Progress', count: useCalculated ? inProgress : (reportData.taskBreakdown?.inProgress || 0) },
-      { status: 'Completed', count: useCalculated ? completed : (reportData.taskBreakdown?.completed || 0) },
-      { status: 'Rejected', count: useCalculated ? rejected : (reportData.taskBreakdown?.rejected || 0) }
-    ];
-    
-    const totalTasks = pending + inProgress + completed + rejected;
-    console.log('Total tasks:', totalTasks);
-    
-    // Calculate priority distribution from actual tasks
-    let highPriority = 0, mediumPriority = 0, lowPriority = 0;
-    
-    tasksData.forEach(task => {
-      const priority = (task.priority || '').toLowerCase().trim();
-      if (priority === 'high') highPriority++;
-      else if (priority === 'medium') mediumPriority++;
-      else if (priority === 'low') lowPriority++;
-    });
-    
-    const tasksByPriority = totalTasks > 0 ? [
-      { 
-        priority: 'High', 
-        count: highPriority,
-        percentage: Math.round((highPriority / totalTasks) * 100)
-      },
-      { 
-        priority: 'Medium', 
-        count: mediumPriority,
-        percentage: Math.round((mediumPriority / totalTasks) * 100)
-      },
-      { 
-        priority: 'Low', 
-        count: lowPriority,
-        percentage: Math.round((lowPriority / totalTasks) * 100)
-      }
-    ] : [
-      { priority: 'High', count: 0, percentage: 0 },
-      { priority: 'Medium', count: 0, percentage: 0 },
-      { priority: 'Low', count: 0, percentage: 0 }
-    ];
-    
-    let performersMap = {};
-    tasksData.forEach(task => {
-  const assignees = task.assignees || task.assignedTo || [];
-  const taskStatus = (task.status || '').toLowerCase().trim();
-  const isCompleted = taskStatus === 'completed';
-  
-  // Handle both array of user objects and array of user IDs
-  const assigneesList = Array.isArray(assignees) ? assignees : [assignees];
-  
-  assigneesList.forEach(assignee => {
-    // Extract user info
-    const userId = assignee?._id || assignee?.id || assignee;
-    const userName = assignee?.name || assignee?.email?.split('@')[0] || 'Unknown User';
-    const userEmail = assignee?.email || '';
-    
-    if (!userId) return; // Skip if no user ID
-    
-    // Initialize performer record
-    if (!performersMap[userId]) {
-      performersMap[userId] = {
-        userId,
-        userName,
-        userEmail,
-        tasksAssigned: 0,
-        tasksCompleted: 0
-      };
-    }
-    
-    // Count assigned and completed
-    performersMap[userId].tasksAssigned++;
-    if (isCompleted) {
-      performersMap[userId].tasksCompleted++;
-    }
-  });
-});
-
-console.log('Performers map:', performersMap);
-
-// Convert to array and calculate rates
-const topPerformers = reportData.topPerformers || [];
-const memberPerformance = topPerformers.length > 0 
-  ? topPerformers.map(p => {
-      const tasksCompleted = p.tasksCompleted || 0;
-      const tasksAssigned = p.tasksAssigned || Math.max(tasksCompleted, Math.round(tasksCompleted * 1.2));
-      const rate = tasksAssigned > 0 ? Math.round((tasksCompleted / tasksAssigned) * 100) : 0;
-      
-      return {
-        memberId: p.userId || p.user?._id || p.user?.id || Math.random().toString(),
-        name: p.userName || p.user?.name || p.user?.email?.split('@')[0] || 'Unknown',
-        assigned: tasksAssigned,
-        completed: tasksCompleted,
-        rate: Math.min(rate, 100)
-      };
-    })
-  : Object.values(performersMap)
-      .map(p => ({
-        memberId: p.userId,
-        name: p.userName,
-        assigned: p.tasksAssigned,
-        completed: p.tasksCompleted,
-        rate: p.tasksAssigned > 0 
-          ? Math.min(Math.round((p.tasksCompleted / p.tasksAssigned) * 100), 100)
-          : 0
-      }))
-      .sort((a, b) => b.rate - a.rate) // Sort by completion rate
-      .slice(0, 10); // Top 10 performers
-
-console.log('Member performance:', memberPerformance);
-    
-    // Calculate completion rate
-    const completionRate = totalTasks > 0 
-      ? Math.round((completed / totalTasks) * 100)
-      : 0;
-    
-    // Generate trend data
-    const overdueTrend = reportData.trend || generateTrendData(dateRange, rejected);
-    
-    setReportData({
-      completionRate,
-      tasksByStatus,
-      tasksByPriority,
-      memberPerformance,
-      overdueTrend,
-      totalEvents: reportData.totalEvents || 0,
-      period: reportData.period || dateRange
-    });
-    
-  } catch (error) {
-    logApiError('Team Reports', error);
-    toast.error("Failed to load reports", {
-      description: error?.response?.data?.message || error?.message || "Unable to fetch data",
-    });
-    setReportData(null);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const generateTrendData = (range, dataOrTotal) => {
+  // ✅ Memoize trend data generation
+  const generateTrendData = useCallback((range, dataOrTotal) => {
     if (Array.isArray(dataOrTotal)) {
       return dataOrTotal.map((item, i) => ({
         date: item.date || item._id || `Period ${i + 1}`,
@@ -285,9 +80,199 @@ console.log('Member performance:', memberPerformance);
       date: `${label} ${i + 1}`,
       count: Math.round((total / periods) * (1 + Math.random() * 0.5))
     }));
-  };
+  }, []);
 
-  const handleExport = async () => {
+  // ✅ Wrap fetchGroups in useCallback
+  const fetchGroups = useCallback(async () => {
+    try {
+      const response = await teamApi.getDashboard();
+      const teamGroups = response.teams || response.data?.teams || [];
+      setGroups(teamGroups);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  }, []);
+
+  // ✅ Wrap fetchReports in useCallback
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const periodMap = {
+        '7days': 'week',
+        '30days': 'month',
+        '90days': 'quarter'
+      };
+      
+      const params = { 
+        period: periodMap[dateRange] || 'month'
+      };
+      
+      if (groupId) {
+        params.groupId = groupId;
+      }
+      
+      const [reportsResponse, tasksResponse] = await Promise.all([
+        teamApi.getReports(params),
+        teamApi.getTasks(groupId ? { groupId } : {})
+      ]);
+      
+      const reportData = reportsResponse.data || reportsResponse;
+      const tasksData = tasksResponse.tasks || tasksResponse.data?.tasks || [];
+      
+      // Calculate breakdown from actual tasks
+      let pending = 0, inProgress = 0, completed = 0, rejected = 0;
+      
+      tasksData.forEach(task => {
+        const status = (task.status || '').toLowerCase().trim();
+        
+        if (status === 'pending') {
+          pending++;
+        } else if (status === 'in-progress' || status === 'in progress') {
+          inProgress++;
+        } else if (status === 'completed') {
+          completed++;
+        } else if (status === 'rejected') {
+          rejected++;
+        }
+      });
+      
+      const useCalculated = (reportData.taskBreakdown?.pending === 0 && 
+                            reportData.taskBreakdown?.inProgress === 0 && 
+                            reportData.taskBreakdown?.completed === 0 && 
+                            reportData.taskBreakdown?.rejected === 0 &&
+                            tasksData.length > 0);
+      
+      const tasksByStatus = [
+        { status: 'Pending', count: useCalculated ? pending : (reportData.taskBreakdown?.pending || 0) },
+        { status: 'In Progress', count: useCalculated ? inProgress : (reportData.taskBreakdown?.inProgress || 0) },
+        { status: 'Completed', count: useCalculated ? completed : (reportData.taskBreakdown?.completed || 0) },
+        { status: 'Rejected', count: useCalculated ? rejected : (reportData.taskBreakdown?.rejected || 0) }
+      ];
+      
+      const totalTasks = pending + inProgress + completed + rejected;
+      
+      // Calculate priority distribution
+      let highPriority = 0, mediumPriority = 0, lowPriority = 0;
+      
+      tasksData.forEach(task => {
+        const priority = (task.priority || '').toLowerCase().trim();
+        if (priority === 'high') highPriority++;
+        else if (priority === 'medium') mediumPriority++;
+        else if (priority === 'low') lowPriority++;
+      });
+      
+      const tasksByPriority = totalTasks > 0 ? [
+        { 
+          priority: 'High', 
+          count: highPriority,
+          percentage: Math.round((highPriority / totalTasks) * 100)
+        },
+        { 
+          priority: 'Medium', 
+          count: mediumPriority,
+          percentage: Math.round((mediumPriority / totalTasks) * 100)
+        },
+        { 
+          priority: 'Low', 
+          count: lowPriority,
+          percentage: Math.round((lowPriority / totalTasks) * 100)
+        }
+      ] : [
+        { priority: 'High', count: 0, percentage: 0 },
+        { priority: 'Medium', count: 0, percentage: 0 },
+        { priority: 'Low', count: 0, percentage: 0 }
+      ];
+      
+      // Calculate member performance
+      let performersMap = {};
+      tasksData.forEach(task => {
+        const assignees = task.assignees || task.assignedTo || [];
+        const taskStatus = (task.status || '').toLowerCase().trim();
+        const isCompleted = taskStatus === 'completed';
+        
+        const assigneesList = Array.isArray(assignees) ? assignees : [assignees];
+        
+        assigneesList.forEach(assignee => {
+          const userId = assignee?._id || assignee?.id || assignee;
+          const userName = assignee?.name || assignee?.email?.split('@')[0] || 'Unknown User';
+          const userEmail = assignee?.email || '';
+          
+          if (!userId) return;
+          
+          if (!performersMap[userId]) {
+            performersMap[userId] = {
+              userId,
+              userName,
+              userEmail,
+              tasksAssigned: 0,
+              tasksCompleted: 0
+            };
+          }
+          
+          performersMap[userId].tasksAssigned++;
+          if (isCompleted) {
+            performersMap[userId].tasksCompleted++;
+          }
+        });
+      });
+
+      const topPerformers = reportData.topPerformers || [];
+      const memberPerformance = topPerformers.length > 0 
+        ? topPerformers.map(p => {
+            const tasksCompleted = p.tasksCompleted || 0;
+            const tasksAssigned = p.tasksAssigned || Math.max(tasksCompleted, Math.round(tasksCompleted * 1.2));
+            const rate = tasksAssigned > 0 ? Math.round((tasksCompleted / tasksAssigned) * 100) : 0;
+            
+            return {
+              memberId: p.userId || p.user?._id || p.user?.id || Math.random().toString(),
+              name: p.userName || p.user?.name || p.user?.email?.split('@')[0] || 'Unknown',
+              assigned: tasksAssigned,
+              completed: tasksCompleted,
+              rate: Math.min(rate, 100)
+            };
+          })
+        : Object.values(performersMap)
+            .map(p => ({
+              memberId: p.userId,
+              name: p.userName,
+              assigned: p.tasksAssigned,
+              completed: p.tasksCompleted,
+              rate: p.tasksAssigned > 0 
+                ? Math.min(Math.round((p.tasksCompleted / p.tasksAssigned) * 100), 100)
+                : 0
+            }))
+            .sort((a, b) => b.rate - a.rate)
+            .slice(0, 10);
+      
+      const completionRate = totalTasks > 0 
+        ? Math.round((completed / totalTasks) * 100)
+        : 0;
+      
+      const overdueTrend = reportData.trend || generateTrendData(dateRange, rejected);
+      
+      setReportData({
+        completionRate,
+        tasksByStatus,
+        tasksByPriority,
+        memberPerformance,
+        overdueTrend,
+        totalEvents: reportData.totalEvents || 0,
+        period: reportData.period || dateRange
+      });
+      
+    } catch (error) {
+      logApiError('Team Reports', error);
+      toast.error("Failed to load reports", {
+        description: error?.response?.data?.message || error?.message || "Unable to fetch data",
+      });
+      setReportData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange, groupId, generateTrendData, logApiError]);
+
+  // ✅ Wrap handleExport in useCallback
+  const handleExport = useCallback(async () => {
     if (!reportData) {
       toast.error("No data to export", {
         description: "Please wait for the report to load",
@@ -338,10 +323,34 @@ console.log('Member performance:', memberPerformance);
       console.error("Export error:", error);
       toast.error("Export failed", {
         description: "Could not generate report file",
-        variant: "destructive"
       });
     }
-  };
+  }, [reportData, dateRange]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  // ✅ Memoize computed values
+  const computedStats = useMemo(() => {
+    if (!reportData) return null;
+    
+    const totalTasks = reportData.tasksByStatus.reduce((sum, item) => sum + item.count, 0);
+    const completedTasks = reportData.tasksByStatus.find(item => item.status === "Completed")?.count || 0;
+    const inProgressTasks = reportData.tasksByStatus.find(item => item.status === "In Progress")?.count || 0;
+    const teamAverage = reportData.memberPerformance.length > 0
+      ? Math.round(
+          reportData.memberPerformance.reduce((sum, m) => sum + m.rate, 0) /
+            reportData.memberPerformance.length
+        )
+      : 0;
+    
+    return { totalTasks, completedTasks, inProgressTasks, teamAverage };
+  }, [reportData]);
 
   if (loading) {
     return (
@@ -386,9 +395,6 @@ console.log('Member performance:', memberPerformance);
   }
 
   const COLORS = ["#10b981", "#f59e0b", "#ef4444"];
-  const totalTasks = reportData.tasksByStatus.reduce((sum, item) => sum + item.count, 0);
-  const completedTasks = reportData.tasksByStatus.find(item => item.status === "Completed")?.count || 0;
-  const inProgressTasks = reportData.tasksByStatus.find(item => item.status === "In Progress")?.count || 0;
 
   return (
     <div className="space-y-6">
@@ -436,42 +442,28 @@ console.log('Member performance:', memberPerformance);
         </div>
       </div>
 
-      {/* Summary Stats */}
+      {/* Summary Stats - Using memoized SummaryCard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-muted-foreground">Total Tasks</p>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <p className="text-2xl font-bold">{totalTasks}</p>
-          {reportData.totalEvents > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {reportData.totalEvents} events
-            </p>
-          )}
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-muted-foreground">Completed</p>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </div>
-          <p className="text-2xl font-bold text-green-600">{completedTasks}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {reportData.completionRate}% completion rate
-          </p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-muted-foreground">In Progress</p>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{inProgressTasks}</p>
-          {totalTasks > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {Math.round((inProgressTasks / totalTasks) * 100)}% of total
-            </p>
-          )}
-        </Card>
+        <SummaryCard
+          title="Total Tasks"
+          value={computedStats.totalTasks}
+          subtitle={reportData.totalEvents > 0 ? `${reportData.totalEvents} events` : null}
+          icon={BarChart3}
+        />
+        <SummaryCard
+          title="Completed"
+          value={computedStats.completedTasks}
+          subtitle={`${reportData.completionRate}% completion rate`}
+          icon={TrendingUp}
+          color="text-green-600"
+        />
+        <SummaryCard
+          title="In Progress"
+          value={computedStats.inProgressTasks}
+          subtitle={computedStats.totalTasks > 0 ? `${Math.round((computedStats.inProgressTasks / computedStats.totalTasks) * 100)}% of total` : null}
+          icon={TrendingUp}
+          color="text-blue-600"
+        />
         <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-muted-foreground">Team Average</p>
@@ -480,18 +472,12 @@ console.log('Member performance:', memberPerformance);
             </Badge>
           </div>
           <p className="text-2xl font-bold">
-            {reportData.memberPerformance.length > 0
-              ? Math.round(
-                  reportData.memberPerformance.reduce((sum, m) => sum + m.rate, 0) /
-                    reportData.memberPerformance.length
-                )
-              : 0}
-            %
+            {computedStats.teamAverage}%
           </p>
         </Card>
       </div>
 
-      {/* Task Status Distribution */}
+      {/* Charts remain the same... */}
       <Card className="p-6">
         <div className="mb-4">
           <h2 className="text-lg font-semibold mb-2">Task Status Distribution</h2>
@@ -511,7 +497,6 @@ console.log('Member performance:', memberPerformance);
         </ResponsiveContainer>
       </Card>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4">Tasks by Priority</h3>
@@ -559,7 +544,6 @@ console.log('Member performance:', memberPerformance);
         </Card>
       </div>
 
-      {/* Team Member Performance */}
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Top Performers</h2>
         {reportData.memberPerformance.length > 0 ? (
@@ -616,4 +600,5 @@ console.log('Member performance:', memberPerformance);
   );
 };
 
-export default TeamReports;
+// ✅ Wrap entire component in React.memo
+export default memo(TeamReports);

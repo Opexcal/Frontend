@@ -9,8 +9,11 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
-const { user, loading: authLoading } = useAuth();
-
+  const { user, loading: authLoading } = useAuth();
+  const [retryCount, setRetryCount] = useState(0);
+  const [isTabVisible, setIsTabVisible] = useState(!document.hidden);
+  const [hasFetchedOnMount, setHasFetchedOnMount] = useState(false);
+  const MAX_RETRIES = 3;
 
   // Helper: Generate title from type
   const generateTitle = (type) => {
@@ -32,22 +35,27 @@ const { user, loading: authLoading } = useAuth();
     return routes[type] || null;
   };
 
-  // Fetch notifications from backend
-  const fetchNotifications = useCallback(async () => {
+  // ✅ Fetch notifications - NO useCallback needed
+  const fetchNotifications = async () => {
+    // ✅ CRITICAL FIX: Don't fetch if user is not logged in
+    if (!user) {
+      console.log('⏸️ Skipping notification fetch - user not logged in');
+      return;
+    }
+
     try {
       setNotifLoading(true);
       const response = await notificationsApi.getNotifications();
       
       if (response.success) {
-  // Backend returns { success, count, unreadCount, data: [...] }
-  const transformed = (response.data || []).map(notif => ({
+        const transformed = (response.data || []).map(notif => ({
           id: notif._id,
           type: notif.type,
           message: notif.message,
           isRead: notif.isRead,
           relatedId: notif.relatedId,
           createdAt: notif.createdAt,
-          timestamp: notif.createdAt, // For backwards compatibility
+          timestamp: notif.createdAt,
           title: generateTitle(notif.type),
           actionUrl: generateActionUrl(notif.type, notif.relatedId),
           isSystem: false,
@@ -56,16 +64,30 @@ const { user, loading: authLoading } = useAuth();
         
         setNotifications(transformed);
         setUnreadCount(response.unreadCount);
+        setRetryCount(0); // Reset retry count on success
       }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-      toast.error('Error', {
-  description: 'Failed to load notifications',
-});
+  console.error('Failed to fetch notifications:', error);
+  
+  // ✅ Don't retry on 401/403 - these are auth errors, not transient failures
+  const isAuthError = error?.message?.includes('auth token') || 
+                      error?.message?.includes('Access denied');
+  
+  // ✅ Only retry if we have a user, haven't exceeded max retries, AND it's not an auth error
+  if (user && retryCount < MAX_RETRIES && !isAuthError) {
+        setRetryCount(prev => prev + 1);
+        
+        // ✅ Use exponential backoff for retries
+        const retryDelay = Math.min(2000 * Math.pow(2, retryCount), 10000);
+        
+        setTimeout(() => {
+          fetchNotifications();
+        }, retryDelay);
+      }
     } finally {
       setNotifLoading(false);
     }
-  }, [toast]);
+  };
 
   // Mark single notification as read
   const markAsRead = async (notificationId) => {
@@ -78,9 +100,7 @@ const { user, loading: authLoading } = useAuth();
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark as read:', error);
-      toast.error('Error', {
-  description: 'Failed to mark notification as read',
-});
+      toast.error('Failed to mark notification as read');
     }
   };
 
@@ -92,14 +112,10 @@ const { user, loading: authLoading } = useAuth();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
       
-      toast.success('Success', {
-  description: 'All notifications marked as read',
-});
+      toast.success('All notifications marked as read');
     } catch (error) {
       console.error('Failed to mark all as read:', error);
-      toast.error('Error', {
-  description: 'Failed to mark all notifications as read',
-});
+      toast.error('Failed to mark all notifications as read');
     }
   };
 
@@ -114,14 +130,11 @@ const { user, loading: authLoading } = useAuth();
       if (wasUnread) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-     toast.success('Success', {
-  description: 'Notification deleted',
-});
+      
+      toast.success('Notification deleted');
     } catch (error) {
       console.error('Failed to delete notification:', error);
-      toast.error('Error', {
-  description: 'Failed to delete notification',
-});
+      toast.error('Failed to delete notification');
     }
   };
 
@@ -130,23 +143,25 @@ const { user, loading: authLoading } = useAuth();
     try {
       await Promise.all(notificationIds.map(id => notificationsApi.markAsRead(id)));
       
-      setNotifications(prev =>
-        prev.map(n => (notificationIds.includes(n.id) ? { ...n, isRead: true } : n))
-      );
+      let markedCount = 0;
       
-      const markedCount = notificationIds.filter(
-        id => !notifications.find(n => n.id === id)?.isRead
-      ).length;
+      setNotifications(prev => {
+        const updated = prev.map(n => {
+          if (notificationIds.includes(n.id) && !n.isRead) {
+            markedCount++;
+            return { ...n, isRead: true };
+          }
+          return n;
+        });
+        return updated;
+      });
+      
       setUnreadCount(prev => Math.max(0, prev - markedCount));
       
-      toast.success('Success', {
-  description: `${notificationIds.length} notifications marked as read`,
-});
+      toast.success(`${notificationIds.length} notifications marked as read`);
     } catch (error) {
       console.error('Failed to bulk mark as read:', error);
-      toast.error('Error', {
-  description: 'Failed to mark notifications as read',
-});
+      toast.error('Failed to mark notifications as read');
     }
   };
 
@@ -155,54 +170,88 @@ const { user, loading: authLoading } = useAuth();
     try {
       await Promise.all(notificationIds.map(id => notificationsApi.deleteNotification(id)));
       
-      const deletedUnreadCount = notificationIds.filter(
-        id => !notifications.find(n => n.id === id)?.isRead
-      ).length;
+      let deletedUnreadCount = 0;
       
-      setNotifications(prev => prev.filter(n => !notificationIds.includes(n.id)));
+      setNotifications(prev => {
+        const toDelete = prev.filter(n => notificationIds.includes(n.id));
+        deletedUnreadCount = toDelete.filter(n => !n.isRead).length;
+        return prev.filter(n => !notificationIds.includes(n.id));
+      });
+      
       setUnreadCount(prev => Math.max(0, prev - deletedUnreadCount));
       
-      toast.success('Success', {
-  description: `${notificationIds.length} notifications deleted`,
-});
+      toast.success(`${notificationIds.length} notifications deleted`);
     } catch (error) {
       console.error('Failed to bulk delete:', error);
-      toast.error('Error', {
-  description: 'Failed to delete notifications',
-});
+      toast.error('Failed to delete notifications');
     }
   };
 
   // Settings (localStorage - backend doesn't support this yet)
-  const updateSettings = async (settings) => {
-    localStorage.setItem('notificationSettings', JSON.stringify(settings));
+  const [settings, setSettings] = useState({
+    sound: true,
+    desktop: true,
+    email: true,
+  });
+
+  const updateSettings = async (newSettings) => {
+    setSettings(newSettings);
   };
 
-  const getSettings = () => {
-    const saved = localStorage.getItem('notificationSettings');
-    return saved ? JSON.parse(saved) : null;
-  };
+  const getSettings = () => settings;
 
-  // Auto-fetch on mount
-// In NotificationContext.jsx - Update useEffect dependencies
-useEffect(() => {
-  if (!authLoading && user) {
-    console.log('✅ Fetching notifications for user:', user.email);
-    fetchNotifications();
-  }
-}, [authLoading, user, fetchNotifications]); // Add fetchNotifications
+  // ✅ Effect 1: Fetch on mount when user is available
+  useEffect(() => {
+    if (!authLoading && user && !hasFetchedOnMount) {
+      console.log('✅ Initial notification fetch');
+      fetchNotifications();
+      setHasFetchedOnMount(true);
+    }
+    
+    // ✅ Reset hasFetchedOnMount when user logs out
+    if (!user && hasFetchedOnMount) {
+      setHasFetchedOnMount(false);
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [authLoading, user, hasFetchedOnMount]);
 
-// Poll for new notifications every 30 seconds
-useEffect(() => {
-  if (authLoading || !user) return;
+  // ✅ Effect 2: Poll every 30 seconds ONLY when logged in and tab is visible
+  useEffect(() => {
+    // Don't poll if: loading, no user, or tab not visible
+    if (authLoading || !user || !isTabVisible) {
+      return;
+    }
 
-  const interval = setInterval(() => {
-    fetchNotifications();
-  }, 30000);
+    console.log('🔄 Starting notification polling (30s interval)');
+    
+    const interval = setInterval(() => {
+      console.log('⏰ Polling notifications...');
+      fetchNotifications();
+    }, 30000); // 30 seconds
 
-  return () => clearInterval(interval);
-}, [authLoading, user, fetchNotifications]); // Add fetchNotifications
+    return () => {
+      console.log('⏹️ Stopping notification polling');
+      clearInterval(interval);
+    };
+  }, [authLoading, user, isTabVisible]);
 
+  // ✅ Effect 3: Track tab visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const visible = !document.hidden;
+      setIsTabVisible(visible);
+      
+      // ✅ Fetch immediately when tab becomes visible again
+      if (visible && user && !authLoading) {
+        console.log('👀 Tab became visible - fetching notifications');
+        fetchNotifications();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user, authLoading]);
 
   return (
     <NotificationContext.Provider
