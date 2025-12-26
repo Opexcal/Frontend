@@ -8,10 +8,11 @@ import { Save, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usersApi } from "@/api/usersApi";
 import { useToast } from "@/hooks/use-toast";
+import { roleDisplayMap } from "../../constant/roleMapDisplay";
 
 
 const UserSettings = () => {
-const { user: currentUser } = useAuth();
+const { user: currentUser, refreshUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,33 +25,24 @@ const { user: currentUser } = useAuth();
     confirmPassword: "",
   });
 
-  // Load user data on mount
-  useEffect(() => {
-    const loadUser = async () => {
-      if (!currentUser?.id) return;
-      setLoading(true);
-      try {
-        const res = await usersApi.get(currentUser.id);
-        const userData = res.data?.user || res.user || res.data || res;
-        setUser(userData);
-        setFormData(prev => ({
-          ...prev,
-          name: userData.name || "",
-          email: userData.email || "",
-        }));
-      } catch (error) {
-        console.error("Failed to load user:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load user data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUser();
-  }, [currentUser]);
+useEffect(() => {
+  if (!currentUser) {
+    setLoading(true);
+    return;
+  }
+  
+  // Use currentUser from AuthContext - no API call needed
+  setUser(currentUser);
+  setFormData({
+    name: currentUser.name || "",
+    email: currentUser.email || "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  setLoading(false);
+}, [currentUser]);
+  console.log('Current user:', user);
 
   if (loading) {
     return (
@@ -60,103 +52,95 @@ const { user: currentUser } = useAuth();
     );
   }
 
-  // const groupMemberships = [
-  //   { id: "1", name: "Engineering Team", roles: ["Admin", "Staff"] },
-  //   { id: "2", name: "Marketing Department", roles: ["Staff"] },
-  //   { id: "3", name: "Product Design", roles: ["Staff"] },
-  //   { id: "4", name: "Customer Support", roles: ["Staff"] },
-  //   { id: "5", name: "Human Resources", roles: ["Admin", "Staff"] },
-  // ];
-  const groupMemberships = (user?.groups || []).map(group => {
-    // If group is a string (just ID), return a basic object
-    if (typeof group === 'string') {
+  
+const groupMemberships = Array.isArray(user?.groups) && user.groups.length > 0
+  ? user.groups.map(group => {
+      if (typeof group === 'string') {
+        return { id: group, name: 'Loading...', _id: group };
+      }
       return {
-        id: group,
-        name: 'Unknown Group',
-        _id: group
+        id: group._id || group.id,
+        name: group.name || 'Unknown Group',
+        _id: group._id || group.id,
+        memberCount: group.members?.length || 0
       };
-    }
-    // If group is an object, use it as is
-    return {
-      id: group._id || group.id,
-      name: group.name || 'Unknown Group',
-      _id: group._id || group.id,
-      memberCount: group.members?.length || 0
-    };
-  });
-
+    })
+  : [];
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveChanges = async () => {
-    // Validate password fields if user is trying to change password
-    if (formData.newPassword || formData.confirmPassword || formData.currentPassword) {
-      if (!formData.currentPassword) {
-        toast({
-          title: "Validation Error",
-          description: "Current password is required to change password",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (formData.newPassword !== formData.confirmPassword) {
-        toast({
-          title: "Validation Error",
-          description: "New passwords do not match",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (formData.newPassword.length < 8) {
-        toast({
-          title: "Validation Error",
-          description: "New password must be at least 8 characters",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      const updateData = {
-        name: formData.name,
-        // Only include password fields if user is changing password
-        ...(formData.newPassword && {
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword,
-        })
-      };
-
-      await usersApi.update(currentUser.id, updateData);
-      
+const handleSaveChanges = async () => {
+  // Validate password fields if user is trying to change password
+  if (formData.newPassword || formData.confirmPassword || formData.currentPassword) {
+    if (!formData.currentPassword) {
       toast({
-        title: "Success",
-        description: "Your settings have been updated",
-      });
-
-      // Clear password fields after successful save
-      if (formData.newPassword) {
-        setFormData(prev => ({
-          ...prev,
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        }));
-      }
-    } catch (error) {
-      console.error("Failed to save changes:", error);
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to save changes",
+        title: "Validation Error",
+        description: "Current password is required to change password",
         variant: "destructive",
       });
-    } finally {
-      setSaving(false);
+      return;
     }
-  };
+    if (formData.newPassword !== formData.confirmPassword) {
+      toast({
+        title: "Validation Error",
+        description: "New passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (formData.newPassword.length < 8) {
+      toast({
+        title: "Validation Error",
+        description: "New password must be at least 8 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+  }
+
+  setSaving(true);
+  try {
+    const updateData = {
+      name: formData.name,
+      // Only include password fields if user is changing password
+      ...(formData.newPassword && {
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      })
+    };
+
+    await usersApi.update(currentUser.id, updateData);
+    
+    // ✅ Refresh user data in AuthContext
+    await refreshUser();
+    
+    toast({
+      title: "Success",
+      description: "Your settings have been updated",
+    });
+
+    // Clear password fields after successful save
+    if (formData.newPassword) {
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
+    }
+  } catch (error) {
+    console.error("Failed to save changes:", error);
+    toast({
+      title: "Error",
+      description: error?.message || error?.data?.message || "Failed to save changes",
+      variant: "destructive",
+    });
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleResetPassword = () => {
     setFormData((prev) => ({
@@ -185,11 +169,11 @@ const { user: currentUser } = useAuth();
       </div>
 
       {/* Profile Settings Tab */}
-      <div className="flex justify-center mb-6">
+      {/* <div className="flex justify-center mb-6">
         <Button className="w-full max-w-md bg-primary hover:bg-primary/90">
           Profile Settings
         </Button>
-      </div>
+      </div> */}
 
       {/* Personal Details Card */}
       <Card className="mb-6">
@@ -357,17 +341,17 @@ const { user: currentUser } = useAuth();
                 </p>
               </div>
               <Badge 
-                variant={user.role === 'SuperAdmin' ? 'default' : 'secondary'}
-                className={
-                  user.role === 'SuperAdmin'
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : user.role === 'Admin'
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : ''
-                }
-              >
-                {user.role}
-              </Badge>
+  variant={user.role === 'manager' ? 'default' : 'secondary'}
+  className={
+    user.role === 'manager'
+      ? 'bg-purple-600 hover:bg-purple-700'
+      : user.role === 'admin'
+      ? 'bg-blue-600 hover:bg-blue-700'
+      : ''
+  }
+>
+  {roleDisplayMap[user.role] || user.role}  {/* ✅ Use mapped display name */}
+</Badge>
             </div>
           </CardContent>
         </Card>
