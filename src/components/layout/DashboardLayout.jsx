@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useState, Suspense} from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import  DashboardSidebar  from "./DashboardSidebar";
 import { Search } from "lucide-react";
@@ -9,6 +9,7 @@ import NotificationDropdown from "@/components/notifications/NotificationDropdow
 import NotificationErrorBoundary from "@/components/notifications/NotificationErrorBoundary";
 import { useNavigate,useLocation, Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import { RouteLoadingScreen } from '../RouteLoadingScreen';
 
 
 const Breadcrumbs = () => {
@@ -112,7 +113,9 @@ const DashboardLayout = () => {
             </div>
  </header>
           <main className="flex-1 overflow-auto p-6">
+            <Suspense fallback={<RouteLoadingScreen />}>
             <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

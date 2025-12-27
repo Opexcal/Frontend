@@ -1,77 +1,85 @@
-import React, { useEffect, useState } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {lazy, Suspense} from "react";
 import { LoadingScreen } from './components/LoadingScreen';
+import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Layouts
 import AuthLayout from "./components/layout/AuthLayout";
 import  DashboardLayout  from './components/layout/DashboardLayout';
 
-// Pages
-import  Landing  from "@/pages/Home/Landing";
-import  Login from "@/pages/authentication/Login";
+// Keep these as regular imports (small, always needed, or public routes)
+import Landing from "@/pages/Home/Landing";
+import Login from "@/pages/authentication/Login";
 import Signup from './pages/authentication/Signup';
 import ForgotPassword from './pages/authentication/ForgotPassword';
-import  Dashboard  from "@/pages/dashboard/Dashboard";
-import  CalendarOverview  from "@/pages/dashboard/CalendarOverview";
-import  TaskLists  from "@/pages/dashboard/TaskLists";
-import Settings from './pages/settings/Settings';
-import  HelpCenter  from "@/pages/help/HelpCenter";
+import HelpCenter from "@/pages/help/HelpCenter";
 import NotFound from "./pages/NotFound";
-import UserManagement from "./pages/admin/users/UserManagement";
-import UserDetails from "./pages/admin/users/UserDetails";
-import GroupManagement from "./pages/admin/groups/GroupManagement";
-import GroupDetails from "./pages/admin/groups/GroupDetails";
-import AuditLogs from "./pages/admin/AuditLogs";
-import NotificationCenter from "./pages/notifications/NotificationCenter";
-import NotificationSettings from "./pages/notifications/NotificationSettings";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import OrganizationSettings from "./pages/admin/organization/OrganizationSettings";
-// import NotificationCenter from "./pages/notifications/NotificationCenter";
-// import NotificationSettings from "./pages/notifications/NotificationSettings";
-// import AdminDashboard from "./pages/admin/AdminDashboard";
-// import OrganizationSettings from "./pages/admin/organization/OrganizationSettings";
-import TeamDashboard from "./pages/team/TeamDashboard";
-import TeamCalendar from "./pages/team/TeamCalendar";
-import TeamTasks from "./pages/team/TeamTasks";
-import TeamReports from "./pages/team/TeamReports";
-import TaskDelegation from "./pages/assignments/TaskDelegation";
-import PendingAssignments from "./pages/assignments/PendingAssignments";
-import MassMessaging from "./pages/mass-operations/MassMessaging";
-import MassTaskCreation from "./pages/mass-operations/MassTaskCreation";
-import MassEventCreation from "./pages/mass-operations/MassEventCreation";
-import WandererDashboard from "./pages/dashboard/WandererDashboard";
-import StaffDashboard from "./pages/dashboard/StaffDashboard";
-import ManagerDashboard from "./pages/dashboard/ManagerDashboard";
-import PersonalCalendar from "./pages/calendar/PersonalCalendar";
-import GroupCalendar from "./pages/calendar/GroupCalendar";
-import DayView from "./pages/calendar/DayView";
-import MyTasks from "./pages/tasks/MyTasks";
-import AssignedToMe from "./pages/tasks/AssignedToMe";
-import AssignedByMe from "./pages/tasks/AssignedByMe";
-import TaskDetails from "./pages/tasks/TaskDetails";
-import TaskTimeline from "./pages/tasks/TaskTimeline";
-import EventDetails from "./pages/events/EventDetails";
-import EventRSVP from "./pages/events/EventRSVP";
-import RecurringEvents from "./pages/events/RecurringEvents";
-import TaskReports from "./pages/reports/TaskReports";
-import TeamProductivity from "./pages/reports/TeamProductivity";
-import EventAttendance from "./pages/reports/EventAttendance";
-import ExportData from "./pages/reports/ExportData";
+
+// Lazy load dashboard components
+const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
+const WandererDashboard = lazy(() => import("./pages/dashboard/WandererDashboard"));
+const StaffDashboard = lazy(() => import("./pages/dashboard/StaffDashboard"));
+const ManagerDashboard = lazy(() => import("./pages/dashboard/ManagerDashboard"));
+
+// Lazy load calendar components
+const CalendarOverview = lazy(() => import("@/pages/dashboard/CalendarOverview"));
+const PersonalCalendar = lazy(() => import("./pages/calendar/PersonalCalendar"));
+const GroupCalendar = lazy(() => import("./pages/calendar/GroupCalendar"));
+const DayView = lazy(() => import("./pages/calendar/DayView"));
+
+// Lazy load task components
+const TaskLists = lazy(() => import("@/pages/dashboard/TaskLists"));
+const MyTasks = lazy(() => import("./pages/tasks/MyTasks"));
+const AssignedToMe = lazy(() => import("./pages/tasks/AssignedToMe"));
+const AssignedByMe = lazy(() => import("./pages/tasks/AssignedByMe"));
+const TaskDetails = lazy(() => import("./pages/tasks/TaskDetails"));
+const TaskTimeline = lazy(() => import("./pages/tasks/TaskTimeline"));
+
+// Lazy load event components
+const EventDetails = lazy(() => import("./pages/events/EventDetails"));
+const EventRSVP = lazy(() => import("./pages/events/EventRSVP"));
+const RecurringEvents = lazy(() => import("./pages/events/RecurringEvents"));
+
+// Lazy load admin components
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const UserManagement = lazy(() => import("./pages/admin/users/UserManagement"));
+const UserDetails = lazy(() => import("./pages/admin/users/UserDetails"));
+const GroupManagement = lazy(() => import("./pages/admin/groups/GroupManagement"));
+const GroupDetails = lazy(() => import("./pages/admin/groups/GroupDetails"));
+const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
+const OrganizationSettings = lazy(() => import("./pages/admin/organization/OrganizationSettings"));
+
+// Lazy load team components
+const TeamDashboard = lazy(() => import("./pages/team/TeamDashboard"));
+const TeamCalendar = lazy(() => import("./pages/team/TeamCalendar"));
+const TeamTasks = lazy(() => import("./pages/team/TeamTasks"));
+const TeamReports = lazy(() => import("./pages/team/TeamReports"));
+
+// Lazy load assignment components
+const TaskDelegation = lazy(() => import("./pages/assignments/TaskDelegation"));
+const PendingAssignments = lazy(() => import("./pages/assignments/PendingAssignments"));
+
+// Lazy load mass operation components
+const MassMessaging = lazy(() => import("./pages/mass-operations/MassMessaging"));
+const MassTaskCreation = lazy(() => import("./pages/mass-operations/MassTaskCreation"));
+const MassEventCreation = lazy(() => import("./pages/mass-operations/MassEventCreation"));
+
+// Lazy load report components
+const TaskReports = lazy(() => import("./pages/reports/TaskReports"));
+const TeamProductivity = lazy(() => import("./pages/reports/TeamProductivity"));
+const EventAttendance = lazy(() => import("./pages/reports/EventAttendance"));
+const ExportData = lazy(() => import("./pages/reports/ExportData"));
+
+// Lazy load notification and settings components
+const NotificationCenter = lazy(() => import("./pages/notifications/NotificationCenter"));
+const NotificationSettings = lazy(() => import("./pages/notifications/NotificationSettings"));
+const Settings = lazy(() => import('./pages/settings/Settings'));
+
+
 
 function AppRoutes() {
-
-     const [isNavigating, setIsNavigating] = useState(false);
-  const location = useLocation();
-
-  useEffect(() => {
-    setIsNavigating(true);
-    const timer = setTimeout(() => setIsNavigating(false), 300);
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
   return (
     <>
-      {isNavigating && <LoadingScreen />}
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landing />} />
