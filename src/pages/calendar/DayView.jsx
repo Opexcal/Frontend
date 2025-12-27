@@ -12,6 +12,9 @@ import {
 import { format, addDays, subDays, parseISO, startOfDay, isToday, setHours,} from "date-fns";
 import { eventsApi } from "../../api/eventsApi"
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Link } from "react-router-dom";
+import CreateEventForm from "../../components/forms/CreateEventForms";
 
 
 const DayView = () => {
@@ -24,6 +27,12 @@ const DayView = () => {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showBlockTimeDialog, setShowBlockTimeDialog] = useState(false);
+const [showFreeTimeDialog, setShowFreeTimeDialog] = useState(false);
+const [showAddEventDialog, setShowAddEventDialog] = useState(false);
+const [blockTimeData, setBlockTimeData] = useState({ start: '', end: '', title: '' });
+const [showEditEventDialog, setShowEditEventDialog] = useState(false);
+
 
   // In each calendar view component
 useEffect(() => {
@@ -40,6 +49,21 @@ useEffect(() => {
     window.removeEventListener("eventUpdated", handleEventChange);
     window.removeEventListener("eventDeleted", handleEventChange);
   };
+}, []);
+
+useEffect(() => {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @media print {
+      .bg-blue-500, .bg-green-500, .bg-red-500, .bg-orange-500, .bg-purple-500 {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  return () => document.head.removeChild(style);
 }, []);
 
   // Fetch events for the current day
@@ -83,8 +107,9 @@ useEffect(() => {
       }
     };
   useEffect(() => {
-    fetchDayEvents();
-  }, [currentDate]);
+  fetchDayEvents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [currentDate]);
 
   // Helper: Map event type to color
   const getColorByType = (type) => {
@@ -107,6 +132,64 @@ useEffect(() => {
     return duration >= 23;
   };
 
+  // Block Time handler
+const handleBlockTime = async () => {
+  try {
+    const startTime = new Date(currentDate);
+    const [startHour, startMin] = blockTimeData.start.split(':');
+    startTime.setHours(parseInt(startHour), parseInt(startMin));
+    
+    const endTime = new Date(currentDate);
+    const [endHour, endMin] = blockTimeData.end.split(':');
+    endTime.setHours(parseInt(endHour), parseInt(endMin));
+    
+    const newEvent = {
+      title: blockTimeData.title || "Blocked Time",
+      description: "Time blocked for focused work",
+      startDate: startTime.toISOString(),
+      endDate: endTime.toISOString(),
+      type: "Other",
+      visibility: "Private"
+    };
+    
+    await eventsApi.createEvent(newEvent);
+    toast.success("Time Blocked", {
+      description: "Focus time added to your schedule"
+    });
+    setShowBlockTimeDialog(false);
+    setBlockTimeData({ start: '', end: '', title: '' });
+    fetchDayEvents();
+  } catch (error) {
+    toast.error("Failed to block time");
+  }
+};
+
+// Find Free Time handler
+const findFreeSlots = () => {
+  const freeSlots = [];
+  const workStart = 9; // 9 AM
+  const workEnd = 17; // 5 PM
+  
+  for (let hour = workStart; hour < workEnd; hour++) {
+    const slotStart = new Date(currentDate);
+    slotStart.setHours(hour, 0, 0, 0);
+    const slotEnd = new Date(currentDate);
+    slotEnd.setHours(hour + 1, 0, 0, 0);
+    
+    const hasConflict = timedEvents.some(event => {
+      return (event.start < slotEnd && event.end > slotStart);
+    });
+    
+    if (!hasConflict) {
+      freeSlots.push({
+        start: format(slotStart, "h:mm a"),
+        end: format(slotEnd, "h:mm a")
+      });
+    }
+  }
+  
+  return freeSlots;
+};
   // Add loading state
   if (isLoading) {
     return (
@@ -179,6 +262,78 @@ useEffect(() => {
   const isCurrentDay = isToday(currentDate);
   const isBusinessHours = (hour) => hour >= 9 && hour < 17;
 
+  
+  // Print Day
+const handlePrintDay = () => {
+  window.print();
+};
+
+// Share Day (copy schedule to clipboard)
+const handleShareDay = async () => {
+  const scheduleText = `Schedule for ${format(currentDate, "EEEE, MMMM d, yyyy")}\n\n` +
+    events.map(event => {
+      if (event.isAllDay) {
+        return `${event.title} - All Day`;
+      }
+      return `${format(event.start, "h:mm a")} - ${format(event.end, "h:mm a")}: ${event.title}`;
+    }).join('\n');
+  
+  try {
+    await navigator.clipboard.writeText(scheduleText);
+    toast.success("Schedule Copied", {
+      description: "Day schedule copied to clipboard"
+    });
+  } catch (error) {
+    toast.error("Failed to copy schedule");
+  }
+};
+
+
+// Export to PDF (using print dialog with PDF option)
+// Email Schedule
+const handleEmailSchedule = () => {
+  const scheduleHTML = events.map(event => {
+    if (event.isAllDay) {
+      return `${event.title} - All Day`;
+    }
+    return `${format(event.start, "h:mm a")} - ${format(event.end, "h:mm a")}: ${event.title}${event.location ? ` @ ${event.location}` : ''}`;
+  }).join('%0D%0A');
+  
+  const subject = encodeURIComponent(`Schedule for ${format(currentDate, "EEEE, MMMM d, yyyy")}`);
+  const body = encodeURIComponent(`My Schedule:\n\n${scheduleHTML.replace(/%0D%0A/g, '\n')}`);
+  
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+};
+
+
+// Copy to Next Day
+const handleCopyToNextDay = async () => {
+  try {
+    const nextDay = addDays(currentDate, 1);
+    const copyPromises = events.map(event => {
+      const newEvent = {
+        title: event.title,
+        description: event.description,
+        startDate: addDays(event.start, 1).toISOString(),
+        endDate: addDays(event.end, 1).toISOString(),
+        type: event.type.charAt(0).toUpperCase() + event.type.slice(1), // Capitalize first letter
+        visibility: event.visibility,
+        location: event.location,
+        conferencingLink: event.onlineLink
+      };
+      return eventsApi.createEvent(newEvent);
+    });
+    
+    await Promise.all(copyPromises);
+    toast.success("Events Copied", {
+      description: `All events copied to ${format(nextDay, "MMMM d, yyyy")}`
+    });
+  } catch (error) {
+    toast.error("Failed to copy events");
+  }
+};
+
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -211,14 +366,22 @@ useEffect(() => {
               <TabsTrigger value="work">Work</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4 mr-2" />
-            Print Day
-          </Button>
-          <Button variant="outline" size="sm">
-            <Share2 className="h-4 w-4 mr-2" />
-            Share Day
-          </Button>
+          <Button variant="outline" size="sm" onClick={handlePrintDay}>
+  <Printer className="h-4 w-4 mr-2" />
+  Print Day
+</Button>
+<Button variant="outline" size="sm" onClick={handleShareDay}>
+  <Share2 className="h-4 w-4 mr-2" />
+  Share Day
+</Button>
+ <Button variant="outline" size="sm" onClick={handleCopyToNextDay}>
+  <Copy className="h-4 w-4 mr-2" />
+  Copy to Next Day
+</Button>
+<Button variant="outline" size="sm" onClick={handleEmailSchedule}>
+  <Mail className="h-4 w-4 mr-2" />
+  Email Schedule
+</Button>
         </div>
       </div>
 
@@ -399,23 +562,47 @@ useEffect(() => {
               <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Event
-              </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <CheckSquare className="h-4 w-4 mr-2" />
-                Add Task
-              </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <Clock className="h-4 w-4 mr-2" />
-                Block Time
-              </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Find Free Time
-              </Button>
-            </CardContent>
+  <Button 
+    variant="outline" 
+    className="w-full justify-start" 
+    size="sm" 
+    onClick={() => setShowAddEventDialog(true)}
+  >
+    <Plus className="h-4 w-4 mr-2" />
+    Add Event
+  </Button>
+  
+  <Link to="/tasks?create=task" className="w-full">
+  <Button 
+    variant="outline" 
+    className="w-full justify-start" 
+    size="sm"
+  >
+    <CheckSquare className="h-4 w-4 mr-2" />
+    Add Task
+  </Button>
+</Link>
+  
+  <Button 
+    variant="outline" 
+    className="w-full justify-start" 
+    size="sm"
+    onClick={() => setShowBlockTimeDialog(true)}
+  >
+    <Clock className="h-4 w-4 mr-2" />
+    Block Time
+  </Button>
+  
+  <Button 
+    variant="outline" 
+    className="w-full justify-start" 
+    size="sm"
+    onClick={() => setShowFreeTimeDialog(true)}
+  >
+    <CalendarIcon className="h-4 w-4 mr-2" />
+    Find Free Time
+  </Button>
+</CardContent>
           </Card>
 
           {/* Weather Widget (Optional) */}
@@ -462,23 +649,17 @@ useEffect(() => {
       {/* Footer Actions */}
       <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4 mr-2" />
-            Print Schedule
-          </Button>
-          <Button variant="outline" size="sm">
-            <FileText className="h-4 w-4 mr-2" />
-            Export to PDF
-          </Button>
-          <Button variant="outline" size="sm">
-            <Mail className="h-4 w-4 mr-2" />
-            Email Schedule
-          </Button>
+          {/* <Button variant="outline" size="sm" onClick={handlePrintDay}>
+  <Printer className="h-4 w-4 mr-2" />
+  Print Schedule
+</Button>
+<Button variant="outline" size="sm" onClick={handleExportPDF}>
+  <FileText className="h-4 w-4 mr-2" />
+  Export to PDF
+</Button> */}
+
         </div>
-        <Button variant="outline" size="sm">
-          <Copy className="h-4 w-4 mr-2" />
-          Copy to Next Day
-        </Button>
+       
       </div>
 
       {/* Event Details Modal (simplified - can be expanded with Dialog) */}
@@ -524,14 +705,156 @@ useEffect(() => {
               </div>
             )}
             <div className="flex gap-2 pt-2 border-t">
-              <Button size="sm" className="flex-1">Edit</Button>
-              <Button size="sm" variant="outline" className="flex-1">Join</Button>
-              <Button size="sm" variant="destructive">Delete</Button>
-            </div>
+  <Button 
+  size="sm" 
+  className="flex-1"
+  onClick={() => {
+    setShowEditEventDialog(true);
+  }}
+>
+  Edit
+</Button>
+  {selectedEvent.onlineLink && (
+    <Button 
+      size="sm" 
+      variant="outline" 
+      className="flex-1"
+      onClick={() => window.open(selectedEvent.onlineLink, '_blank')}
+    >
+      Join
+    </Button>
+  )}
+  <Button 
+    size="sm" 
+    variant="destructive"
+    onClick={async () => {
+      try {
+        await eventsApi.deleteEvent(selectedEvent.id);
+        toast.success("Event Deleted");
+        setSelectedEvent(null);
+        fetchDayEvents();
+      } catch (error) {
+        toast.error("Failed to delete event");
+      }
+    }}
+  >
+    Delete
+  </Button>
+</div>
           </CardContent>
         </Card>
       )}
+      {/* Block Time Dialog */}
+<Dialog open={showBlockTimeDialog} onOpenChange={setShowBlockTimeDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Block Time</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm font-medium">Title</label>
+        <input
+          type="text"
+          className="w-full mt-1 px-3 py-2 border rounded-md"
+          placeholder="Focus time, Deep work, etc."
+          value={blockTimeData.title}
+          onChange={(e) => setBlockTimeData({...blockTimeData, title: e.target.value})}
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium">Start Time</label>
+        <input
+          type="time"
+          className="w-full mt-1 px-3 py-2 border rounded-md"
+          value={blockTimeData.start}
+          onChange={(e) => setBlockTimeData({...blockTimeData, start: e.target.value})}
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium">End Time</label>
+        <input
+          type="time"
+          className="w-full mt-1 px-3 py-2 border rounded-md"
+          value={blockTimeData.end}
+          onChange={(e) => setBlockTimeData({...blockTimeData, end: e.target.value})}
+        />
+      </div>
+      <Button onClick={handleBlockTime} className="w-full">
+        Block Time
+      </Button>
     </div>
+  </DialogContent>
+</Dialog>
+
+{/* Find Free Time Dialog */}
+<Dialog open={showFreeTimeDialog} onOpenChange={setShowFreeTimeDialog}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Available Time Slots</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-2 max-h-96 overflow-y-auto">
+      {findFreeSlots().length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No free slots available today
+        </p>
+      ) : (
+        findFreeSlots().map((slot, i) => (
+          <div 
+            key={i} 
+            className="p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+            onClick={() => {
+              const [startHour, startMin] = slot.start.replace(/[ap]m/i, '').trim().split(':');
+              const isPM = slot.start.toLowerCase().includes('pm');
+              const hour24 = isPM && startHour !== '12' ? parseInt(startHour) + 12 : startHour;
+              
+              setBlockTimeData({
+                start: `${hour24.toString().padStart(2, '0')}:${startMin || '00'}`,
+                end: `${(parseInt(hour24) + 1).toString().padStart(2, '0')}:${startMin || '00'}`,
+                title: 'Focus Time'
+              });
+              setShowFreeTimeDialog(false);
+              setShowBlockTimeDialog(true);
+            }}
+          >
+            <p className="font-medium">{slot.start} - {slot.end}</p>
+            <p className="text-xs text-muted-foreground mt-1">Click to schedule</p>
+          </div>
+        ))
+      )}
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Add Event Dialog */}
+<Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
+  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>Create New Event</DialogTitle>
+    </DialogHeader>
+    <CreateEventForm onClose={() => setShowAddEventDialog(false)} />
+  </DialogContent>
+</Dialog>
+{/* Edit Event Dialog */}
+<Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
+  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>Edit Event</DialogTitle>
+    </DialogHeader>
+    {selectedEvent && (
+      <CreateEventForm 
+        eventData={selectedEvent}
+        isEditMode={true}
+        onClose={() => {
+          setShowEditEventDialog(false);
+          setSelectedEvent(null);
+          fetchDayEvents();
+        }} 
+      />
+    )}
+  </DialogContent>
+</Dialog>
+    </div>
+  
   );
 };
 

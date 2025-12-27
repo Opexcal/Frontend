@@ -39,24 +39,13 @@ const PersonalCalendar = () => {
   const daysInMonth = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
 const eventsForDate = (date) => {
-  // Use actual events state instead
-  return events.filter(event => {
+  return filteredEvents.filter(event => {
     const eventDate = parseISO(event.start);
     return isSameDay(eventDate, date);
   });
 };
 
-const stats = {
-  thisWeek: events.filter(e => {
-    const eventDate = parseISO(e.start);
-    const weekEnd = addDays(new Date(), 7);
-    return eventDate >= new Date() && eventDate <= weekEnd;
-  }).length,
-  thisMonth: events.length,
-  nextEvent: events
-    .filter(e => parseISO(e.start) >= new Date())
-    .sort((a, b) => parseISO(a.start) - parseISO(b.start))[0] || null
-};
+
 
 const fetchPersonalEvents = async () => {
       setIsLoading(true);
@@ -160,12 +149,21 @@ useEffect(() => {
   };
 
 const filteredEvents = events.filter(event => {
-  if (event.type === "meeting" && !selectedTypes.meetings) return false;
-  if (event.type === "deadline" && !selectedTypes.deadlines) return false;
-  // ... rest of filters
+  const eventType = event.type.toLowerCase();
+  
+  if (eventType === "meeting" && !selectedTypes.meetings) return false;
+  if (eventType === "deadline" && !selectedTypes.deadlines) return false;
+  if (eventType === "holiday" && !selectedTypes.holidays) return false;
+  
+  // Handle "personal" filter - this might need adjustment based on your event structure
+  // If you have a specific "personal" type:
+  if (eventType === "personal" && !selectedTypes.personal) return false;
+  
+  // OR if "personal" means private visibility:
+  // if (event.isPersonal && !selectedTypes.personal) return false;
+  
   return true;
 });
-
   const upcomingEvents = filteredEvents
     .filter(event => parseISO(event.start) >= new Date())
     .sort((a, b) => parseISO(a.start) - parseISO(b.start))
@@ -208,6 +206,24 @@ const filteredEvents = events.filter(event => {
     return Object.values(groups).filter(group => group.events.length > 0);
   };
 
+
+  // Replace your current stats calculation with this:
+const stats = {
+  thisWeek: filteredEvents.filter(e => {
+    const eventDate = parseISO(e.start);
+    const now = new Date();
+    const weekStart = startOfWeek(now);
+    const weekEnd = endOfWeek(now);
+    return eventDate >= weekStart && eventDate <= weekEnd;
+  }).length,
+  thisMonth: filteredEvents.filter(e => {
+    const eventDate = parseISO(e.start);
+    return isSameMonth(eventDate, currentDate);
+  }).length,
+  nextEvent: filteredEvents
+    .filter(e => parseISO(e.start) >= new Date())
+    .sort((a, b) => parseISO(a.start) - parseISO(b.start))[0] || null
+};
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}

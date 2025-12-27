@@ -12,24 +12,31 @@ import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { eventsApi } from "../../api/eventsApi";
 
- const CreateEventForm = ({ onClose }) => {
+const CreateEventForm = ({ onClose, eventData, isEditMode }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [startDate, setStartDate] = useState();
-  const [endDate, setEndDate] = useState();
+  
+  // Initialize dates from eventData if editing
+  const [startDate, setStartDate] = useState(
+    isEditMode && eventData?.start ? new Date(eventData.start) : undefined
+  );
+  const [endDate, setEndDate] = useState(
+    isEditMode && eventData?.end ? new Date(eventData.end) : undefined
+  );
+  
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    eventType: "",
-    startTime: "",
-    endTime: "",
-    location: "",
-    meetingUrl: "",
+    title: isEditMode && eventData ? eventData.title : "",
+    description: isEditMode && eventData ? eventData.description || "" : "",
+    eventType: isEditMode && eventData ? eventData.type.charAt(0).toUpperCase() + eventData.type.slice(1) : "",
+    startTime: isEditMode && eventData?.start ? format(new Date(eventData.start), "HH:mm") : "",
+    endTime: isEditMode && eventData?.end ? format(new Date(eventData.end), "HH:mm") : "",
+    location: isEditMode && eventData ? eventData.location || "" : "",
+    meetingUrl: isEditMode && eventData ? eventData.onlineLink || "" : "",
     participants: "",
     reminder: "30",
-    visibility: "Public",
+    visibility: isEditMode && eventData ? eventData.visibility : "Public",
   });
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault();
   
   // Validation
@@ -57,39 +64,45 @@ import { eventsApi } from "../../api/eventsApi";
     }
 
     // Map frontend fields to backend schema
-    const eventData = {
+    const eventPayload = {
       title: formData.title,
       description: formData.description,
       startDate: startDateTime.toISOString(),
       endDate: endDateTime.toISOString(),
-      type: formData.eventType || 'Meeting', // Map to backend enum
-      visibility: 'Public', // Add visibility selector to form if needed
+      type: formData.eventType || 'Meeting',
+      visibility: formData.visibility,
       conferencingLink: formData.meetingUrl || null,
-      attendees: [], // Add attendee selection logic if needed
-      // groupId: null // Add if implementing group events
+      location: formData.location || null,
+      attendees: [],
     };
 
-    const response = await eventsApi.createEvent(eventData);
-    
-    toast.success("Success", {
-      description: response.message || "Event created successfully.",
-    });
-  
+    let response;
+    if (isEditMode && eventData) {
+      // Update existing event
+      response = await eventsApi.updateEvent(eventData.id, eventPayload);
+      toast.success("Success", {
+        description: "Event updated successfully.",
+      });
+      window.dispatchEvent(new CustomEvent('eventUpdated', { detail: response.data }));
+    } else {
+      // Create new event
+      response = await eventsApi.createEvent(eventPayload);
+      toast.success("Success", {
+        description: "Event created successfully.",
+      });
+      window.dispatchEvent(new CustomEvent('eventCreated', { detail: response.data }));
+    }
     
     onClose();
     
-    // Optional: trigger calendar refresh
-    window.dispatchEvent(new CustomEvent('eventCreated', { detail: response.data }));
-    
   } catch (error) {
-    toast.error("Error",{
-      description: error.message || "Failed to create event.",
+    toast.error("Error", {
+      description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} event.`,
     });
   } finally {
     setIsLoading(false);
   }
 };
-
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -316,9 +329,9 @@ import { eventsApi } from "../../api/eventsApi";
         <Button type="button" variant="outline" onClick={onClose} className="flex-1">
           Cancel
         </Button>
-        <Button type="submit" className="flex-1" disabled={isLoading}>
-          {isLoading ? "Creating..." : "Create Event"}
-        </Button>
+       <Button type="submit" className="flex-1" disabled={isLoading}>
+  {isLoading ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update Event" : "Create Event")}
+</Button>
       </div>
     </form>
   );

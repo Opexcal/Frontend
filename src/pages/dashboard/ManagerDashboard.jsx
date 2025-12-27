@@ -229,7 +229,7 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
             Export Report
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link to="/admin">
+            <Link to="/admin/dashboard">
               <Settings className="h-4 w-4 mr-2" />
               Admin Console
             </Link>
