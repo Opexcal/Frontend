@@ -13,14 +13,26 @@ import  CreateEventForm from "../../components/forms/CreateEventForms";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+
+
 const CalendarOverview = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-const [viewMode, setViewMode] = useState("month");
-const [isCreateOpen, setIsCreateOpen] = useState(false);
-// Add these new states:
-const [events, setEvents] = useState([]);
-const [isLoading, setIsLoading] = useState(true);
-const navigate = useNavigate();
+ const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState("month");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // ✅ Add filter state
+  const [filters, setFilters] = useState({
+    Meeting: true,
+    Holiday: true,
+    Deadline: true,
+    Task: true,
+    Reminder: true,
+    Other: true
+  });
+  
+  const navigate = useNavigate();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   
@@ -117,55 +129,59 @@ useEffect(() => {
     setCurrentDate(new Date());
   };
 
-  const renderCalendarDays = () => {
-    const days = [];
-    const today = new Date();
-    const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+const renderCalendarDays = () => {
+  const days = [];
+  const today = new Date();
+  const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+  
+  // Empty cells for days before the first day of the month
+  for (let i = 0; i < firstDay; i++) {
+    days.push(
+      <div key={`empty-${i}`} className="h-24 border border-border/50 bg-muted/30" />
+    );
+  }
+
+  // Days of the month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = isCurrentMonth && today.getDate() === day;
     
-    // Empty cells for days before the first day of the month
-    for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <div key={`empty-${i}`} className="h-24 border border-border/50 bg-muted/30" />
-      );
-    }
+    // ✅ Apply filters
+    const dayEvents = events.filter(e => 
+      e.date === day && filters[e.type]
+    );
 
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = isCurrentMonth && today.getDate() === day;
-      const dayEvents = events.filter(e => e.date === day);
-
-      days.push(
-        <div
-  key={day}
-  onClick={() => navigate("/calendar/day", { 
-    state: { date: new Date(year, month, day).toISOString() } 
-  })}
-  className={`h-24 border border-border/50 p-1 hover:bg-accent/30 transition-colors cursor-pointer ${
-    isToday ? "bg-primary/5 border-primary/30" : ""
-  }`}
->
-          <div className={`text-sm font-medium mb-1 ${isToday ? "text-primary" : "text-foreground"}`}>
-            {day}
-          </div>
-          <div className="space-y-1">
-            {dayEvents.slice(0, 2).map((event) => (
-              <div
-                key={event.id}
-                className={`text-xs px-1.5 py-0.5 rounded text-primary-foreground truncate ${event.color}`}
-              >
-                {event.title}
-              </div>
-            ))}
-            {dayEvents.length > 2 && (
-              <div className="text-xs text-muted-foreground">+{dayEvents.length - 2} more</div>
-            )}
-          </div>
+    days.push(
+      <div
+        key={day}
+        onClick={() => navigate("/calendar/day", { 
+          state: { date: new Date(year, month, day).toISOString() } 
+        })}
+        className={`h-24 border border-border/50 p-1 hover:bg-accent/30 transition-colors cursor-pointer ${
+          isToday ? "bg-primary/5 border-primary/30" : ""
+        }`}
+      >
+        <div className={`text-sm font-medium mb-1 ${isToday ? "text-primary" : "text-foreground"}`}>
+          {day}
         </div>
-      );
-    }
+        <div className="space-y-1">
+          {dayEvents.slice(0, 2).map((event) => (
+            <div
+              key={event.id}
+              className={`text-xs px-1.5 py-0.5 rounded text-primary-foreground truncate ${event.color}`}
+            >
+              {event.title}
+            </div>
+          ))}
+          {dayEvents.length > 2 && (
+            <div className="text-xs text-muted-foreground">+{dayEvents.length - 2} more</div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-    return days;
-  };
+  return days;
+};
 
   if (isLoading) {
   return (
@@ -174,6 +190,80 @@ useEffect(() => {
     </div>
   );
 }
+
+
+const renderWeekView = () => {
+  // Get the current week's start (Sunday)
+  const today = new Date();
+  const currentDay = today.getDay();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - currentDay);
+  
+  const weekDays = [];
+  const filteredWeekEvents = [];
+  
+  // Generate 7 days
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
+    weekDays.push(date);
+    
+    // Get events for this day
+    const dayEvents = events.filter(e => {
+      const eventDate = new Date(e.fullDate);
+      return isSameDay(eventDate, date) && filters[e.type];
+    });
+    
+    filteredWeekEvents.push({ date, events: dayEvents });
+  }
+  
+  return (
+    <div className="space-y-4">
+      {filteredWeekEvents.map(({ date, events: dayEvents }, idx) => {
+        const isToday = isSameDay(date, new Date());
+        
+        return (
+          <div 
+            key={idx} 
+            className={`border rounded-lg p-4 ${isToday ? 'border-primary bg-primary/5' : ''}`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className={`font-semibold ${isToday ? 'text-primary' : ''}`}>
+                  {daysOfWeek[date.getDay()]}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              {dayEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No events</p>
+              ) : (
+                dayEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className={`px-3 py-2 rounded text-white ${event.color}`}
+                    onClick={() => {
+                      // Handle event click if needed
+                    }}
+                  >
+                    <p className="font-medium text-sm">{event.title}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -263,21 +353,41 @@ useEffect(() => {
             </div>
 
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Filters</h4>
-              <div className="space-y-2">
-                {["Meetings", "Holidays", "Deadlines", "Personal"].map((filter) => (
-                  <label key={filter} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="rounded border-border" defaultChecked />
-                    {filter}
-                  </label>
-                ))}
-              </div>
+  <h4 className="text-sm font-medium">Filters</h4>
+  <div className="space-y-2">
+    {Object.keys(filters).map((filterType) => (
+      <label key={filterType} className="flex items-center gap-2 text-sm cursor-pointer">
+        <input 
+          type="checkbox" 
+          className="rounded border-border cursor-pointer" 
+          checked={filters[filterType]}
+          onChange={(e) => setFilters(prev => ({
+            ...prev,
+            [filterType]: e.target.checked
+          }))}
+        />
+        {filterType}s
+      </label>
+    ))}
+  </div>
             </div>
 
-            <Button variant="outline" size="sm" className="w-full">
-              <Filter className="h-4 w-4 mr-2" />
-              Clear Filters
-            </Button>
+<Button 
+  variant="outline" 
+  size="sm" 
+  className="w-full"
+  onClick={() => setFilters({
+    Meeting: true,
+    Holiday: true,
+    Deadline: true,
+    Task: true,
+    Reminder: true,
+    Other: true
+  })}
+>
+  <Filter className="h-4 w-4 mr-2" />
+  Clear Filters
+</Button>
           </CardContent>
         </Card>
 
@@ -323,20 +433,29 @@ useEffect(() => {
             
           </CardHeader>
           <CardContent>
-            {/* Calendar Header */}
-            <div className="grid grid-cols-7 gap-0 mb-2">
-              {daysOfWeek.map(day => (
-                <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-            
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-0">
-              {renderCalendarDays()}
-            </div>
-          </CardContent>
+  {viewMode === "month" ? (
+    <>
+      {/* Calendar Header */}
+      <div className="grid grid-cols-7 gap-0 mb-2">
+        {daysOfWeek.map(day => (
+          <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+            {day}
+          </div>
+        ))}
+      </div>
+      
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-0">
+        {renderCalendarDays()}
+      </div>
+    </>
+  ) : (
+    /* Week View */
+    <div className="max-h-[600px] overflow-y-auto">
+      {renderWeekView()}
+    </div>
+  )}
+</CardContent>
         </Card>
       </div>
     </div>

@@ -10,6 +10,7 @@ import StatusBadge from "../../components/common/StatusBadge";
 import CreateTaskForm from "../../components/forms/CreateTaskForms";
 import { tasksApi } from "@/api/taskApi";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 
 const TaskLists = () => {
@@ -124,7 +125,11 @@ const handleStatusChange = async (taskId, newStatus) => {
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm truncate">{task.title}</h4>
+              <Link to={`/tasks/${task._id}`}>  {/* ✅ Changed from task.id */}
+  <h3 className="text-lg font-semibold hover:text-primary transition-colors cursor-pointer">
+    {task.title}
+  </h3>
+</Link>
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                 {task.description || "No description"}
               </p>
@@ -364,7 +369,11 @@ const handleStatusChange = async (taskId, newStatus) => {
                   tasks.map(task => (
                     <div key={task._id} className="flex items-center gap-4 p-4 hover:bg-accent/30 transition-colors">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm">{task.title}</h4>
+                        <Link to={`/tasks/${task._id}`}>  {/* ✅ Changed from task.id */}
+  <h3 className="text-lg font-semibold hover:text-primary transition-colors cursor-pointer">
+    {task.title}
+  </h3>
+</Link>
                         <p className="text-xs text-muted-foreground mt-1">{task.description || "No description"}</p>
                         {task.assignees?.length > 0 && (
                           <p className="text-xs text-muted-foreground mt-1">

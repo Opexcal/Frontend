@@ -25,7 +25,8 @@ import {
   ChevronDown,
   Plus,
   Clock,
-  BarChart3, MessageSquare
+  BarChart3, MessageSquare,
+  ChevronRight,User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,7 +50,7 @@ const adminNavItems = [
   { title: "Admin Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Groups", url: "/admin/groups", icon: Users },
-  { title: "Organization", url: "/admin/settings", icon: Settings },
+
 ];
 
 const DashboardSidebar = () => {
@@ -163,6 +164,66 @@ const showAdminSection = useMemo(
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <SidebarGroup>
+  <SidebarGroupLabel>Tasks</SidebarGroupLabel>
+  <SidebarGroupContent>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          asChild
+          isActive={location.pathname === "/tasks"}  
+          tooltip="All Tasks"
+        >
+          <Link to="/tasks">
+            <CheckSquare className="h-4 w-4" />
+            <span>All Tasks</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          asChild
+          isActive={isActive("/tasks/my-tasks")}
+          tooltip="My Tasks"
+        >
+          <Link to="/tasks/my-tasks">
+            <CheckSquare className="h-4 w-4" />
+            <span>My Tasks</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          asChild
+          isActive={isActive("/tasks/assigned-to-me")}
+          tooltip="Assigned To Me"
+        >
+          <Link to="/tasks/assigned-to-me">
+            <User className="h-4 w-4" />  {/* ✅ Now imported */}
+            <span>Assigned To Me</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      
+      {(hasPermission("manage_groups") || isSuperAdmin(user?.role)) && (
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/tasks/assigned-by-me")}
+            tooltip="Assigned By Me"
+          >
+            <Link to="/tasks/assigned-by-me">
+              <Users className="h-4 w-4" />
+              <span>Assigned By Me</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+    </SidebarMenu>
+  </SidebarGroupContent>
+</SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>Calendar</SidebarGroupLabel>
@@ -308,36 +369,62 @@ const showAdminSection = useMemo(
   </SidebarGroup>
 )}
               
+
+
 {showAdminSection && (
   <SidebarGroup>
     <SidebarGroupLabel>Administration</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminNavItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(item.url)}
-                      tooltip={item.title}
-                    >
-                      <Link to={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-                {isSuperAdmin(user?.role) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={isActive("/admin/audit-logs")} tooltip="Audit Logs">
-                      <Link to="/admin/audit-logs">Audit Logs</Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        {adminNavItems.map((item) => (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive(item.url)}
+              tooltip={item.title}
+            >
+              <Link to={item.url}>
+                <item.icon className="h-4 w-4" />
+                <span>{item.title}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+        
+        {/* ✅ Only show Organization for SuperAdmin */}
+        {isSuperAdmin(user?.role) && (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive("/admin/settings")}
+              tooltip="Organization"
+            >
+              <Link to="/admin/settings">
+                <Settings className="h-4 w-4" />
+                <span>Organization</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         )}
+        
+        {isSuperAdmin(user?.role) && (
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              asChild 
+              isActive={isActive("/admin/audit-logs")} 
+              tooltip="Audit Logs"
+            >
+              <Link to="/admin/audit-logs">
+                <BarChart3 className="h-4 w-4" />
+                <span>Audit Logs</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+)}
       </SidebarContent>
 
       <SidebarFooter className="p-4">

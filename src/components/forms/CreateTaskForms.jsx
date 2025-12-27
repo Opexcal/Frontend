@@ -13,8 +13,12 @@ import {toast} from 'sonner'; // ✅ CHANGE to sonner toast
 import { tasksApi } from '@/api/taskApi';
 import { usersApi } from '@/api/usersApi';
 import UserMultiSelect from '@/components/UserMultiSelect'; // ✅ ADD this import
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
 
 const CreateTaskForm = ({ onClose }) => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [dueDate, setDueDate] = useState();
   const [formData, setFormData] = useState({
@@ -24,64 +28,77 @@ const CreateTaskForm = ({ onClose }) => {
     priority: "",
   });
   const [teamMembers, setTeamMembers] = useState([]);
+  const { user } = useAuth();
+
+// Add this helper to check if user can assign tasks
+const canAssignTasks = ['admin', 'manager'].includes(user?.role);
 
   // ✅ Fetch team members on mount
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await usersApi.getUsers();
-        setTeamMembers(response.data.users);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-        toast.error("Error", {
-          description: "Failed to load team members",
-        });
-      }
-    };
-    fetchUsers();
-  }, []); // ✅ Add toast to dependencies
-
-  // ✅ SINGLE handleSubmit function (removed duplicate)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!dueDate) {
-      toast.error("Due date required", {
-  description: "Please select a due date for the task.",
-});
-      return;
-    }
-
-    if (formData.assignees.length === 0) {
-      toast.error("Assignee required", {
-  description: "Please select at least one assignee.",
-});
-      return;
-    }
-
-    setIsLoading(true);
-    
+// ✅ Only fetch users if user can assign tasks
+useEffect(() => {
+  if (!canAssignTasks) return; // Skip fetching if user can't assign
+  
+  const fetchUsers = async () => {
     try {
-      await tasksApi.createTask({
-        title: formData.title,
-        description: formData.description,
-        priority: formData.priority,
-        assignees: formData.assignees,
-        dueDate: dueDate.toISOString(),
-      });
-      
-      toast.success("Task created", {
-  description: "Your task has been created and assignees notified.",
-});
-      onClose();
+      const response = await usersApi.getUsers();
+      setTeamMembers(response.data.users);
     } catch (error) {
-      toast.error("Error creating task", {
-  description: error.response?.data?.message || "Something went wrong",
-});
-    } finally {
-      setIsLoading(false);
+      console.error("Failed to fetch users:", error);
+      toast.error("Error", {
+        description: "Failed to load team members",
+      });
     }
   };
+  fetchUsers();
+}, [canAssignTasks]); // Add canAssignTasks as dependency
+
+  // ✅ SINGLE handleSubmit function (removed duplicate)
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!dueDate) {
+    toast.error("Due date required", {
+      description: "Please select a due date for the task.",
+    });
+    return;
+  }
+
+  // Only validate assignees if user can assign tasks
+  if (canAssignTasks && formData.assignees.length === 0) {
+    toast.error("Assignee required", {
+      description: "Please select at least one assignee.",
+    });
+    return;
+  }
+
+  setIsLoading(true);
+  
+  try {
+    const taskData = {
+      title: formData.title,
+      description: formData.description,
+      priority: formData.priority,
+      dueDate: dueDate.toISOString(),
+    };
+
+    // Only include assignees if user can assign tasks
+    if (canAssignTasks) {
+      taskData.assignees = formData.assignees;
+    }
+    const response = await tasksApi.createTask(taskData);
+    toast.success("Task created", {
+      description: "Your task has been created and assignees notified.",
+    });
+    onClose();
+    navigate(`/tasks/${response.data.task._id}`);
+  } catch (error) {
+    toast.error("Error creating task", {
+      description: error.response?.data?.message || "Something went wrong",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -107,15 +124,17 @@ const CreateTaskForm = ({ onClose }) => {
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="assignees">Assign To *</Label>
-        <UserMultiSelect
-          users={teamMembers}
-          selectedUsers={formData.assignees}
-          onChange={(userIds) => setFormData({ ...formData, assignees: userIds })}
-          placeholder="Select team members..."
-        />
-      </div>
+      {canAssignTasks && (
+  <div className="space-y-2">
+    <Label htmlFor="assignees">Assign To *</Label>
+    <UserMultiSelect
+      users={teamMembers}
+      selectedUsers={formData.assignees}
+      onChange={(userIds) => setFormData({ ...formData, assignees: userIds })}
+      placeholder="Select team members..."
+    />
+  </div>
+)}
 
       <div className="space-y-2">
         <Label>Due Date *</Label>

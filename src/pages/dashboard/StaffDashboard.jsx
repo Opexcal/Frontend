@@ -20,36 +20,73 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format, isToday, isPast } from "date-fns";
+import { format, isToday, isPast, isThisWeek, isThisMonth, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
 const StaffDashboard = () => {
   const { user } = useAuth();
   const { data, loading, error } = useDashboard();
   const [dateRange, setDateRange] = useState("today");
+  
+  // ✅ Add date filtering function
+  const filterByDateRange = (items, dateField = 'dueDate') => {
+    const now = new Date();
+    
+    return items.filter(item => {
+      if (!item[dateField]) return false;
+      const itemDate = new Date(item[dateField]);
+      
+      switch(dateRange) {
+        case 'today':
+          return isToday(itemDate);
+        case 'week':
+          return isThisWeek(itemDate, { weekStartsOn: 0 });
+        case 'month':
+          return isThisMonth(itemDate);
+        default:
+          return true;
+      }
+    });
+  };
+
   const activeTasks = data.activeTasks.tasks || [];
-  // Calculate derived stats from API data
-const stats = {
-  myTasks: {
-    total: activeTasks.length, // Total tasks assigned to me
-    completed: activeTasks.filter(t => t.status === 'Completed').length,
-    pending: activeTasks.filter(t => t.status === 'Pending').length,
-    inProgress: activeTasks.filter(t => t.status === 'In-Progress').length
-  },
-  teamEvents: data.upcomingEvents.count || 0,
-  completionRate: activeTasks.length > 0 
-    ? Math.round((activeTasks.filter(t => t.status === 'Completed').length / activeTasks.length) * 100)
-    : 0,
-  unreadNotifications: data.stats.unreadNotifications || 0
-};
+  
+  // ✅ Apply date filter to tasks based on due date
+  const filteredTasks = dateRange === 'today' || dateRange === 'week' || dateRange === 'month'
+    ? filterByDateRange(activeTasks, 'dueDate')
+    : activeTasks;
+  
+  // ✅ Calculate stats from filtered tasks
+  const stats = {
+    myTasks: {
+      total: filteredTasks.length,
+      completed: filteredTasks.filter(t => t.status === 'Completed').length,
+      pending: filteredTasks.filter(t => t.status === 'Pending').length,
+      inProgress: filteredTasks.filter(t => t.status === 'In-Progress').length
+    },
+    teamEvents: data.upcomingEvents.count || 0,
+    completionRate: filteredTasks.length > 0 
+      ? Math.round((filteredTasks.filter(t => t.status === 'Completed').length / filteredTasks.length) * 100)
+      : 0,
+    unreadNotifications: data.stats.unreadNotifications || 0
+  };
 
-// Filter tasks by status - use capitalized backend values
-const myTasks = activeTasks.filter(t => t.status !== 'Rejected');
-const assignedToMe = activeTasks.filter(t => t.status === 'Pending');
-const overdueTasks = activeTasks.filter(t => 
-  t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
-);
+  // ✅ Use filtered tasks
+  const myTasks = filteredTasks.filter(t => t.status !== 'Rejected');
+  const assignedToMe = filteredTasks.filter(t => t.status === 'Pending');
+  const overdueTasks = filteredTasks.filter(t => 
+    t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
+  );
 
-  // Filter events happening today
+  // ✅ Filter events by date range
+  const filteredEvents = dateRange === 'today' 
+    ? (data.upcomingEvents.events || []).filter(event => isToday(new Date(event.startDate)))
+    : dateRange === 'week'
+    ? (data.upcomingEvents.events || []).filter(event => isThisWeek(new Date(event.startDate), { weekStartsOn: 0 }))
+    : dateRange === 'month'
+    ? (data.upcomingEvents.events || []).filter(event => isThisMonth(new Date(event.startDate)))
+    : data.upcomingEvents.events || [];
+
+  // ✅ Today's events (always show today regardless of filter)
   const todaysEvents = (data.upcomingEvents.events || []).filter(event => 
     isToday(new Date(event.startDate))
   );
@@ -131,18 +168,20 @@ const overdueTasks = activeTasks.filter(t =>
         </Card>
 
         <Card className="card-hover">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Team Events</p>
-                <p className="text-2xl font-semibold mt-1">{stats.teamEvents}</p>
-                <p className="text-xs text-muted-foreground mt-1">Upcoming</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Team Events</p>
+        <p className="text-2xl font-semibold mt-1">{filteredEvents.length}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {dateRange === 'today' ? 'Today' : dateRange === 'week' ? 'This Week' : 'This Month'}
+        </p>
+      </div>
+      <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+        <Calendar className="h-6 w-6 text-green-600" />
+      </div>
+    </div>
+  </CardContent>
         </Card>
 
         <Card className="card-hover">
@@ -182,79 +221,82 @@ const overdueTasks = activeTasks.filter(t =>
       </div>
 
       {/* Today's Focus */}
-      <Card className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/20">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Today's Focus</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Events Today */}
-            <div>
-              <h3 className="font-medium mb-3 flex items-center">
-                <Calendar className="h-4 w-4 mr-2" />
-                Events Today ({todaysEvents.length})
-              </h3>
-              <div className="space-y-2">
-                {todaysEvents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No events scheduled</p>
-                ) : (
-                  todaysEvents.slice(0, 3).map((event) => (
-                    <div key={event._id} className="p-2 rounded bg-background/50">
-                      <p className="text-sm font-medium">{event.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(event.startDate), "h:mm a")}
-                      </p>
-                    </div>
-                  ))
-                )}
+{/* Today's Focus */}
+<Card className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/20">
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">
+      {dateRange === 'today' ? "Today's Focus" : dateRange === 'week' ? "This Week's Focus" : "This Month's Focus"}
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Events */}
+      <div>
+        <h3 className="font-medium mb-3 flex items-center">
+          <Calendar className="h-4 w-4 mr-2" />
+          Events ({filteredEvents.length})
+        </h3>
+        <div className="space-y-2">
+          {filteredEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No events scheduled</p>
+          ) : (
+            filteredEvents.slice(0, 3).map((event) => (
+              <div key={event._id} className="p-2 rounded bg-background/50">
+                <p className="text-sm font-medium">{event.title}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {format(new Date(event.startDate), "MMM d, h:mm a")}
+                </p>
               </div>
-            </div>
+            ))
+          )}
+        </div>
+      </div>
 
-            {/* Tasks In Progress */}
-            <div>
-              <h3 className="font-medium mb-3 flex items-center">
-                <CheckSquare className="h-4 w-4 mr-2" />
-                In Progress ({stats.myTasks.inProgress})
-              </h3>
-              <div className="space-y-2">
-                {activeTasks
-                  .filter(t => t.status === 'In-Progress')
-                  .slice(0, 3)
-                  .map((task) => (
-                    <div key={task._id} className="p-2 rounded bg-background/50">
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <StatusBadge status={task.status} className="mt-1" />
-                    </div>
-                  ))}
-                {stats.myTasks.inProgress === 0 && (
-                  <p className="text-sm text-muted-foreground">No tasks in progress</p>
-                )}
+      {/* Tasks In Progress */}
+      <div>
+        <h3 className="font-medium mb-3 flex items-center">
+          <CheckSquare className="h-4 w-4 mr-2" />
+          In Progress ({stats.myTasks.inProgress})
+        </h3>
+        <div className="space-y-2">
+          {filteredTasks
+            .filter(t => t.status === 'In-Progress')
+            .slice(0, 3)
+            .map((task) => (
+              <div key={task._id} className="p-2 rounded bg-background/50">
+                <p className="text-sm font-medium">{task.title}</p>
+                <StatusBadge status={task.status} className="mt-1" />
               </div>
-            </div>
+            ))}
+          {stats.myTasks.inProgress === 0 && (
+            <p className="text-sm text-muted-foreground">No tasks in progress</p>
+          )}
+        </div>
+      </div>
 
-            {/* Recent Activity */}
-            <div>
-              <h3 className="font-medium mb-3 flex items-center">
-                <Users className="h-4 w-4 mr-2" />
-                Recent Activity
-              </h3>
-              <div className="space-y-2">
-                {recentActivity.slice(0, 3).map((notification) => (
-                  <div key={notification._id} className="p-2 rounded bg-background/50">
-                    <p className="text-sm truncate">{notification.message || "Notification"}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(notification.createdAt), "MMM d, h:mm a")}
-                    </p>
-                  </div>
-                ))}
-                {recentActivity.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No recent activity</p>
-                )}
-              </div>
+      {/* Recent Activity - always show recent regardless of filter */}
+      <div>
+        <h3 className="font-medium mb-3 flex items-center">
+          <Users className="h-4 w-4 mr-2" />
+          Recent Activity
+        </h3>
+        <div className="space-y-2">
+          {recentActivity.slice(0, 3).map((notification) => (
+            <div key={notification._id} className="p-2 rounded bg-background/50">
+              <p className="text-sm truncate">{notification.message || "Notification"}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {format(new Date(notification.createdAt), "MMM d, h:mm a")}
+              </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+          {recentActivity.length === 0 && (
+            <p className="text-sm text-muted-foreground">No recent activity</p>
+          )}
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
       {/* Main Content - Two Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-6">
@@ -427,12 +469,22 @@ const overdueTasks = activeTasks.filter(t =>
               <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start" asChild>
+              {/* <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to="/tasks/create">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Task
                 </Link>
-              </Button>
+              </Button> */}
+              <Link to="/tasks?create=task" className="w-full">
+  <Button 
+    variant="outline" 
+    className="w-full justify-start" 
+    size="sm"
+  >
+    <CheckSquare className="h-4 w-4 mr-2" />
+    Add Task
+  </Button>
+</Link>
               <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to="/calendar">
                   <Calendar className="h-4 w-4 mr-2" />

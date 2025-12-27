@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { dashboardApi } from '@/api/dashboardApi';
 import { groupsApi } from '@/api/groupsApi';
 import { usersApi } from '@/api/usersApi';
+import {useAuth} from "@/context/AuthContext"
 
 
 
@@ -29,7 +30,10 @@ const AdminDashboard = () => {
   const { data, loading: dashboardLoading, error } = useDashboard();
   const { adminStats, groupsOverview, loading: adminLoading } = useAdminDashboard();
   // Loading state
-if (dashboardLoading || adminLoading)  {
+
+  const isSuperAdmin = useAuth().user?.role === "manager";
+
+  if (dashboardLoading || adminLoading)  {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-3">
@@ -97,14 +101,16 @@ const statsData = {
           <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground">Organization overview and quick actions</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => navigate("/admin/audit-logs")}>
-            View Audit Logs
-          </Button>
-          <Button onClick={() => navigate("/admin/settings")}>
-            Org Settings
-          </Button>
-        </div>
+        {isSuperAdmin && (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => navigate("/admin/audit-logs")}>
+              View Audit Logs
+            </Button>
+            <Button onClick={() => navigate("/admin/settings")}>
+              Org Settings
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -241,20 +247,24 @@ const statsData = {
               >
                 Create Group
               </Button>
-              <Button 
-                className="w-full" 
-                variant="ghost" 
-                onClick={() => navigate("/admin/audit-logs")}
-              >
-                View Audit Logs
-              </Button>
-              <Button 
-                className="w-full" 
-                variant="ghost" 
-                onClick={() => navigate("/admin/settings")}
-              >
-                Org Settings
-              </Button>
+              {isSuperAdmin && (
+                <>
+                  <Button 
+                    className="w-full" 
+                    variant="ghost" 
+                    onClick={() => navigate("/admin/audit-logs")}
+                  >
+                    View Audit Logs
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="ghost" 
+                    onClick={() => navigate("/admin/settings")}
+                  >
+                    Org Settings
+                  </Button>
+                </>
+              )}
             </div>
           </Card>
         </div>

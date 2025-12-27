@@ -75,33 +75,26 @@ const MyTasks = () => {
     load();
   }, [user?.id]);
 
-  const filteredTasks = useMemo(() => {
-    return tasks
-      .filter((task) => {
-        const matchesSearch =
-          task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+// Replace the status filter mapping in the filteredTasks useMemo:
+const filteredTasks = useMemo(() => {
+  return tasks
+    .filter((task) => {
+      const matchesSearch =
+        task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-        const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+      // Fix status matching - align with backend values
+      const matchesStatus = 
+        statusFilter === "all" || 
+        task.status === statusFilter ||
+        (statusFilter === "pending" && task.status === "not-started");
+      
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
 
-        return matchesSearch && matchesStatus && matchesPriority;
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case "dueDate":
-            return new Date(a.dueDate) - new Date(b.dueDate);
-          case "priority": {
-            const priorityOrder = { high: 3, medium: 2, low: 1 };
-            return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
-          }
-          case "createdAt":
-            return new Date(b.createdAt) - new Date(a.createdAt);
-          default:
-            return 0;
-        }
-      });
-  }, [tasks, searchQuery, statusFilter, priorityFilter, sortBy]);
+      return matchesSearch && matchesStatus && matchesPriority;
+    })
+    // ... rest of the sorting logic
+}, [tasks, searchQuery, statusFilter, priorityFilter, sortBy]);
 
   const getDueDateStatus = (dueDate) => {
     const date = parseISO(dueDate);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,71 +31,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { tasksApi } from '@/api';
+import { toast } from 'sonner';
 
 // Mock data
-const mockTask = {
-  id: 1,
-  title: "Review marketing campaign proposal",
-  description: "Review and provide feedback on the Q1 marketing campaign proposal. Focus on budget allocation, target audience, and campaign timeline. Provide detailed feedback on each section.",
-  priority: "high",
-  status: "in-progress",
-  dueDate: "2025-12-24",
-  createdAt: "2025-12-20T10:00:00",
-  updatedAt: "2025-12-22T14:30:00",
-  createdBy: {
-    id: "1",
-    name: "Sarah Johnson",
-    avatar: "",
-    email: "sarah@example.com"
-  },
-  assignedTo: [
-    { id: "2", name: "Mike Chen", avatar: "", email: "mike@example.com", status: "accepted" },
-    { id: "3", name: "Alex Rivera", avatar: "", email: "alex@example.com", status: "pending" },
-  ],
-  tags: ["marketing", "review", "Q1"],
-  estimatedHours: 4,
-  actualHours: 2,
-  attachments: [
-    { id: 1, name: "campaign_proposal.pdf", size: "2.4 MB", uploadedAt: "2025-12-20" },
-    { id: 2, name: "budget_breakdown.xlsx", size: "145 KB", uploadedAt: "2025-12-21" },
-  ],
-  comments: [
-    {
-      id: 1,
-      author: { id: "2", name: "Mike Chen", avatar: "" },
-      content: "I've reviewed the first section. The budget allocation looks reasonable. Should we schedule a meeting to discuss?",
-      createdAt: "2025-12-21T09:15:00",
-    },
-    {
-      id: 2,
-      author: { id: "1", name: "Sarah Johnson", avatar: "" },
-      content: "Good point! Let's schedule for tomorrow afternoon.",
-      createdAt: "2025-12-21T10:30:00",
-    },
-  ],
-  relatedTasks: [
-    { id: 2, title: "Approve campaign budget", status: "pending" },
-    { id: 3, title: "Schedule campaign launch meeting", status: "not-started" },
-  ]
-};
 
 const TaskDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [task] = useState(mockTask);
+  const [task, setTask] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState(task.status);
+  const [newStatus, setNewStatus] = useState("");
+
+  // Fetch task data on mount
+useEffect(() => {
+  const fetchTask = async () => {
+    try {
+      const response = await tasksApi.getTask(id);
+      const taskData = response.data?.task || response.task;
+      
+      setTask({
+        ...taskData,
+        // Ensure all arrays have defaults
+        comments: taskData.comments || [],
+        relatedTasks: taskData.relatedTasks || [],
+        attachments: taskData.attachments || [],
+        tags: taskData.tags || [],
+        assignedTo: taskData.assignedTo || taskData.assignees || [],
+        // Ensure objects have defaults
+        createdBy: taskData.createdBy || { 
+          id: '',
+          name: 'Unknown', 
+          email: '', 
+          avatar: '' 
+        },
+        // Ensure numbers have defaults
+        estimatedHours: taskData.estimatedHours || 0,
+        actualHours: taskData.actualHours || 0,
+      });
+      
+      setNewStatus(taskData.status);
+    } catch (error) {
+      toast.error("Failed to load task", {
+        description: error.response?.data?.message || "Please try again",
+      });
+      navigate("/tasks");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchTask();
+}, [id, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!task) return null;
+
+
+
+
 
   const canEdit = user?.id === task.createdBy.id || user?.role === "admin" || user?.role === "manager";
-  const isAssignedToMe = task.assignedTo.some(a => a.id === user?.id);
+  const isAssignedToMe = Array.isArray(task.assignedTo)
+  ? task.assignedTo.some(a => a.id === user?.id)
+  : false;
 
-  const handleStatusChange = () => {
-    // API call here
-    console.log("Status changed to:", newStatus);
+
+const handleStatusChange = async () => {
+  try {
+    await tasksApi.updateTask(task.id, { status: newStatus });
+    setTask({ ...task, status: newStatus });
+    toast.success("Task status updated");
     setIsEditDialogOpen(false);
-  };
+  } catch (error) {
+    toast.error("Failed to update status", {
+      description: error.response?.data?.message || "Please try again",
+    });
+  }
+};
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;
@@ -104,12 +126,19 @@ const TaskDetails = () => {
     setCommentText("");
   };
 
-  const handleDelete = () => {
-    if (confirm("Are you sure you want to delete this task?")) {
-      // API call here
-      navigate("/tasks/my-tasks");
-    }
-  };
+const handleDelete = async () => {
+  if (!confirm("Are you sure you want to delete this task?")) return;
+  
+  try {
+    await tasksApi.deleteTask(task.id);
+    toast.success("Task deleted successfully");
+    navigate("/tasks/my-tasks");
+  } catch (error) {
+    toast.error("Failed to delete task", {
+      description: error.response?.data?.message || "Please try again",
+    });
+  }
+};
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -166,20 +195,20 @@ const TaskDetails = () => {
 
           {/* Tabs */}
           <Tabs defaultValue="comments" className="w-full">
-            <TabsList>
-              <TabsTrigger value="comments">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Comments ({task.comments.length})
-              </TabsTrigger>
-              <TabsTrigger value="timeline">
-                <History className="h-4 w-4 mr-2" />
-                Timeline
-              </TabsTrigger>
-              <TabsTrigger value="related">
-                <CheckSquare className="h-4 w-4 mr-2" />
-                Related Tasks ({task.relatedTasks.length})
-              </TabsTrigger>
-            </TabsList>
+           <TabsList>
+<TabsTrigger value="comments">
+  <MessageSquare className="h-4 w-4 mr-2" />
+  Comments ({task.comments?.length || 0})
+</TabsTrigger>
+  <TabsTrigger value="timeline">
+    <History className="h-4 w-4 mr-2" />
+    Timeline
+  </TabsTrigger>
+  <TabsTrigger value="related">
+    <CheckSquare className="h-4 w-4 mr-2" />
+    Related Tasks ({task.relatedTasks?.length || 0})  {/* ✅ Safe guard */}
+  </TabsTrigger>
+</TabsList>
 
             <TabsContent value="comments" className="mt-4">
               <Card>
@@ -199,7 +228,10 @@ const TaskDetails = () => {
                   </div>
 
                   {/* Comments List */}
-                  <div className="space-y-4">
+                 <div className="space-y-4">
+  {(task.comments || []).map(comment => ( 
+    <div key={comment.id} className="flex gap-3">
+       <div className="space-y-4">
                     {task.comments.map(comment => (
                       <div key={comment.id} className="flex gap-3">
                         <Avatar className="h-8 w-8">
@@ -218,6 +250,15 @@ const TaskDetails = () => {
                       </div>
                     ))}
                   </div>
+    </div>
+  ))}
+  {(!task.comments || task.comments.length === 0) && (
+    <p className="text-sm text-muted-foreground text-center py-4">
+      No comments yet
+    </p>
+  )}
+</div>
+                  
                 </CardContent>
               </Card>
             </TabsContent>
@@ -343,10 +384,10 @@ const TaskDetails = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {task.assignedTo.map(assignee => (
-                  <div key={assignee.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+  <div className="space-y-3">
+    {(task.assignedTo || []).map(assignee => ( 
+      <div key={assignee.id} className="flex items-center justify-between">
+         <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={assignee.avatar} />
                         <AvatarFallback>{assignee.name[0]}</AvatarFallback>
@@ -355,33 +396,64 @@ const TaskDetails = () => {
                         <p className="font-medium text-sm">{assignee.name}</p>
                         <p className="text-xs text-muted-foreground">{assignee.email}</p>
                       </div>
-                    </div>
-                    <Badge variant={assignee.status === "accepted" ? "default" : "outline"}>
-                      {assignee.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+</div>
+      </div>
+    ))}
+    {(!task.assignedTo || task.assignedTo.length === 0) && (
+      <p className="text-sm text-muted-foreground text-center py-4">
+        No assignees
+      </p>
+    )}
+  </div>
+</CardContent>
+
           </Card>
 
           {/* Tags */}
-          {task.tags && task.tags.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {task.tags.map(tag => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+         {task.tags && task.tags.length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Tags</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="flex flex-wrap gap-2">
+        {task.tags.map(tag => (
+          <Badge key={tag} variant="secondary">
+            {tag}
+          </Badge>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
+
+{/* Attachments - Already has conditional rendering, but add safe guard */}
+{task.attachments && task.attachments.length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Attachments</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-2">
+        {task.attachments.map(attachment => (
+          <div
+                      key={attachment.id}
+                      className="flex items-center justify-between p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">{attachment.name}</p>
+                          <p className="text-xs text-muted-foreground">{attachment.size}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm">Download</Button>
+                    </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
 
           {/* Attachments */}
           {task.attachments && task.attachments.length > 0 && (

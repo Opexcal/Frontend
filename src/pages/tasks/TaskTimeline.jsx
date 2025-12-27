@@ -153,10 +153,10 @@ const TaskTimeline = () => {
           </div>
         </div>
         <Button variant="outline" asChild>
-          <Link to={`/tasks/${id}`}>
-            View Task Details
-          </Link>
-        </Button>
+  <Link to={`/tasks/${id}`}>
+    View Task Details
+  </Link>
+</Button>
       </div>
 
       {/* Stats */}

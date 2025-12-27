@@ -37,93 +37,96 @@ const AssignedToMe = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await tasksApi.getTasks();
-        const list = res.tasks || res.data?.tasks || res.data || [];
-        // Keep only tasks where current user is an assignee
-        const mine = list.filter((t) =>
-          (t.assignees || []).some((a) => (a._id || a.id) === user?.id)
-        );
-        setTasks(
-          mine.map((t) => ({
-            id: t._id || t.id,
-            title: t.title,
-            description: t.description,
-            priority: (t.priority || "medium").toLowerCase(),
-            status: (t.status || "pending").toLowerCase(),
-            dueDate: t.dueDate,
-            assignedBy: t.createdBy || {},
-            assignedAt: t.createdAt,
-            estimatedHours: t.estimatedHours,
-          }))
-        );
-      } catch (error) {
-        toast.error("Failed to load tasks", {
-          description:
-            error?.message ||
-            error?.data?.message ||
-            "Please try again later.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [user?.id]);
-
-  const handleAccept = (taskId) => {
-    tasksApi
-      .acceptTask(taskId)
-      .then(() => {
-        setTasks((prev) =>
-          prev.map((task) =>
-            task.id === taskId
-              ? { ...task, status: "accepted", acceptedAt: new Date().toISOString() }
-              : task
-          )
-        );
-        toast.success("Task accepted");
-      })
-      .catch((error) =>
-        toast.error("Failed to accept task", {
-          description: error?.message || error?.data?.message,
-        })
+useEffect(() => {
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await tasksApi.getTasks();
+      const list = res.tasks || res.data?.tasks || res.data || [];
+      // Keep only tasks where current user is an assignee
+      const mine = list.filter((t) =>
+        (t.assignees || []).some((a) => (a._id || a.id) === user?.id)
       );
-  };
-
-  const handleDecline = (taskId, reason) => {
-    tasksApi
-      .rejectTask(taskId, reason || "No reason provided")
-      .then(() => {
-        setTasks((prevTasks) =>
-          prevTasks.map((task) =>
-            task.id === taskId
-              ? { ...task, status: "declined", reasonDeclined: reason }
-              : task
-          )
-        );
-        toast.success("Task declined");
-      })
-      .catch((error) =>
-        toast.error("Failed to decline task", {
-          description: error?.message || error?.data?.message,
-        })
+      setTasks(
+        mine.map((t) => ({
+          id: t._id || t.id,
+          title: t.title,
+          description: t.description,
+          priority: (t.priority || "medium").toLowerCase(),
+          status: t.status || "Pending", // ✅ REMOVE .toLowerCase() here
+          dueDate: t.dueDate,
+          assignedBy: t.createdBy || {},
+          assignedAt: t.createdAt,
+          estimatedHours: t.estimatedHours,
+        }))
       );
+    } catch (error) {
+      toast.error("Failed to load tasks", {
+        description:
+          error?.message ||
+          error?.data?.message ||
+          "Please try again later.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+  load();
+}, [user?.id]);
 
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      const matchesSearch =
-        task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [tasks, searchQuery, statusFilter, priorityFilter]);
+const handleAccept = (taskId) => {
+  tasksApi
+    .acceptTask(taskId)
+    .then(() => {
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId
+            ? { ...task, status: "In-Progress", acceptedAt: new Date().toISOString() } // ✅ Changed from "accepted"
+            : task
+        )
+      );
+      toast.success("Task accepted");
+    })
+    .catch((error) =>
+      toast.error("Failed to accept task", {
+        description: error?.message || error?.data?.message,
+      })
+    );
+};
+
+const handleDecline = (taskId, reason) => {
+  tasksApi
+    .rejectTask(taskId, reason || "No reason provided")
+    .then(() => {
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId
+            ? { ...task, status: "Rejected", reasonDeclined: reason } // ✅ Changed from "declined"
+            : task
+        )
+      );
+      toast.success("Task declined");
+    })
+    .catch((error) =>
+      toast.error("Failed to decline task", {
+        description: error?.message || error?.data?.message,
+      })
+    );
+};
+
+const filteredTasks = useMemo(() => {
+  return tasks.filter((task) => {
+    const matchesSearch =
+      task.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // ✅ Fix status matching to use backend values
+    const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+    
+    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+}, [tasks, searchQuery, statusFilter, priorityFilter]);
 
   const getDueDateStatus = (dueDate) => {
     const date = parseISO(dueDate);
@@ -132,12 +135,12 @@ const AssignedToMe = () => {
     return "upcoming";
   };
 
-  const stats = {
-    total: tasks.length,
-    pending: tasks.filter((t) => t.status === "pending").length,
-    accepted: tasks.filter((t) => t.status === "accepted").length,
-    declined: tasks.filter((t) => t.status === "declined").length,
-  };
+const stats = {
+  total: tasks.length,
+  pending: tasks.filter((t) => t.status === "Pending").length, // ✅ Changed from "pending"
+  accepted: tasks.filter((t) => t.status === "In-Progress").length, // ✅ Changed from "accepted"
+  declined: tasks.filter((t) => t.status === "Rejected").length, // ✅ Changed from "declined"
+};
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -218,12 +221,13 @@ const AssignedToMe = () => {
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="accepted">Accepted</SelectItem>
-                <SelectItem value="declined">Declined</SelectItem>
-              </SelectContent>
+<SelectContent>
+  <SelectItem value="all">All Status</SelectItem>
+  <SelectItem value="Pending">Pending</SelectItem>
+  <SelectItem value="In-Progress">In Progress</SelectItem>
+  <SelectItem value="Completed">Completed</SelectItem>
+  <SelectItem value="Rejected">Rejected</SelectItem>
+</SelectContent>
             </Select>
 
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -273,9 +277,9 @@ const AssignedToMe = () => {
               <Card 
                 key={task.id} 
                 className={`card-hover ${
-                  task.status === "pending" ? "border-orange-500/50" :
-                  task.status === "declined" ? "border-red-500/50 opacity-75" : ""
-                }`}
+  task.status === "Pending" ? "border-orange-500/50" :       // ✅ Changed
+  task.status === "Rejected" ? "border-red-500/50 opacity-75" : ""  // ✅ Changed
+}`}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
@@ -306,16 +310,27 @@ const AssignedToMe = () => {
                             <DropdownMenuItem asChild>
                               <Link to={`/tasks/${task.id}`}>View Details</Link>
                             </DropdownMenuItem>
-                            {task.status === "pending" && (
-                              <>
-                                <DropdownMenuItem onClick={() => handleAccept(task.id)}>
-                                  Accept Task
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDecline(task.id, "Not available")}>
-                                  Decline Task
-                                </DropdownMenuItem>
-                              </>
-                            )}
+                            {task.status === "Pending" && (  // ✅ Changed from "pending"
+  <div className="flex flex-col gap-2">
+    <Button
+      size="sm"
+      onClick={() => handleAccept(task.id)}
+      className="whitespace-nowrap"
+    >
+      <CheckCircle2 className="h-4 w-4 mr-2" />
+      Accept
+    </Button>
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => handleDecline(task.id, "Not available")}
+      className="whitespace-nowrap"
+    >
+      <XCircle className="h-4 w-4 mr-2" />
+      Decline
+    </Button>
+  </div>
+)}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -326,16 +341,21 @@ const AssignedToMe = () => {
                           <span>Assigned by {task.assignedBy.name}</span>
                         </div>
                         <PriorityBadge priority={task.priority} />
-                        <Badge variant={
-                          task.status === "pending" ? "outline" :
-                          task.status === "accepted" ? "default" :
-                          "destructive"
-                        }>
-                          {task.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
-                          {task.status === "accepted" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                          {task.status === "declined" && <XCircle className="h-3 w-3 mr-1" />}
-                          {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                        </Badge>
+                            <Badge 
+  variant={
+    task.status === "Pending" ? "outline" :
+    task.status === "In-Progress" ? "default" :
+    task.status === "Rejected" ? "destructive" :
+    "default" // For Completed
+  }
+  className={task.status === "Completed" ? "bg-green-500 text-white hover:bg-green-600" : ""}
+>
+  {task.status === "Pending" && <Clock className="h-3 w-3 mr-1" />}
+  {task.status === "In-Progress" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+  {task.status === "Completed" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+  {task.status === "Rejected" && <XCircle className="h-3 w-3 mr-1" />}
+  {task.status}
+</Badge>
                         <div className={`flex items-center gap-1 text-sm ${dueDateColor}`}>
                           <Calendar className="h-4 w-4" />
                           <span>
@@ -351,16 +371,16 @@ const AssignedToMe = () => {
                         )}
                       </div>
 
-                      {task.status === "declined" && task.reasonDeclined && (
-                        <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
-                          <p className="text-sm text-red-800 dark:text-red-200">
-                            <strong>Declined reason:</strong> {task.reasonDeclined}
-                          </p>
-                        </div>
-                      )}
+                      {task.status === "Rejected" && task.reasonDeclined && (  // ✅ Changed from "declined"
+  <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+    <p className="text-sm text-red-800 dark:text-red-200">
+      <strong>Declined reason:</strong> {task.reasonDeclined}
+    </p>
+  </div>
+)}
                     </div>
 
-                    {task.status === "pending" && (
+                    {task.status === "Pending" && (
                       <div className="flex flex-col gap-2">
                         <Button
                           size="sm"
@@ -382,13 +402,13 @@ const AssignedToMe = () => {
                       </div>
                     )}
 
-                    {task.status === "accepted" && (
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/tasks/${task.id}`}>
-                          View <ArrowRight className="h-4 w-4 ml-1" />
-                        </Link>
-                      </Button>
-                    )}
+                    {task.status === "In-Progress" && (  // ✅ Changed from "accepted"
+  <Button variant="ghost" size="sm" asChild>
+    <Link to={`/tasks/${task.id}`}>
+      View <ArrowRight className="h-4 w-4 ml-1" />
+    </Link>
+  </Button>
+)}
                   </div>
                 </CardContent>
               </Card>

@@ -15,7 +15,7 @@ export const Logo = ({ size = "md", showText = true, className = "" }) => {
   };
 
   return (
-    <Link to="/" className={`flex items-center gap-2 ${className}`}>
+    <Link to="/dashboard" className={`flex items-center gap-2 ${className}`}>
       <div className="text-primary">
         <img src={Image} alt="" className='w-10' />
       </div>
