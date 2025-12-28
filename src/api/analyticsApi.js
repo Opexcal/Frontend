@@ -17,7 +17,8 @@ export const analyticsApi = {
     apiClient.get('/analytics/department-performance'),
   
   getKPIs: () => 
-    apiClient.get('/analytics/kpis'), // Add this endpoint
+    apiClient.get('/analytics/kpis'),
+    
   getTaskReports: (range = 'month', groupId = null) => 
     apiClient.get('/analytics/task-reports', { 
       params: { range, ...(groupId && { groupId }) } 
@@ -39,57 +40,92 @@ export const analyticsApi = {
     apiClient.get('/analytics/tasks/overdue'),
 
   exportTaskReport: async (range = 'month', groupId = null) => {
-  try {
-    const response = await apiClient.get('/analytics/tasks/export', {
-      params: { range, groupId: groupId || 'all' },
-      responseType: 'blob', // ✅ Keep this
-      headers: {
-        'Accept': 'text/csv' // ✅ Add this
+    try {
+      const response = await apiClient.get('/analytics/tasks/export', {
+        params: { range, groupId: groupId || 'all' },
+        responseType: 'blob',
+        headers: {
+          'Accept': 'text/csv'
+        }
+      });
+      
+      if (!(response.data instanceof Blob)) {
+        throw new Error('Response is not a Blob');
       }
-    });
-    
-    // ✅ Ensure it's a Blob
-    if (!(response.data instanceof Blob)) {
-      throw new Error('Response is not a Blob');
+      
+      return response;
+    } catch (error) {
+      console.error('Export API error:', error);
+      throw error;
     }
-    
-    return response;
-  } catch (error) {
-    console.error('Export API error:', error);
-    throw error;
-  }
-},
+  },
 
-getTeamProductivity: (range = 'quarter', departmentFilter = 'all') => 
-  apiClient.get('/analytics/team-productivity', { 
-    params: { range, department: departmentFilter !== 'all' ? departmentFilter : undefined } 
-  }),
+  getTeamProductivity: (range = 'quarter', departmentFilter = 'all') => 
+    apiClient.get('/analytics/team-productivity', { 
+      params: { range, department: departmentFilter !== 'all' ? departmentFilter : undefined } 
+    }),
 
-getTeamMetricsTrend: (range = 'quarter') => 
-  apiClient.get('/analytics/team-metrics-trend', { params: { range } }),
+  getTeamMetricsTrend: (range = 'quarter') => 
+    apiClient.get('/analytics/team-metrics-trend', { params: { range } }),
 
-getProductivityByDepartment: () => 
-  apiClient.get('/analytics/productivity-by-department'),
+  getProductivityByDepartment: () => 
+    apiClient.get('/analytics/productivity-by-department'),
 
-exportTeamProductivityReport: async (range = 'quarter', departmentFilter = 'all') => {
-  try {
-    const response = await apiClient.get('/analytics/team-productivity/export', {
-      params: { range, department: departmentFilter !== 'all' ? departmentFilter : undefined },
-      responseType: 'blob',
-      headers: {
-        'Accept': 'text/csv'
+  exportTeamProductivityReport: async (range = 'quarter', departmentFilter = 'all') => {
+    try {
+      const response = await apiClient.get('/analytics/team-productivity/export', {
+        params: { range, department: departmentFilter !== 'all' ? departmentFilter : undefined },
+        responseType: 'blob',
+        headers: {
+          'Accept': 'text/csv'
+        }
+      });
+      
+      if (!(response.data instanceof Blob)) {
+        throw new Error('Response is not a Blob');
       }
-    });
-    
-    if (!(response.data instanceof Blob)) {
-      throw new Error('Response is not a Blob');
+      
+      return response;
+    } catch (error) {
+      console.error('Export team productivity error:', error);
+      throw error;
     }
-    
-    return response;
-  } catch (error) {
-    console.error('Export team productivity error:', error);
-    throw error;
-  }
-}
+  }, // ✅ ADDED COMMA HERE
 
+  // Event Attendance Analytics
+  getEventAttendanceOverall: (range = 'quarter') => 
+    apiClient.get('/analytics/event-attendance/overall', { params: { range } }),
+
+  getEventRSVPDistribution: (range = 'quarter') => 
+    apiClient.get('/analytics/event-attendance/rsvp-distribution', { params: { range } }),
+
+  getAttendanceByEvent: (range = 'quarter', limit = 5) => 
+    apiClient.get('/analytics/event-attendance/by-event', { params: { range, limit } }),
+
+  getAttendanceTrend: (range = 'quarter') => 
+    apiClient.get('/analytics/event-attendance/trend', { params: { range } }),
+
+  getTopEventsByAttendance: (range = 'quarter', limit = 5) => 
+    apiClient.get('/analytics/event-attendance/top-events', { params: { range, limit } }),
+
+  exportEventAttendanceReport: async (range = 'quarter') => {
+    try {
+      const response = await apiClient.get('/analytics/event-attendance/export', {
+        params: { range },
+        responseType: 'blob',
+        headers: {
+          'Accept': 'text/csv'
+        }
+      });
+      
+      if (!(response.data instanceof Blob)) {
+        throw new Error('Response is not a Blob');
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Export event attendance error:', error);
+      throw error;
+    }
+  }
 };

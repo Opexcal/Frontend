@@ -88,13 +88,30 @@ useEffect(() => {
   fetchEvent();
 }, [id, user]); // ✅ Add dependencies
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+if (!event) {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-center">
+        <p className="text-lg font-medium">Event not found</p>
+        <Button className="mt-4" onClick={() => navigate("/calendar")}>
+          Back to Calendar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const canEdit = event && (
-  user?.id === event?.createdBy || 
-  user?._id === event?.createdBy ||
+  user?.id === event?.createdBy?._id || 
+  user?._id === event?.createdBy?._id ||
   ['SuperAdmin', 'Admin'].includes(user?.role)
 );
 
-  const myRSVP = event.attendees.find(a => a.id === user?.id);
+  const myRSVP = event.attendees?.find(a => a.id === user?.id || a._id === user?.id);
 const acceptedCount = event?.attendees?.filter(a => a.rsvp === "accepted").length || 0;
 const declinedCount = event?.attendees?.filter(a => a.rsvp === "declined").length || 0;
 const pendingCount = event?.attendees?.filter(a => a.rsvp === "pending").length || 0;
@@ -178,22 +195,7 @@ const handleUpdateEvent = async (updates) => {
   }
 };
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
 
-if (!event) {
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-center">
-        <p className="text-lg font-medium">Event not found</p>
-        <Button className="mt-4" onClick={() => navigate("/calendar")}>
-          Back to Calendar
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 
   return (
@@ -370,41 +372,33 @@ if (!event) {
           </Card>
 
           {/* Attendees */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Attendees ({event.attendees.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Accepted</span>
-                  <Badge className="bg-green-500">{acceptedCount}</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Pending</span>
-                  <Badge variant="outline">{pendingCount}</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Declined</span>
-                  <Badge variant="destructive">{declinedCount}</Badge>
-                </div>
-              </div>
+          {/* Attendees */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Users className="h-5 w-5" />
+      Attendees ({event.attendees?.length || 0})
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="space-y-3 mb-4">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Accepted</span>
+        <Badge className="bg-green-500">{acceptedCount}</Badge>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Pending</span>
+        <Badge variant="outline">{pendingCount}</Badge>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Declined</span>
+        <Badge variant="destructive">{declinedCount}</Badge>
+      </div>
+    </div>
 
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-{event.attendees && event.attendees.length > 0 ? (
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Users className="h-5 w-5" />
-        Attendees ({event.attendees.length})
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="space-y-3">
-        {event.attendees.map((attendee, index) => (
+    <div className="space-y-3 max-h-96 overflow-y-auto">
+      {event.attendees && event.attendees.length > 0 ? (
+        event.attendees.map((attendee, index) => (
           <div key={attendee._id || index} className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
               <AvatarFallback>
@@ -420,32 +414,19 @@ if (!event) {
               )}
             </div>
           </div>
-        ))}
-      </div>
-      <Badge variant="secondary" className="mt-4">
-        RSVP tracking coming soon
-      </Badge>
-    </CardContent>
-  </Card>
-) : (
-  <Card>
-    <CardHeader>
-      <CardTitle>Attendees</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <p className="text-sm text-muted-foreground">No attendees added yet</p>
-    </CardContent>
-  </Card>
-)}
-              </div>
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No attendees added yet</p>
+      )}
+    </div>
 
-              <Button variant="outline" className="w-full mt-4" asChild>
-                <Link to={`/events/${event.id}/rsvp`}>
-                  Manage RSVPs
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+    <Button variant="outline" className="w-full mt-4" asChild>
+      <Link to={`/events/${event._id}/rsvp`}>
+        Manage RSVPs
+      </Link>
+    </Button>
+  </CardContent>
+</Card>
 
           {/* Attachments */}
           {event.attachments && event.attachments.length > 0 && (
@@ -465,27 +446,95 @@ if (!event) {
           )}
 
           {/* Actions */}
-          {!isEventPast && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {event.onlineLink && (
-                  <Button className="w-full" asChild>
-                    <a href={event.onlineLink} target="_blank" rel="noopener noreferrer">
-                      <Video className="h-4 w-4 mr-2" />
-                      Join Meeting
-                    </a>
-                  </Button>
-                )}
-                <Button variant="outline" className="w-full">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email Attendees
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+{!isEventPast && (
+  <>
+    <Card>
+      <CardHeader>
+        <CardTitle>Actions</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {event.onlineLink && (
+          <Button className="w-full" asChild>
+            <a href={event.onlineLink} target="_blank" rel="noopener noreferrer">
+              <Video className="h-4 w-4 mr-2" />
+              Join Meeting
+            </a>
+          </Button>
+        )}
+        <Button variant="outline" className="w-full">
+          <Mail className="h-4 w-4 mr-2" />
+          Email Attendees
+        </Button>
+      </CardContent>
+    </Card>
+
+    {canEdit && (
+      <Card>
+        <CardHeader>
+          <CardTitle>Check-in Management</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Button 
+            className="w-full" 
+            onClick={async () => {
+              try {
+                await eventsApi.markAttendance(event._id, user.id, true);
+                toast.success("Checked in successfully");
+              } catch (error) {
+                toast.error("Failed to check in");
+              }
+            }}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Check Myself In
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="w-full"
+            onClick={() => navigate(`/events/${event._id}/checkin`)}
+          >
+            Manage All Check-ins
+          </Button>
+        </CardContent>
+      </Card>
+    )}
+  </>
+)}
+{!isEventPast && canEdit && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Check-in Management</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-2">
+      <Button 
+        className="w-full" 
+        onClick={async () => {
+          try {
+            await eventsApi.markAttendance(event._id, user.id, true);
+            toast.success("Checked in successfully");
+            // Refresh event data
+          } catch (error) {
+            toast.error("Failed to check in");
+          }
+        }}
+      >
+        <CheckCircle2 className="h-4 w-4 mr-2" />
+        Check Myself In
+      </Button>
+      
+      {canEdit && (
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={() => navigate(`/events/${event._id}/checkin`)}
+        >
+          Manage All Check-ins
+        </Button>
+      )}
+    </CardContent>
+  </Card>
+)}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,82 +23,136 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-
+import { eventsApi } from '@/api';
+import { toast } from 'sonner';
 // Mock data
-const mockEvent = {
-  id: 1,
-  title: "Sprint Planning Meeting",
-  start: "2025-12-23T10:00:00",
-  end: "2025-12-23T12:00:00",
-};
+// const mockEvent = {
+//   id: 1,
+//   title: "Sprint Planning Meeting",
+//   start: "2025-12-23T10:00:00",
+//   end: "2025-12-23T12:00:00",
+// };
 
-const mockAttendees = [
-  {
-    id: "2",
-    name: "Mike Chen",
-    avatar: "",
-    email: "mike@example.com",
-    rsvp: "accepted",
-    respondedAt: "2025-12-21T09:00:00",
-    notes: "Will arrive 5 minutes early"
-  },
-  {
-    id: "3",
-    name: "Alex Rivera",
-    avatar: "",
-    email: "alex@example.com",
-    rsvp: "accepted",
-    respondedAt: "2025-12-21T10:15:00",
-  },
-  {
-    id: "4",
-    name: "Emma Wilson",
-    avatar: "",
-    email: "emma@example.com",
-    rsvp: "pending",
-  },
-  {
-    id: "5",
-    name: "David Kim",
-    avatar: "",
-    email: "david@example.com",
-    rsvp: "declined",
-    respondedAt: "2025-12-21T14:30:00",
-    notes: "Out of office that day"
-  },
-  {
-    id: "6",
-    name: "Lisa Park",
-    avatar: "",
-    email: "lisa@example.com",
-    rsvp: "pending",
-  },
-];
+// const mockAttendees = [
+//   {
+//     id: "2",
+//     name: "Mike Chen",
+//     avatar: "",
+//     email: "mike@example.com",
+//     rsvp: "accepted",
+//     respondedAt: "2025-12-21T09:00:00",
+//     notes: "Will arrive 5 minutes early"
+//   },
+//   {
+//     id: "3",
+//     name: "Alex Rivera",
+//     avatar: "",
+//     email: "alex@example.com",
+//     rsvp: "accepted",
+//     respondedAt: "2025-12-21T10:15:00",
+//   },
+//   {
+//     id: "4",
+//     name: "Emma Wilson",
+//     avatar: "",
+//     email: "emma@example.com",
+//     rsvp: "pending",
+//   },
+//   {
+//     id: "5",
+//     name: "David Kim",
+//     avatar: "",
+//     email: "david@example.com",
+//     rsvp: "declined",
+//     respondedAt: "2025-12-21T14:30:00",
+//     notes: "Out of office that day"
+//   },
+//   {
+//     id: "6",
+//     name: "Lisa Park",
+//     avatar: "",
+//     email: "lisa@example.com",
+//     rsvp: "pending",
+//   },
+// ];
 
 const EventRSVP = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [rsvpFilter, setRsvpFilter] = useState("all");
-  const [attendees, setAttendees] = useState(mockAttendees);
+  const [event, setEvent] = useState(null);
+  const [attendees, setAttendees] = useState([]);
+  const [stats, setStats] = useState({ total: 0, accepted: 0, declined: 0, pending: 0 });
 
-  const handleRSVPChange = (attendeeId, newStatus) => {
-    setAttendees(prev =>
-      prev.map(attendee =>
-        attendee.id === attendeeId
-          ? { ...attendee, rsvp: newStatus, respondedAt: new Date().toISOString() }
-          : attendee
-      )
-    );
-    // API call here
+  useEffect(() => {
+    fetchRSVPData();
+  }, [id]);
+
+  const fetchRSVPData = async () => {
+    setLoading(true);
+    try {
+      const response = await eventsApi.getRSVPManagement(id);
+      setEvent(response.data.data.event);
+      setAttendees(response.data.data.attendees);
+      setStats(response.data.data.stats);
+    } catch (error) {
+      console.error('Failed to load RSVP data:', error);
+      toast.error('Failed to load RSVP data');
+      navigate('/calendar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRSVPChange = async (userId, newStatus) => {
+    try {
+      await eventsApi.updateAttendeeRSVP(id, userId, newStatus);
+      toast.success('RSVP updated successfully');
+      fetchRSVPData(); // Refresh data
+    } catch (error) {
+      console.error('Failed to update RSVP:', error);
+      toast.error('Failed to update RSVP');
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await eventsApi.exportRSVPList(id);
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `rsvp-list-${event.title.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('RSVP list exported successfully');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export RSVP list');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const filteredAttendees = attendees.filter(attendee => {
     const matchesSearch = attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       attendee.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = rsvpFilter === "all" || attendee.rsvp === rsvpFilter;
+    const matchesFilter = rsvpFilter === "all" || attendee.status === rsvpFilter;
     return matchesSearch && matchesFilter;
   });
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading RSVP data...</div>;
+  }
+
+  if (!event) {
+    return <div className="flex items-center justify-center h-screen">Event not found</div>;
+  }
 
   const stats = {
     total: attendees.length,
@@ -127,7 +181,7 @@ const EventRSVP = () => {
       <AlertCircle className="h-5 w-5 text-orange-600" />
       <div>
         <p className="font-medium text-orange-900 dark:text-orange-100">
-          RSVP Tracking - Mock Data
+          RSVP Tracking 
         </p>
         <p className="text-sm text-orange-700 dark:text-orange-300">
           Backend support for RSVP tracking is coming soon. Current data is for demonstration only.
@@ -145,9 +199,9 @@ const EventRSVP = () => {
             <h1 className="text-3xl font-display font-semibold text-foreground">
               RSVP Management
             </h1>
-            <p className="text-muted-foreground mt-1">{mockEvent.title}</p>
+            <p className="text-muted-foreground mt-1">{event.title}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {format(parseISO(mockEvent.start), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+              {format(parseISO(event.start), "EEEE, MMMM d, yyyy 'at' h:mm a")}
             </p>
           </div>
         </div>
