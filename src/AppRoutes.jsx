@@ -65,6 +65,8 @@ const MassTaskCreation = lazy(() => import("./pages/mass-operations/MassTaskCrea
 const MassEventCreation = lazy(() => import("./pages/mass-operations/MassEventCreation"));
 
 // Lazy load report components
+// Lazy load report components (already there, just verify Reports is added)
+const Reports = lazy(() => import("./pages/reports/Reports"));
 const TaskReports = lazy(() => import("./pages/reports/TaskReports"));
 const TeamProductivity = lazy(() => import("./pages/reports/TeamProductivity"));
 const EventAttendance = lazy(() => import("./pages/reports/EventAttendance"));
@@ -117,10 +119,12 @@ function AppRoutes() {
   <Route path="/events/:id" element={<EventDetails />} />
   <Route path="/events/:id/rsvp" element={<EventRSVP />} />
   <Route path="/events/recurring/:id" element={<RecurringEvents />} />
-  <Route path="/reports/tasks" element={<TaskReports />} />
-  <Route path="/reports/productivity" element={<TeamProductivity />} />
-  <Route path="/reports/attendance" element={<EventAttendance />} />
-  <Route path="/reports/export" element={<ExportData />} />
+  {/* Reports - Main page and sub-pages */}
+<Route path="/reports" element={<Reports />} />
+<Route path="/reports/tasks" element={<TaskReports />} />
+<Route path="/reports/productivity" element={<TeamProductivity />} />
+<Route path="/reports/attendance" element={<EventAttendance />} />
+<Route path="/reports/export" element={<ExportData />} />
   <Route path="/settings" element={<Settings />} />
 
   {/* Notifications (all authenticated users) */}

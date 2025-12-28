@@ -4,19 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Users, Building2, CheckSquare, Calendar, Activity,
   TrendingUp, Download, Settings, FileText, AlertTriangle,
-  Plus, Send, BarChart3, Loader2, AlertCircle,MessageSquare  // <- Add these two
+  Plus, Send, BarChart3, Loader2, AlertCircle,MessageSquare, UserPlus  // <- Add these two
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
 import { useAuth } from "../../context/AuthContext";
 import {
   LineChart,
@@ -35,25 +30,17 @@ import {
 import { useDashboard } from '@/hooks/useDashboard';
 import { format } from "date-fns";
 import { analyticsApi } from '@/api/analyticsApi';
-
+import AddUserModal from '../admin/users/AddUserModal';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
 // Mock data for charts (TODO: Replace with real analytics endpoint)
 // Mock data for fallback when API data is empty
-const mockData = {
-  charts: {
-    userGrowth: [],
-    taskCompletion: [],
-    eventAttendance: []
-  },
-  topPerformers: [],
-  groups: [],
-  pendingActions: {
-    userApprovals: 0,
-    unassignedGroups: 0,
-    systemAlerts: 0
-  },
-  systemAlerts: []
-};
+
 const ManagerDashboard = () => {
+  const navigate = useNavigate();
+  const [timeFilter, setTimeFilter] = useState("month");
+  const [showAddUser, setShowAddUser] = useState(false);
   const { user } = useAuth();
   const { data, loading, error } = useDashboard();
   const [dateRange, setDateRange] = useState("month");
@@ -104,6 +91,142 @@ useEffect(() => {
     fetchAnalytics();
   }
 }, [loading, error, dateRange]);
+
+  const handleFilterChange = (filter) => {
+    setTimeFilter(filter);
+    toast.success(`Viewing data for: This ${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+    // TODO: Fetch filtered data based on timeFilter
+  };
+
+  // Export PDF handler
+const handleExportReport = () => {
+  const doc = new jsPDF();
+  
+  // Title
+  doc.setFontSize(18);
+  doc.text("Manager Dashboard Report", 14, 20);
+  
+  // Subtitle with date and filter
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
+  doc.text(`Time Period: This ${timeFilter.charAt(0).toUpperCase() + timeFilter.slice(1)}`, 14, 34);
+  
+  // Organization Overview
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.text("Organization Overview", 14, 45);
+  
+  const overviewData = [
+    ["Total Users", String(kpis.totalUsers), kpis.totalUsersGrowth],
+    ["Active Projects", String(kpis.activeProjects), "+3 this month"],
+    ["Task Completion", `${kpis.taskCompletionRate.percentage}%`, kpis.taskCompletionRate.trend],
+    ["Event Attendance", `${kpis.eventAttendanceRate.percentage}%`, kpis.eventAttendanceRate.trend],
+    ["System Health", `${kpis.systemHealth.uptime}%`, "Uptime"]
+  ];
+  
+  autoTable(doc, {
+    startY: 50,
+    head: [["Metric", "Value", "Change"]],
+    body: overviewData,
+    theme: "striped"
+  });
+  
+  // Team Management
+  let finalY = doc.lastAutoTable.finalY + 10;
+  doc.text("Team Management", 14, finalY);
+  
+  const teamData = [
+    ["Team Dashboard", "Overview of team performance"],
+    ["Manage Team Tasks", "Current team assignments"],
+    ["Team Calendar", "Scheduled events and meetings"],
+    ["View Team Reports", "Detailed analytics"]
+  ];
+  
+  autoTable(doc, {
+    startY: finalY + 5,
+    head: [["Section", "Description"]],
+    body: teamData,
+    theme: "grid"
+  });
+  
+  // Add Top Performers if available
+  if (topPerformers.length > 0) {
+    finalY = doc.lastAutoTable.finalY + 10;
+    doc.text("Top Performers", 14, finalY);
+    
+    const performerData = topPerformers.map((p, i) => [
+      `#${i + 1}`,
+      p.name,
+      `${p.completion}%`,
+      `${p.attendance}%`
+    ]);
+    
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [["Rank", "Name", "Task Completion", "Attendance"]],
+      body: performerData,
+      theme: "striped"
+    });
+  }
+  
+  // Add Department Performance if available
+  if (departmentData.length > 0) {
+    finalY = doc.lastAutoTable.finalY + 10;
+    doc.text("Department Performance", 14, finalY);
+    
+    const deptData = departmentData.map(d => [
+      d.name,
+      String(d.memberCount),
+      String(d.activeTasks),
+      String(d.events),
+      String(d.healthScore)
+    ]);
+    
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [["Department", "Members", "Active Tasks", "Events", "Health Score"]],
+      body: deptData,
+      theme: "grid"
+    });
+  }
+  
+  // Save PDF
+  doc.save(`Manager-Dashboard-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+  toast.success("Report exported successfully!");
+};
+
+  // Quick Actions handlers
+  const handleAddUser = () => {
+    setShowAddUser(true);
+  };
+
+  const handleCreateGroup = () => {
+    navigate("/admin/groups");
+  };
+
+  const handleSendAnnouncement = () => {
+    navigate("/mass/message");
+  };
+
+  // Report handlers
+  const handlePerformanceReport = () => {
+    navigate("/reports/productivity");
+  };
+
+  const handleUserActivityReport = () => {
+    navigate("/reports/tasks");
+  };
+
+  const handleEventAnalysis = () => {
+    navigate("/reports/attendance");
+  };
+
+  const handleUserCreated = (newUser) => {
+    toast.success(`${newUser.name} has been added successfully!`);
+    setShowAddUser(false);
+    // TODO: Refresh dashboard data
+  };
 
   if (loading) {
   return (
@@ -214,20 +337,29 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export Report
-          </Button>
+         <DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="outline" className="gap-2">
+      <Calendar className="h-4 w-4" />
+      This {timeFilter.charAt(0).toUpperCase() + timeFilter.slice(1)}
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end">
+    <DropdownMenuItem onClick={() => handleFilterChange("week")}>
+      This Week
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => handleFilterChange("month")}>
+      This Month
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => handleFilterChange("quarter")}>
+      This Quarter
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+          <Button variant="outline" className="gap-2" onClick={handleExportReport}>
+  <Download className="h-4 w-4" />
+  Export Report
+</Button>
           <Button variant="outline" size="sm" asChild>
             <Link to="/admin/dashboard">
               <Settings className="h-4 w-4 mr-2" />
@@ -593,26 +725,26 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
               <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/admin/users/create">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add User
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/admin/groups/create">
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Create Group
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Send className="h-4 w-4 mr-2" />
-                Send Announcement
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Report
-              </Button>
+              {/* In Quick Actions section */}
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handleAddUser}>
+  <UserPlus className="h-4 w-4" />
+  Add User
+</Button>
+
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handleCreateGroup}>
+  <Users className="h-4 w-4" />
+  Create Group
+</Button>
+
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handleSendAnnouncement}>
+  <MessageSquare className="h-4 w-4" />
+  Send Announcement
+</Button>
+
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handleExportReport}>
+  <FileText className="h-4 w-4" />
+  Generate Report
+</Button>
             </CardContent>
           </Card>
 
@@ -667,18 +799,21 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
               <CardTitle className="text-lg font-semibold">Reports</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="ghost" className="w-full justify-start" size="sm">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Performance Report
-              </Button>
-              <Button variant="ghost" className="w-full justify-start" size="sm">
-                <Users className="h-4 w-4 mr-2" />
-                User Activity Report
-              </Button>
-              <Button variant="ghost" className="w-full justify-start" size="sm">
-                <Calendar className="h-4 w-4 mr-2" />
-                Event Analytics
-              </Button>
+             {/* In Reports section */}
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handlePerformanceReport}>
+  <TrendingUp className="h-4 w-4" />
+  Performance Report
+</Button>
+
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handleUserActivityReport}>
+  <Activity className="h-4 w-4" />
+  User Activity Report
+</Button>
+
+<Button variant="outline" className="w-full justify-start gap-2" onClick={handleEventAnalysis}>
+  <BarChart3 className="h-4 w-4" />
+  Event Analysis
+</Button>
             </CardContent>
           </Card>
         </div>
@@ -725,6 +860,12 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
           </div>
         </CardContent>
       </Card>
+
+      <AddUserModal 
+  open={showAddUser} 
+  onOpenChange={setShowAddUser} 
+  onSuccess={handleUserCreated} 
+/>
     </div>
   );
 };

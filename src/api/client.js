@@ -40,6 +40,10 @@ apiClient.interceptors.response.use(
     if (import.meta.env.DEV) {
       console.log(`✅ ${response.config.method.toUpperCase()} ${response.config.url} - ${response.status}`);
     }
+
+     if (response.config.responseType === 'blob') {
+      return response; // Return full response object for blobs
+    }
     return response.data;
   },
   (error) => {

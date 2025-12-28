@@ -16,19 +16,24 @@ const Breadcrumbs = () => {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
 
-  const breadcrumbNameMap = {
-    dashboard: "Dashboard",
-    tasks: "Tasks",
-    "my-tasks": "My Tasks",
-    "assigned-to-me": "Assigned To Me",
-    "assigned-by-me": "Assigned By Me",
-    calendar: "Calendar",
-    personal: "Personal",
-    admin: "Admin",
-    users: "Users",
-    groups: "Groups",
-    settings: "Settings",
-  };
+const breadcrumbNameMap = {
+  dashboard: "Dashboard",
+  tasks: "Tasks",
+  "my-tasks": "My Tasks",
+  "assigned-to-me": "Assigned To Me",
+  "assigned-by-me": "Assigned By Me",
+  calendar: "Calendar",
+  personal: "Personal",
+  admin: "Admin",
+  users: "Users",
+  groups: "Groups",
+  settings: "Settings",
+  reports: "Reports",
+  productivity: "Team Productivity",
+  attendance: "Event Attendance",
+  export: "Export Data",
+  // Note: "tasks" under /reports/tasks will use the main "tasks" key above
+};
 
   if (pathnames.length === 0) return null;
 

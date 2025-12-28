@@ -319,7 +319,28 @@ const showAdminSection = useMemo(
     </SidebarGroupContent>
   </SidebarGroup>
 )}
-
+{/* Reports Section - Admin/Manager only */}
+{showAdminSection && (
+  <SidebarGroup>
+    <SidebarGroupLabel>Reports</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/reports")}
+            tooltip="Reports & Analytics"
+          >
+            <Link to="/reports">
+              <BarChart3 className="h-4 w-4" />
+              <span>Reports</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+)}
 {/* Mass Operations - Also Admin/Manager only */}
 {showAdminSection && (
   <SidebarGroup>
