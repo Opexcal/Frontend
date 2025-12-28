@@ -58,7 +58,38 @@ export const analyticsApi = {
     console.error('Export API error:', error);
     throw error;
   }
-}
+},
 
+getTeamProductivity: (range = 'quarter', departmentFilter = 'all') => 
+  apiClient.get('/analytics/team-productivity', { 
+    params: { range, department: departmentFilter !== 'all' ? departmentFilter : undefined } 
+  }),
+
+getTeamMetricsTrend: (range = 'quarter') => 
+  apiClient.get('/analytics/team-metrics-trend', { params: { range } }),
+
+getProductivityByDepartment: () => 
+  apiClient.get('/analytics/productivity-by-department'),
+
+exportTeamProductivityReport: async (range = 'quarter', departmentFilter = 'all') => {
+  try {
+    const response = await apiClient.get('/analytics/team-productivity/export', {
+      params: { range, department: departmentFilter !== 'all' ? departmentFilter : undefined },
+      responseType: 'blob',
+      headers: {
+        'Accept': 'text/csv'
+      }
+    });
+    
+    if (!(response.data instanceof Blob)) {
+      throw new Error('Response is not a Blob');
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Export team productivity error:', error);
+    throw error;
+  }
+}
 
 };

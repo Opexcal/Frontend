@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ import {
 import {
   Download, TrendingUp, Users, Award, Target
 } from "lucide-react";
+import { analyticsApi } from '@/api';
+import { toast } from 'sonner';
 
 // Mock data
 const mockData = {
@@ -49,8 +51,81 @@ const mockData = {
 };
 
 const TeamProductivity = () => {
-  const [dateRange, setDateRange] = useState("quarter");
+    const [dateRange, setDateRange] = useState("quarter");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+
+  // Fetch data
+  useEffect(() => {
+  const fetchProductivityData = async () => {
+    setLoading(true);
+    try {
+      const [
+        productivity,
+        topPerformers,
+        metricsTrend,
+        departmentPerf
+      ] = await Promise.all([
+        analyticsApi.getTeamProductivity(dateRange, departmentFilter),
+        analyticsApi.getTopPerformers(5),
+        analyticsApi.getTeamMetricsTrend(dateRange),
+        analyticsApi.getProductivityByDepartment()
+      ]);
+
+      console.log('🎯 Top Performers Response:', topPerformers); // ✅ Add this
+
+      setData({
+        overallStats: productivity.data.overallStats,
+        topPerformers: topPerformers.data,
+        teamMetrics: metricsTrend.data,
+        productivityByDepartment: departmentPerf.data
+      });
+    } catch (error) {
+      console.error('Error fetching team productivity:', error);
+      toast.error("Failed to load productivity data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchProductivityData();
+}, [dateRange, departmentFilter]);
+
+  // Handle export
+  const handleExport = async () => {
+    try {
+      toast.info("Exporting...", {
+        description: "Preparing your productivity report.",
+      });
+      
+      const response = await analyticsApi.exportTeamProductivityReport(dateRange, departmentFilter);
+      
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `team-productivity-${dateRange}-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Export Successful");
+    } catch (error) {
+      console.error('Error exporting:', error);
+      toast.error("Export Failed");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!data) return null;
 
   const getScoreColor = (score) => {
     if (score >= 90) return "text-green-600";
@@ -85,7 +160,7 @@ const TeamProductivity = () => {
               <SelectItem value="year">This Year</SelectItem>
             </SelectContent>
           </Select>
-          <Button>
+          <Button onClick={handleExport} disabled={loading}>
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
@@ -99,7 +174,7 @@ const TeamProductivity = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Avg. Completion Rate</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.overallStats.averageCompletionRate}%</p>
+                <p className="text-2xl font-semibold mt-1">{data.overallStats.averageCompletionRate}%</p>
               </div>
               <Target className="h-8 w-8 text-blue-500 opacity-50" />
             </div>
@@ -111,7 +186,7 @@ const TeamProductivity = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Tasks Completed</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.overallStats.totalTasksCompleted}</p>
+                <p className="text-2xl font-semibold mt-1">{data.overallStats.totalTasksCompleted}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-500 opacity-50" />
             </div>
@@ -123,7 +198,7 @@ const TeamProductivity = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Team Engagement</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.overallStats.teamEngagement}%</p>
+                <p className="text-2xl font-semibold mt-1">{data.overallStats.teamEngagement}%</p>
               </div>
               <Users className="h-8 w-8 text-purple-500 opacity-50" />
             </div>
@@ -135,7 +210,7 @@ const TeamProductivity = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Satisfaction Score</p>
-                <p className="text-2xl font-semibold mt-1">{mockData.overallStats.satisfactionScore}</p>
+                <p className="text-2xl font-semibold mt-1">{data.overallStats.satisfactionScore}</p>
               </div>
               <Award className="h-8 w-8 text-orange-500 opacity-50" />
             </div>
@@ -150,7 +225,7 @@ const TeamProductivity = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {mockData.topPerformers.map((performer, index) => (
+            {data.topPerformers.map((performer, index) => (
               <div
                 key={performer.id}
                 className="flex items-center gap-4 p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
@@ -191,7 +266,7 @@ const TeamProductivity = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={mockData.teamMetrics}>
+              <LineChart data={data.teamMetrics}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
@@ -212,7 +287,7 @@ const TeamProductivity = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={mockData.productivityByDepartment}>
+              <BarChart data={data.productivityByDepartment}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="department" />
                 <YAxis />
@@ -221,7 +296,7 @@ const TeamProductivity = () => {
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-4 space-y-2">
-              {mockData.productivityByDepartment.map(dept => (
+              {data.productivityByDepartment.map(dept => (
                 <div key={dept.department} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <span>{dept.department}</span>
