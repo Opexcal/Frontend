@@ -34,8 +34,6 @@ import AddUserModal from '../admin/users/AddUserModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
-// Mock data for charts (TODO: Replace with real analytics endpoint)
-// Mock data for fallback when API data is empty
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
@@ -53,10 +51,12 @@ const ManagerDashboard = () => {
   const [topPerformers, setTopPerformers] = useState([]);
   const [departmentData, setDepartmentData] = useState([]);
   const [kpisData, setKpisData] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [attendanceStats, setAttendanceStats] = useState(null);
 
-  // Fetch analytics data
 useEffect(() => {
   const fetchAnalytics = async () => {
+    setAnalyticsLoading(true);
     try {
       const [userGrowth, taskComp, eventAtt, performers, deptPerf, kpis] = await Promise.all([
         analyticsApi.getUserGrowth(dateRange).catch(() => ({ data: [] })),
@@ -67,30 +67,49 @@ useEffect(() => {
         analyticsApi.getKPIs().catch(() => ({ data: null }))
       ]);
 
-      // Debug logging
       console.log('📊 KPIs Raw Response:', kpis);
       console.log('📊 KPIs Data:', kpis.data);
       
-      setChartData({
-        userGrowth: userGrowth.data || [],
-        taskCompletion: taskComp.data || [],
-        eventAttendance: eventAtt.data || []
-      });
-      setTopPerformers(performers.data || []);
-      setDepartmentData(deptPerf.data || []);
+      // Event attendance processing
+     let eventAttendanceArray = [];
+if (eventAtt.data) {
+  // ✅ First check for chartData
+  if (eventAtt.data.chartData && Array.isArray(eventAtt.data.chartData)) {
+    eventAttendanceArray = eventAtt.data.chartData;
+  }
+  // Also save overallStats for fallback display
+  if (eventAtt.data.overallStats) {
+    setAttendanceStats(eventAtt.data.overallStats);
+  }
+}
+
+setChartData({
+  userGrowth: Array.isArray(userGrowth.data) ? userGrowth.data : [],
+  taskCompletion: Array.isArray(taskComp.data) ? taskComp.data : [],
+  eventAttendance: eventAttendanceArray
+});
+      setTopPerformers(Array.isArray(performers.data) ? performers.data : []);
+      setDepartmentData(Array.isArray(deptPerf.data) ? deptPerf.data : []);
       setKpisData(kpis.data);
       
-      // Debug what was set
-      console.log('✅ KPIs Data Set:', kpis.data);
+       setKpisData(kpis.data);
+    console.log('✅ KPIs Data Set:', kpis.data);
+    if (eventAtt.data && eventAtt.data.overallStats) {
+  setAttendanceStats(eventAtt.data.overallStats);
+}
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
     }
   };
 
-  if (!loading && !error) {
-    fetchAnalytics();
-  }
-}, [loading, error, dateRange]);
+  // Run immediately when component mounts, then whenever dependencies change
+  fetchAnalytics();
+}, [dateRange]); // Remove loading and error from dependencies
+
+
+
+
+
 
   const handleFilterChange = (filter) => {
     setTimeFilter(filter);
@@ -257,6 +276,17 @@ if (error) {
   );
 }
 
+// After the main loading/error checks, add this:
+if (analyticsLoading && !kpisData) {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="text-center space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <p className="text-muted-foreground">Loading analytics...</p>
+      </div>
+    </div>
+  );
+}
 
 const kpis = kpisData ? {
   totalUsers: kpisData.totalUsers || 0,
@@ -580,17 +610,61 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
                   </ResponsiveContainer>
                 </TabsContent>
 
-                <TabsContent value="attendance" className="mt-4">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData.eventAttendance}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="attendance" fill="#f59e0b" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </TabsContent>
+<TabsContent value="attendance" className="mt-4">
+  {chartData.eventAttendance && chartData.eventAttendance.length > 0 ? (
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={chartData.eventAttendance}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="month" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="attendance"
+          stroke="#10b981"
+          strokeWidth={2}
+          name="Attendance %"
+          dot={{ fill: "#10b981" }}
+        />
+        <Line
+          type="monotone"
+          dataKey="rsvps"
+          stroke="#3b82f6"
+          strokeWidth={2}
+          name="RSVP %"
+          dot={{ fill: "#3b82f6" }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  ) : attendanceStats ? (
+    <div className="grid grid-cols-2 gap-4 p-6">
+      <div className="text-center p-4 border rounded-lg">
+        <p className="text-2xl font-semibold">{attendanceStats.totalEvents}</p>
+        <p className="text-sm text-muted-foreground mt-1">Total Events</p>
+      </div>
+      <div className="text-center p-4 border rounded-lg">
+        <p className="text-2xl font-semibold">{attendanceStats.averageAttendance}%</p>
+        <p className="text-sm text-muted-foreground mt-1">Avg Attendance</p>
+      </div>
+      <div className="text-center p-4 border rounded-lg">
+        <p className="text-2xl font-semibold">{attendanceStats.totalAttendees}</p>
+        <p className="text-sm text-muted-foreground mt-1">Total Attendees</p>
+      </div>
+      <div className="text-center p-4 border rounded-lg">
+        <p className="text-2xl font-semibold">{attendanceStats.averageRSVP}%</p>
+        <p className="text-sm text-muted-foreground mt-1">Avg RSVP</p>
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+      <div className="text-center">
+        <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">No attendance data available</p>
+      </div>
+    </div>
+  )}
+</TabsContent>
               </Tabs>
             </CardContent>
           </Card>
@@ -675,15 +749,15 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Tasks:</span>{" "}
-                        <span className="font-medium">{group.activeTasks}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Events:</span>{" "}
-                        <span className="font-medium">{group.events}</span>
-                      </div>
-                    </div>
+  <div>
+    <span className="text-muted-foreground">Tasks:</span>{" "}
+    <span className="font-medium">{group.activeTasks || group.taskCount || group.tasks || 0}</span>
+  </div>
+  <div>
+    <span className="text-muted-foreground">Events:</span>{" "}
+    <span className="font-medium">{group.events || group.eventCount || 0}</span>
+  </div>
+</div>
                   </div>
                 ))}
               </div>
@@ -837,25 +911,25 @@ const recentActivity = (data.recentActivity.notifications || []).slice(0, 10);
                 </tr>
               </thead>
               <tbody>
-                {departmentData.map((group) => (
-                  <tr key={group.id} className="border-b hover:bg-accent/50 transition-colors">
-                    <td className="p-3">
-                      <p className="font-medium text-sm">{group.name}</p>
-                    </td>
-                    <td className="p-3 text-right text-sm">{group.memberCount}</td>
-                    <td className="p-3 text-right text-sm">{group.activeTasks}</td>
-                    <td className="p-3 text-right text-sm">{group.events}</td>
-                    <td className="p-3 text-right">
-                      <Badge
-                        variant="outline"
-                        className={getHealthColor(group.healthScore)}
-                      >
-                        {group.healthScore}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+  {departmentData.map((group) => (
+    <tr key={group.id || group._id} className="border-b hover:bg-accent/50 transition-colors">
+      <td className="p-3">
+        <p className="font-medium text-sm">{group.name}</p>
+      </td>
+      <td className="p-3 text-right text-sm">{group.memberCount || group.members || 0}</td>
+      <td className="p-3 text-right text-sm">{group.activeTasks || group.taskCount || group.tasks || 0}</td>
+      <td className="p-3 text-right text-sm">{group.events || group.eventCount || 0}</td>
+      <td className="p-3 text-right">
+        <Badge
+          variant="outline"
+          className={getHealthColor(group.healthScore || 0)}
+        >
+          {group.healthScore || 0}
+        </Badge>
+      </td>
+    </tr>
+  ))}
+</tbody>
             </table>
           </div>
         </CardContent>
