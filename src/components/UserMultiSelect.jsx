@@ -16,13 +16,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+// Replace the entire UserMultiSelect component with this improved version:
 const UserMultiSelect = ({ 
   selectedUsers = [], 
   onChange, 
   placeholder = "Select users...",
-  users = []
+  users = [],
+  groupedByTeam = false // ✅ New prop
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const handleSelect = (userId) => {
     const isSelected = selectedUsers.includes(userId);
@@ -33,11 +36,20 @@ const UserMultiSelect = ({
     }
   };
 
-  const handleRemove = (userId) => {
+  const handleRemove = (userId, e) => {
+    e?.stopPropagation(); // ✅ Prevent triggering parent click
     onChange(selectedUsers.filter(id => id !== userId));
   };
 
-  const selectedUserObjects = users.filter(u => selectedUsers.includes(u._id));
+  const selectedUserObjects = users.filter(u => 
+    selectedUsers.includes(u._id || u.id)
+  );
+
+  // ✅ Filter users by search
+  const filteredUsers = users.filter(user => 
+    user.name.toLowerCase().includes(search.toLowerCase()) ||
+    user.email?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-2">
@@ -47,35 +59,48 @@ const UserMultiSelect = ({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="w-full justify-between h-auto min-h-10"
           >
-            {selectedUsers.length > 0 
-              ? `${selectedUsers.length} user(s) selected`
-              : placeholder
-            }
+            <span className="truncate">
+              {selectedUsers.length > 0 
+                ? `${selectedUsers.length} user${selectedUsers.length !== 1 ? 's' : ''} selected`
+                : placeholder
+              }
+            </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0">
+        <PopoverContent className="w-full p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search users..." />
+            <CommandInput 
+              placeholder="Search users..." 
+              value={search}
+              onValueChange={setSearch}
+            />
             <CommandEmpty>No users found.</CommandEmpty>
             <CommandGroup className="max-h-64 overflow-auto">
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <CommandItem
-                  key={user._id}
-                  value={user._id}
-                  onSelect={() => handleSelect(user._id)}
+                  key={user._id || user.id}
+                  value={user.name}
+                  onSelect={() => handleSelect(user._id || user.id)}
+                  className="cursor-pointer"
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      selectedUsers.includes(user._id) 
+                      selectedUsers.includes(user._id || user.id) 
                         ? "opacity-100" 
                         : "opacity-0"
                     )}
                   />
-                  {user.name} ({user.role})
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {user.role}
+                  </Badge>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -83,16 +108,23 @@ const UserMultiSelect = ({
         </PopoverContent>
       </Popover>
 
-      {/* Selected users badges */}
+      {/* ✅ Improved selected users display */}
       {selectedUserObjects.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 p-2 border rounded-lg bg-muted/50">
           {selectedUserObjects.map((user) => (
-            <Badge key={user._id} variant="secondary" className="gap-1">
-              {user.name}
-              <X
-                className="h-3 w-3 cursor-pointer hover:text-destructive"
-                onClick={() => handleRemove(user._id)}
-              />
+            <Badge 
+              key={user._id || user.id} 
+              variant="secondary" 
+              className="gap-1 pr-1"
+            >
+              <span className="text-xs">{user.name}</span>
+              <button
+                onClick={(e) => handleRemove(user._id || user.id, e)}
+                className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
+                type="button"
+              >
+                <X className="h-3 w-3" />
+              </button>
             </Badge>
           ))}
         </div>

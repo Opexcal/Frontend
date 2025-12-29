@@ -300,21 +300,26 @@ const handleUpdateEvent = async (updates) => {
       <div className="grid grid-cols-1 lg:grid-cols-[70%_30%] gap-6">
         {/* Main Content */}
         <div className="space-y-6">
-          {/* Description */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Description
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {event.description || 'No description provided'}
-              </p>
-            </CardContent>
-          </Card>
-
+         {/* Description */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <FileText className="h-5 w-5" />
+      Description
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    {/* ✅ FIX: Render HTML instead of plain text */}
+    {event.description ? (
+      <div 
+        className="text-sm text-foreground prose prose-sm max-w-none"
+        dangerouslySetInnerHTML={{ __html: event.description }}
+      />
+    ) : (
+      <p className="text-sm text-muted-foreground">No description provided</p>
+    )}
+  </CardContent>
+</Card>
           {/* RSVP Section */}
           {!isEventPast && myRSVP && (
             <Card>
@@ -415,56 +420,59 @@ const handleUpdateEvent = async (updates) => {
           </Card>
 
           {/* Attendees */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Attendees ({event.attendees?.length || 0})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Accepted</span>
-                  <Badge className="bg-green-500">{acceptedCount}</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Pending</span>
-                  <Badge variant="outline">{pendingCount}</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Declined</span>
-                  <Badge variant="destructive">{declinedCount}</Badge>
-                </div>
-              </div>
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Users className="h-5 w-5" />
+      Attendees ({event.attendees?.length || 0})
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="space-y-3 mb-4">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Accepted</span>
+        <Badge className="bg-green-500">{acceptedCount}</Badge>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Pending</span>
+        <Badge variant="outline">{pendingCount}</Badge>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Declined</span>
+        <Badge variant="destructive">{declinedCount}</Badge>
+      </div>
+    </div>
 
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {event.attendees && event.attendees.length > 0 ? (
-                  event.attendees.map((attendee, index) => (
-                    <div key={attendee._id || index} className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{attendee.name || 'User'}</p>
-                        {attendee.email && (
-                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No attendees added yet</p>
-                )}
-              </div>
+    <div className="space-y-3 max-h-96 overflow-y-auto">
+      {event.attendees && event.attendees.length > 0 ? (
+        event.attendees.map((attendee, index) => (
+          <div key={attendee._id || index} className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium text-sm">{attendee.name || 'User'}</p>
+              {attendee.email && (
+                <p className="text-xs text-muted-foreground">{attendee.email}</p>
+              )}
+            </div>
+          </div>
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No attendees added yet</p>
+      )}
+    </div>
 
-              <Button variant="outline" className="w-full mt-4" asChild>
-                <Link to={`/events/${event._id}/rsvp`}>
-                  Manage RSVPs
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+    {/* ✅ FIX: Only show "Manage RSVPs" for organizers and admins */}
+    {canEdit && (
+      <Button variant="outline" className="w-full mt-4" asChild>
+        <Link to={`/events/${event._id}/rsvp`}>
+          Manage RSVPs
+        </Link>
+      </Button>
+    )}
+  </CardContent>
+</Card>
 
           {/* Actions & Check-in - ✅ MERGED INTO ONE CARD */}
           {!isEventPast && (
@@ -492,20 +500,45 @@ const handleUpdateEvent = async (updates) => {
                     <div className="border-t pt-2 mt-2">
                       <p className="text-sm font-medium mb-2">Check-in Management</p>
                     </div>
-                    <Button 
-                      className="w-full" 
-                      onClick={async () => {
-                        try {
-                          await eventsApi.markAttendance(event._id, user.id, true);
-                          toast.success("Checked in successfully");
-                        } catch (error) {
-                          toast.error("Failed to check in");
-                        }
-                      }}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Check Myself In
-                    </Button>
+<Button 
+  className="w-full" 
+  onClick={async () => {
+    try {
+      await eventsApi.markAttendance(event._id, user.id, true);
+      toast.success("Checked in successfully");
+      
+      // ✅ ADD THIS: Refresh event data to show updated attendance
+      const response = await eventsApi.getEvent(id);
+      const eventData = response.data;
+      const mappedEvent = {
+        ...eventData,
+        start: eventData.startDate,
+        end: eventData.endDate,
+        onlineLink: eventData.conferencingLink,
+        organizer: eventData.createdBy,
+        attendees: (eventData.attendees || []).map(att => ({
+          _id: att.userId?._id || att.userId,
+          id: att.userId?._id || att.userId,
+          name: att.userId?.name || 'Unknown',
+          email: att.userId?.email || '',
+          avatar: att.userId?.avatar || '',
+          rsvp: att.status || 'pending',
+          status: att.status || 'pending',
+          attended: att.attended || false, // ✅ This will now be true
+          respondedAt: att.respondedAt,
+          checkedInAt: att.checkedInAt
+        })),
+      };
+      setEvent(mappedEvent);
+      
+    } catch (error) {
+      toast.error("Failed to check in");
+    }
+  }}
+>
+  <CheckCircle2 className="h-4 w-4 mr-2" />
+  Check Myself In
+</Button>
                     <Button 
                       variant="outline" 
                       className="w-full"

@@ -129,6 +129,13 @@ function AppRoutes() {
 <Route path="/reports/productivity" element={<TeamProductivity />} />
 <Route path="/reports/attendance" element={<EventAttendance />} />
 <Route path="/reports/export" element={<ExportData />} />
+
+{/* ✅ ADD Audit Logs under Reports with Admin/Manager protection */}
+<Route path="/reports/audit-logs" element={
+  <ProtectedRoute allowedRoles={["admin", "manager"]}>
+    <AuditLogs />
+  </ProtectedRoute>
+} />
   <Route path="/settings" element={<Settings />} />
 
   {/* Notifications (all authenticated users) */}
@@ -157,9 +164,12 @@ function AppRoutes() {
     <Route path="users/:id" element={<UserDetails />} />
     <Route path="groups" element={<GroupManagement />} />
     <Route path="groups/:id" element={<GroupDetails />} />
-    <Route path="audit-logs" element={<AuditLogs />} />
-    <Route path="settings" element={<OrganizationSettings />} />
-  </Route>
+     <Route path="settings" element={
+    <ProtectedRoute allowedRoles={["manager"]}>
+      <OrganizationSettings />
+    </ProtectedRoute>
+  } />
+</Route>
 </Route>
 
           {/* Catch-all */}

@@ -7,6 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Users, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+
 
 const RecipientSelector = ({ mode = 'task', onSelect, allowOrganizationWide = false }) => {
   const [loading, setLoading] = useState(true);
@@ -15,7 +18,6 @@ const RecipientSelector = ({ mode = 'task', onSelect, allowOrganizationWide = fa
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  // Fetch groups and members
   useEffect(() => {
     const fetchRecipients = async () => {
       try {
@@ -72,59 +74,100 @@ const RecipientSelector = ({ mode = 'task', onSelect, allowOrganizationWide = fa
     };
 
     fetchRecipients();
-  }, []); // ✅ Empty dependency array - only run once
+  }, []); 
 
-  // ✅ FIX: Calculate and notify parent only when selections change
-  useEffect(() => {
-    let count = 0;
+useEffect(() => {
+  const groupMemberIds = new Set();
+  selectedGroups.forEach(groupId => {
+    const group = groups.find(g => g.id === groupId);
+    if (group && group.members) {
+      group.members.forEach(member => {
+        const memberId = member._id || member.id || member;
+        groupMemberIds.add(memberId);
+      });
+    }
+  });
+  
+  // Combine group members with individually selected users (avoiding duplicates)
+  const allSelectedUserIds = new Set([...groupMemberIds, ...selectedUsers]);
+  const count = allSelectedUserIds.size;
+  
+  console.log('📊 Recipient count:', count);
+  
+  // Build result object
+  const result = {
+    groups: selectedGroups.map(id => {
+      const group = groups.find(g => g.id === id);
+      return group ? { id: group.id, name: group.name } : null;
+    }).filter(Boolean),
+    users: selectedUsers.map(id => {
+      const user = members.find(m => m.id === id);
+      return user ? { id: user.id, name: user.name, email: user.email } : null;
+    }).filter(Boolean),
+    count
+  };
+  
+  // ✅ Call parent callback
+  onSelect(result);
+  
+}, [selectedGroups, selectedUsers, groups, members]);
+
+// In RecipientSelector.jsx, update handleGroupToggle:
+const handleGroupToggle = (groupId) => {
+  setSelectedGroups(prev => {
+    const isRemoving = prev.includes(groupId);
     
-    // Count members from selected groups
-    selectedGroups.forEach(groupId => {
+    if (isRemoving) {
+      // ✅ Unselect group and remove its members from selectedUsers
       const group = groups.find(g => g.id === groupId);
-      if (group) {
-        count += group.memberCount;
+      const memberIds = group?.members?.map(m => m._id || m.id || m) || [];
+      
+      setSelectedUsers(prevUsers => 
+        prevUsers.filter(userId => !memberIds.includes(userId))
+      );
+      
+      return prev.filter(id => id !== groupId);
+    } else {
+      // ✅ Select group and add its members to selectedUsers
+      const group = groups.find(g => g.id === groupId);
+      const memberIds = group?.members?.map(m => m._id || m.id || m) || [];
+      
+      setSelectedUsers(prevUsers => {
+        const newUsers = memberIds.filter(id => !prevUsers.includes(id));
+        return [...prevUsers, ...newUsers];
+      });
+      
+      return [...prev, groupId];
+    }
+  });
+};
+
+  // In RecipientSelector.jsx, update handleUserToggle:
+const handleUserToggle = (userId) => {
+  setSelectedUsers(prev => {
+    const isRemoving = prev.includes(userId);
+    
+    if (isRemoving) {
+      // ✅ Check if this user belongs to any selected group
+      const groupsToUnselect = selectedGroups.filter(groupId => {
+        const group = groups.find(g => g.id === groupId);
+        const memberIds = group?.members?.map(m => m._id || m.id || m) || [];
+        return memberIds.includes(userId);
+      });
+      
+      // ✅ Unselect those groups
+      if (groupsToUnselect.length > 0) {
+        setSelectedGroups(prevGroups => 
+          prevGroups.filter(gId => !groupsToUnselect.includes(gId))
+        );
       }
-    });
-    
-    // Add individually selected users
-    count += selectedUsers.length;
-    
-    console.log('📊 Recipient count:', count);
-    
-    // Build result object
-    const result = {
-      groups: selectedGroups.map(id => {
-        const group = groups.find(g => g.id === id);
-        return group ? { id: group.id, name: group.name } : null;
-      }).filter(Boolean),
-      users: selectedUsers.map(id => {
-        const user = members.find(m => m.id === id);
-        return user ? { id: user.id, name: user.name, email: user.email } : null;
-      }).filter(Boolean),
-      count
-    };
-    
-    // ✅ Call parent callback
-    onSelect(result);
-    
-  }, [selectedGroups, selectedUsers, groups, members]); 
-  // ✅ Removed onSelect from dependencies to prevent infinite loop
-
-  const handleGroupToggle = (groupId) => {
-    setSelectedGroups(prev => 
-      prev.includes(groupId) 
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
-    );
-  };
-
-  const handleUserToggle = (userId) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId)
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
-  };
+      
+      return prev.filter(id => id !== userId);
+    } else {
+      return [...prev, userId];
+    }
+  });
+};
 
   if (loading) {
     return (
@@ -177,46 +220,81 @@ const RecipientSelector = ({ mode = 'task', onSelect, allowOrganizationWide = fa
         </ScrollArea>
       </div>
 
-      {/* Individual Members Section */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <User className="h-4 w-4 text-gray-500" />
-          <h3 className="font-medium text-sm">Select Individual Members</h3>
-          <Badge variant="outline" className="ml-auto">
-            {selectedUsers.length} selected
-          </Badge>
-        </div>
-        
-        <ScrollArea className="h-48 border rounded-lg">
-          <div className="p-3 space-y-2">
-            {members.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">
-                No members available
-              </p>
-            ) : (
-              members.map(member => (
-                <div 
-                  key={member.id}
-                  className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                  onClick={() => handleUserToggle(member.id)}
-                >
-                  <Checkbox 
-                    checked={selectedUsers.includes(member.id)}
-                    onCheckedChange={() => handleUserToggle(member.id)}
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{member.name}</p>
-                    <p className="text-xs text-gray-500">{member.email}</p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {member.role}
-                  </Badge>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </div>
+{/* Individual Members Section */}
+<div>
+  <div className="flex items-center gap-2 mb-3">
+    <Users className="h-4 w-4 text-gray-500" />
+    <h3 className="font-medium text-sm">Select Teams/Groups</h3>
+    <Badge variant="outline" className="ml-auto">
+      {selectedGroups.length} selected
+    </Badge>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-6 text-xs"
+      onClick={() => {
+        if (selectedGroups.length === groups.length) {
+          setSelectedGroups([]);
+          setSelectedUsers([]);
+        } else {
+          const allGroupIds = groups.map(g => g.id);
+          const allMemberIds = groups.flatMap(g => 
+            g.members?.map(m => m._id || m.id || m) || []
+          );
+          setSelectedGroups(allGroupIds);
+          setSelectedUsers(Array.from(new Set(allMemberIds)));
+        }
+      }}
+    >
+      {selectedGroups.length === groups.length ? 'Clear All' : 'Select All'}
+    </Button>
+  </div>
+  
+  <ScrollArea className="h-48 border rounded-lg">
+    <div className="p-3 space-y-2">
+      {members.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-4">
+          No members available
+        </p>
+      ) : (
+        members.map(member => {
+          const belongsToSelectedGroup = selectedGroups.some(groupId => {
+            const group = groups.find(g => g.id === groupId);
+            const memberIds = group?.members?.map(m => m._id || m.id || m) || [];
+            return memberIds.includes(member.id);
+          });
+          
+          return (
+            <div 
+              key={member.id}
+              className={`flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer ${
+                belongsToSelectedGroup ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+              }`}
+              onClick={() => handleUserToggle(member.id)}
+            >
+              <Checkbox 
+                checked={selectedUsers.includes(member.id)}
+                onCheckedChange={() => handleUserToggle(member.id)}
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium">{member.name}</p>
+                <p className="text-xs text-gray-500">{member.email}</p>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {member.role}
+              </Badge>
+              {belongsToSelectedGroup && (
+                <Badge variant="outline" className="text-xs text-blue-600">
+                  via team
+                </Badge>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  </ScrollArea>
+</div>
     </div>
   );
 };

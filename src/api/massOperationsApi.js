@@ -1,9 +1,5 @@
 import apiClient from "./client";
 
-// Mass operations API wrapper. Backend currently exposes /api/mass/task for bulk group tasks.
-// Messaging and event bulk endpoints are pending; keep helpers stubbed for forward compatibility.
-
-// src/api/massOperationsApi.js - CORRECTED
 export const massOpsApi = {
   createMassTasks: (data) => apiClient.post("/mass/task", data),
   

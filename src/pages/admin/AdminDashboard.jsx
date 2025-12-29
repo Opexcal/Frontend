@@ -29,11 +29,11 @@ const AdminDashboard = () => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const { data, loading: dashboardLoading, error } = useDashboard();
   const { adminStats, groupsOverview, loading: adminLoading } = useAdminDashboard();
-  // Loading state
+  const { user } = useAuth();
 
-  const isSuperAdmin = useAuth().user?.role === "manager";
+  const isSuperAdmin = user?.role === "manager" || user?.role === "admin";
 
-  if (dashboardLoading || adminLoading)  {
+  if (dashboardLoading || adminLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-3">
@@ -44,7 +44,6 @@ const AdminDashboard = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -62,7 +61,6 @@ const AdminDashboard = () => {
     );
   }
 
-  // Add null check for data
   if (!data) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -74,25 +72,41 @@ const AdminDashboard = () => {
     );
   }
 
-  // Calculate stats safely with fallbacks
-const statsData = {
-  totalUsers: adminStats?.totalUsers || 0,
+  // ✅ FIXED: Better data extraction with proper fallbacks
+  const statsData = {
+    totalUsers: adminStats?.totalUsers || 0,
     userChange: adminStats?.userGrowth || "+0%",
-    activeGroups: groupsOverview.length || 0,
-    eventsThisMonth: data?.upcomingEvents?.count || 0,
-    totalTasks: data?.activeTasks?.count || 0,
-    completionRate: data?.stats?.totalTasksAssigned > 0 
-      ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
-      : 0,
+    activeGroups: adminStats?.totalGroups || groupsOverview?.length || 0,
+    eventsThisMonth: data?.upcomingEvents?.count || data?.upcomingEvents?.length || 0,
+    totalTasks: data?.activeTasks?.count || data?.stats?.totalTasksAssigned || 0,
+    completionRate: 
+      data?.stats?.totalTasksAssigned && data?.stats?.totalTasksAssigned > 0
+        ? Math.round((data.stats.totalTasksCompleted / data.stats.totalTasksAssigned) * 100)
+        : 0,
     pendingInvites: adminStats?.pendingInvites || 0,
   };
 
-  // Map notifications to activity format
-  const recentActivities = (data?.recentActivity?.notifications || []).slice(0, 8).map((notification, index) => ({
-    id: notification._id || index,
-    timestamp: notification.createdAt,
-    message: notification.message || "Activity notification",
-  }));
+  // ✅ FIXED: Better activity mapping with safety checks
+  const recentActivities = (
+    data?.recentActivity?.notifications || 
+    data?.recentActivity || 
+    []
+  )
+    .slice(0, 8)
+    .map((notification, index) => ({
+      id: notification?._id || notification?.id || `activity-${index}`,
+      timestamp: notification?.createdAt || notification?.timestamp || new Date().toISOString(),
+      message: notification?.message || notification?.title || "Activity notification",
+    }));
+
+  // ✅ Add console logging to debug
+  console.log('📊 Admin Dashboard Data:', {
+    data,
+    adminStats,
+    groupsOverview,
+    statsData,
+    recentActivities
+  });
 
   return (
     <div className="space-y-6 animate-fade-in p-6">
@@ -103,9 +117,9 @@ const statsData = {
         </div>
         {isSuperAdmin && (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate("/admin/audit-logs")}>
-              View Audit Logs
-            </Button>
+            <Button variant="ghost" onClick={() => navigate("/reports/audit-logs")}>
+      View Audit Logs
+    </Button>
             <Button onClick={() => navigate("/admin/settings")}>
               Org Settings
             </Button>
@@ -113,10 +127,21 @@ const statsData = {
         )}
       </div>
 
+      {/* ✅ FIXED: Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <StatCard title="Total Users" value={adminStats?.totalUsers || 0} subtitle={adminStats?.userGrowth} />
-<StatCard title="Active Groups" value={adminStats?.totalGroups || 0} />
-<StatCard title="Pending Invites" value={adminStats?.pendingInvites || 0} />
+        <StatCard 
+          title="Total Users" 
+          value={statsData.totalUsers} 
+          subtitle={statsData.userChange} 
+        />
+        <StatCard 
+          title="Active Groups" 
+          value={statsData.activeGroups} 
+        />
+        <StatCard 
+          title="Pending Invites" 
+          value={statsData.pendingInvites} 
+        />
         <StatCard 
           title="Events This Month" 
           value={statsData.eventsThisMonth} 
@@ -133,77 +158,77 @@ const statsData = {
         />
       </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-  {/* Team Management Quick Actions */}
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Users className="h-5 w-5" />
-        Team Management
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-2">
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/team/dashboard">
-          <Users className="h-4 w-4 mr-2" />
-          Team Dashboard
-        </Link>
-      </Button>
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/team/tasks">
-          <CheckSquare className="h-4 w-4 mr-2" />
-          Manage Team Tasks
-        </Link>
-      </Button>
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/team/calendar">
-          <Calendar className="h-4 w-4 mr-2" />
-          Team Calendar
-        </Link>
-      </Button>
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/team/reports">
-          <BarChart3 className="h-4 w-4 mr-2" />
-          View Team Reports
-        </Link>
-      </Button>
-    </CardContent>
-  </Card>
+      {/* Team Management and Mass Operations Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Team Management Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/team/dashboard">
+                <Users className="h-4 w-4 mr-2" />
+                Team Dashboard
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/team/tasks">
+                <CheckSquare className="h-4 w-4 mr-2" />
+                Manage Team Tasks
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/team/calendar">
+                <Calendar className="h-4 w-4 mr-2" />
+                Team Calendar
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/team/reports">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                View Team Reports
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
-  {/* Mass Operations Quick Actions */}
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <MessageSquare className="h-5 w-5" />
-        Mass Operations
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-2">
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/mass/task">
-          <CheckSquare className="h-4 w-4 mr-2" />
-          Assign Mass Tasks
-        </Link>
-      </Button>
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/mass/message">
-          <MessageSquare className="h-4 w-4 mr-2" />
-          Send Mass Message
-        </Link>
-      </Button>
-      <Button asChild variant="outline" className="w-full justify-start">
-        <Link to="/mass/event">
-          <Calendar className="h-4 w-4 mr-2" />
-          Create Mass Event
-        </Link>
-      </Button>
-    </CardContent>
-  </Card>
-</div>
+        {/* Mass Operations Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Mass Operations
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/mass/task">
+                <CheckSquare className="h-4 w-4 mr-2" />
+                Assign Mass Tasks
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/mass/message">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Send Mass Message
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/mass/event">
+                <Calendar className="h-4 w-4 mr-2" />
+                Create Mass Event
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
-{/* Recent Activity and Quick Actions sidebar continue below... */}
-<div className="flex items-start gap-6">
-
+      {/* Recent Activity and Quick Actions */}
+      <div className="flex items-start gap-6">
         <div className="flex-1">
           <Card className="p-4">
             <div className="flex items-center justify-between">
@@ -212,11 +237,12 @@ const statsData = {
             <div className="mt-4 space-y-3">
               {recentActivities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-sm">No recent activity</p>
                 </div>
               ) : (
                 recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3">
+                  <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
                     <div className="flex-1">
                       <div className="text-sm font-medium">{activity.message}</div>
                       <div className="text-xs text-muted-foreground mt-1">
@@ -273,14 +299,19 @@ const statsData = {
       <AddUserModal 
         open={showAddUser} 
         onOpenChange={setShowAddUser} 
-        onSuccess={() => setShowAddUser(false)} 
+        onSuccess={() => {
+          setShowAddUser(false);
+          window.location.reload(); // Refresh to get updated stats
+        }} 
       />
       <CreateGroupModal 
         open={showCreateGroup} 
         onOpenChange={setShowCreateGroup} 
-        onSuccess={() => setShowCreateGroup(false)} 
+        onSuccess={() => {
+          setShowCreateGroup(false);
+          window.location.reload(); // Refresh to get updated stats
+        }} 
       />
-     
     </div>
   );
 };

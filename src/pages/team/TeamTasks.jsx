@@ -25,7 +25,7 @@ import {
 
 import TaskCard from "@/components/team/TaskCard";
 import AssignmentModal from "@/components/team/AssignmentModal";
-import { getTeamTasks, mockTeamMembers } from "@/lib/mockTeamData";import { teamApi } from '@/api/teamApi';
+import { teamApi } from '@/api/teamApi';
 import { groupsApi } from '@/api/groupsApi';
 import { tasksApi } from '@/api/taskApi';
 import { toast } from 'sonner';
@@ -43,6 +43,7 @@ const TeamTasks = () => {
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [teamMembers, setTeamMembers] = useState([]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState(
@@ -50,10 +51,34 @@ const TeamTasks = () => {
   );
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [membersLoading, setMembersLoading] = useState(true);
 
   useEffect(() => {
     fetchTasks();
   }, [statusFilter, priorityFilter, assigneeFilter]);
+
+  useEffect(() => {
+  fetchTeamMembers();
+}, []);
+
+const fetchTeamMembers = async () => {
+   setMembersLoading(true);
+  try {
+    const response = await teamApi.getMembers();
+    const members = response.members || response.data?.members || [];
+    setTeamMembers(members.map(m => ({
+      id: m.id || m._id,
+      name: m.name,
+      email: m.email,
+      role: m.role
+    })));
+  } catch (error) {
+    console.error("Error fetching team members:", error);
+    toast.error("Failed to load team members");
+  }finally {
+    setMembersLoading(false);
+  }
+};
 
 const fetchTasks = async () => {
   setLoading(true);
@@ -164,7 +189,6 @@ const formatTasks = (tasks) => {
 
   const handleAssignTask = async (data) => {
     console.log("Assigning task:", data);
-    // TODO: Call API
     setShowAssignmentModal(false);
     fetchTasks();
   };
@@ -192,12 +216,13 @@ const formatTasks = (tasks) => {
           </p>
         </div>
         <Button
-          onClick={() => setShowAssignmentModal(true)}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create Task
-        </Button>
+  onClick={() => setShowAssignmentModal(true)}
+  className="gap-2"
+  disabled={membersLoading || teamMembers.length === 0}
+>
+  <Plus className="h-4 w-4" />
+  Create Task
+</Button>
       </div>
 
       {/* Filters */}
@@ -229,19 +254,32 @@ const formatTasks = (tasks) => {
             </SelectContent>
           </Select>
 
-          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Members</SelectItem>
-              {mockTeamMembers.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  {member.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Select
+  value={assigneeFilter}
+  onValueChange={setAssigneeFilter}
+  disabled={membersLoading || teamMembers.length === 0}
+>
+  <SelectTrigger className="w-[150px]">
+    <SelectValue
+      placeholder={
+        membersLoading
+          ? "Loading members..."
+          : teamMembers.length === 0
+          ? "No members"
+          : "Filter by assignee"
+      }
+    />
+  </SelectTrigger>
+
+  <SelectContent>
+    {teamMembers.map((member) => (
+      <SelectItem key={member.id} value={member.id}>
+        {member.name} ({member.role})
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
         </div>
       </Card>
 
@@ -312,12 +350,13 @@ const formatTasks = (tasks) => {
 
       {/* Assignment Modal */}
       <AssignmentModal
-        isOpen={showAssignmentModal}
-        onClose={() => setShowAssignmentModal(false)}
-        teamMembers={mockTeamMembers}
-        onSubmit={handleAssignTask}
-        mode="create"
-      />
+  isOpen={showAssignmentModal}
+  onClose={() => setShowAssignmentModal(false)}
+  teamMembers={teamMembers} // ✅ Use real members, not mock
+  onSubmit={handleAssignTask}
+  mode="create"
+/>
+
 
       {/* Delete Confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

@@ -171,21 +171,28 @@ const EventRSVP = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Mail className="h-4 w-4 mr-2" />
-            Email Attendees
-          </Button>
-          <Button variant="outline" onClick={handleExport} disabled={exporting}>
-            <Download className="h-4 w-4 mr-2" />
-            {exporting ? 'Exporting...' : 'Export List'}
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to={`/events/${id}`}>
-              View Event
-            </Link>
-          </Button>
-        </div>
+<div className="flex items-center gap-2">
+  <Button variant="outline">
+    <Mail className="h-4 w-4 mr-2" />
+    Email Attendees
+  </Button>
+  <Button variant="outline" onClick={handleExport} disabled={exporting}>
+    <Download className="h-4 w-4 mr-2" />
+    {exporting ? 'Exporting...' : 'Export List'}
+  </Button>
+  <Button variant="outline" asChild>
+    <Link to={`/events/${id}`}>
+      View Event
+    </Link>
+  </Button>
+  {/* ✅ KEEP THIS ONE, REMOVE THE DUPLICATE */}
+  <Button variant="outline" asChild>
+    <Link to={`/events/${id}/checkin`}>
+      <CheckCircle2 className="h-4 w-4 mr-2" />
+      Check-in Management
+    </Link>
+  </Button>
+</div>
       </div>
 
       {/* Stats */}

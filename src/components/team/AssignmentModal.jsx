@@ -40,20 +40,20 @@ import { toast } from "sonner";
 const assignmentSchema = yup.object({
   title: yup
     .string()
-    .max(200, "Title cannot exceed 200 characters") // Backend limit
+    .max(200, "Title cannot exceed 200 characters")
     .required("Title is required"),
   description: yup
     .string()
-    .max(2000, "Description cannot exceed 2000 characters"), // Backend limit
+    .max(2000, "Description cannot exceed 2000 characters"),
   assignee: yup
     .string()
     .required("Please select an assignee"),
   priority: yup
     .string()
-    .oneOf(['High', 'Medium', 'Low'], "Invalid priority") // Match backend enum
+    .oneOf(['High', 'Medium', 'Low'], "Invalid priority")
     .required("Priority is required"),
   dueDate: yup.string().required("Due date is required"),
-  // Remove conferenceLink - not in backend schema
+  conferenceLink: yup.string().url("Must be a valid URL").optional(), // ✅ Re-added as optional
 });
 
 /**
@@ -64,7 +64,7 @@ const AssignmentModal = ({
   onClose,
   teamMembers = [],
   onSubmit,
-  mode = "create", // 'create' | 'reassign'
+  mode = "create",
   existingTask = null,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -75,56 +75,77 @@ const AssignmentModal = ({
       title: existingTask?.title || "",
       description: existingTask?.description || "",
       assignee: existingTask?.assigneeId || "",
-priority: existingTask?.priority || "Medium", // ✅ Match backend enum
+      priority: existingTask?.priority || "Medium",
       dueDate: existingTask?.dueDate || "",
-      // conferenceLink: existingTask?.conferenceLink || "",
+      conferenceLink: existingTask?.conferenceLink || "",
     },
   });
 
-const handleSubmit = async (data) => {
-  setIsLoading(true);
-  try {
-    if (mode === 'create') {
-      await tasksApi.createTask({
-        title: data.title,
-        description: data.description,
-        priority: data.priority,
-        assignees: [data.assignee], // Backend expects array
-        dueDate: new Date(data.dueDate).toISOString(),
-      });
-    } else if (mode === 'reassign') {
-      // For reassign, update the task's assignees
-      await tasksApi.updateTask(existingTask._id, {
-        assignees: [data.assignee],
-      });
-    }
-    toast.success(
-  mode === 'create' ? "Task created" : "Task reassigned",
-  {
-    description: mode === 'create' 
-      ? "Your task has been created and assigned." 
-      : "The task has been successfully reassigned.",
-  }
-);
+  const handleSubmit = async (data) => {
+    setIsLoading(true);
     
-    form.reset();
-    onClose();
-  } catch (error) {
-    toast.error("Error", {
-  description: error.response?.data?.message || "Failed to save task",
-});
-  } finally {
-    setIsLoading(false);
-  }
-};
+    console.log('📤 Form data being sent:', data); // Debug log
+    
+    try {
+      if (mode === 'create') {
+        // ✅ Only send fields that backend expects
+        const taskData = {
+          title: data.title,
+          description: data.description || "", // Ensure it's a string
+          priority: data.priority,
+          assignees: [data.assignee], // Backend expects array
+          dueDate: new Date(data.dueDate).toISOString(),
+        };
+        
+        // Only add conferenceLink if it has a value
+        if (data.conferenceLink && data.conferenceLink.trim()) {
+          taskData.conferenceLink = data.conferenceLink;
+        }
+        
+        console.log('📤 Sending to API:', taskData); // Debug log
+        
+        await tasksApi.createTask(taskData);
+        
+        toast.success("Task created", {
+          description: "Your task has been created and assigned.",
+        });
+      } else if (mode === 'reassign') {
+        await tasksApi.updateTask(existingTask._id, {
+          assignees: [data.assignee],
+        });
+        
+        toast.success("Task reassigned", {
+          description: "The task has been successfully reassigned.",
+        });
+      }
+      
+      form.reset();
+      onClose();
+      
+      // Call parent's onSubmit if provided
+      if (onSubmit) {
+        onSubmit(data);
+      }
+      
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 
+                       error.response?.data?.error ||
+                       error.message || 
+                       "Failed to save task";
+  
+  toast.error("Error", {
+    description: errorMessage,
+    duration: 5000, // Show longer for debugging
+  });
+} finally {
+      setIsLoading(false);
+    }
+  };
 
-
-  const title =
-    mode === "reassign" ? "Reassign Task" : "Create & Assign Task";
-  const description =
-    mode === "reassign"
-      ? "Select a team member to reassign this task to"
-      : "Create a new task and assign it to a team member";
+  const title = mode === "reassign" ? "Reassign Task" : "Create & Assign Task";
+  const description = mode === "reassign"
+    ? "Select a team member to reassign this task to"
+    : "Create a new task and assign it to a team member";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -148,10 +169,7 @@ const handleSubmit = async (data) => {
                     <FormItem>
                       <FormLabel>Task Title</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Enter task title"
-                          {...field}
-                        />
+                        <Input placeholder="Enter task title" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -178,59 +196,69 @@ const handleSubmit = async (data) => {
             )}
 
             <FormField
-              control={form.control}
-              name="assignee"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {mode === "reassign" ? "Reassign To" : "Assign To"}
-                  </FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select team member" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name} ({member.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+  control={form.control}
+  name="assignee"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>
+        {mode === "reassign" ? "Reassign To" : "Assign To"}
+      </FormLabel>
+      <Select 
+        value={field.value} 
+        onValueChange={field.onChange}
+        disabled={teamMembers.length === 0} // ✅ Disable if empty
+      >
+        <FormControl>
+          <SelectTrigger>
+            <SelectValue placeholder={
+              teamMembers.length === 0 
+                ? "No team members available" 
+                : "Select team member"
+            } />
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          {teamMembers.map((member) => (
+            <SelectItem key={member.id} value={member.id}>
+              {member.name} ({member.role})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FormMessage />
+      {teamMembers.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Please add team members before creating tasks
+        </p>
+      )}
+    </FormItem>
+  )}
+/>
 
             {mode === "create" && (
               <>
                 <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-  <SelectItem value="Low">🟢 Low</SelectItem>
-  <SelectItem value="Medium">🟡 Medium</SelectItem>
-  <SelectItem value="High">🔴 High</SelectItem>
-</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+  control={form.control}
+  name="priority"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Priority</FormLabel>
+      <Select value={field.value} onValueChange={field.onChange}>
+        <FormControl>
+          <SelectTrigger>
+            <SelectValue placeholder="Select priority" /> {/* ✅ Add placeholder */}
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          <SelectItem value="Low">🟢 Low</SelectItem>
+          <SelectItem value="Medium">🟡 Medium</SelectItem>
+          <SelectItem value="High">🔴 High</SelectItem>
+        </SelectContent>
+      </Select>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
 
                 <FormField
                   control={form.control}
@@ -239,10 +267,7 @@ const handleSubmit = async (data) => {
                     <FormItem>
                       <FormLabel>Due Date</FormLabel>
                       <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                        />
+                        <Input type="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

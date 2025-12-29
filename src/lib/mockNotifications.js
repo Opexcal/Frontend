@@ -26,47 +26,13 @@ export const groupNotificationsByDate = (notifications) => {
   return groups;
 };
 
-
 export const getNotificationTypeConfig = (type) => {
   const configs = {
-    // Backend types (uppercase)
-    'TASK_ASSIGNED': {
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      label: 'Task Assignment'
-    },
-    'TASK_RESPONSE': {
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      label: 'Task Response'
-    },
-    'EVENT_INVITE': {
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      label: 'Event Invitation'
-    },
-    // Frontend types (lowercase) - for backwards compatibility
-    'task_assigned': {
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      label: 'Task Assignment'
-    },
-    'task_response': {
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      label: 'Task Response'
-    },
-    'event_invite': {
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      label: 'Event Invitation'
-    },
-    // ... other types
+    'TASK_ASSIGNED': { color: 'text-blue-500', label: 'Task' },
+    'TASK_RESPONSE': { color: 'text-green-500', label: 'Task Response' },
+    'EVENT_INVITE': { color: 'text-purple-500', label: 'Event' },
+    'MESSAGE': { color: 'text-cyan-500', label: 'Message' }, // ✅ Add
+    'ANNOUNCEMENT': { color: 'text-orange-500', label: 'Announcement' }, // ✅ Add
   };
-  
-  return configs[type] || {
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-50',
-    label: 'Notification'
-  };
+  return configs[type] || { color: 'text-gray-500', label: 'Notification' };
 };

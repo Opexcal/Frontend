@@ -101,8 +101,13 @@ useEffect(() => {
 
 
   const canEdit = user?.id === task.createdBy.id || user?.role === "admin" || user?.role === "manager";
-  const isAssignedToMe = Array.isArray(task.assignedTo)
-  ? task.assignedTo.some(a => a.id === user?.id)
+const isAssignedToMe = Array.isArray(task.assignedTo)
+  ? task.assignedTo.some(a => {
+      const assigneeId = a._id || a.id;
+      const currentUserId = user?._id || user?.id;
+      console.log('Comparing:', { assigneeId, currentUserId, match: assigneeId === currentUserId });
+      return assigneeId === currentUserId;
+    })
   : false;
 
 
@@ -156,8 +161,8 @@ const handleDelete = async () => {
               <PriorityBadge priority={task.priority} />
               <StatusBadge status={task.status} />
               <Badge variant="outline">
-                ID: {task.id}
-              </Badge>
+  ID: {task.id || task._id}
+</Badge>
             </div>
           </div>
         </div>
@@ -186,11 +191,12 @@ const handleDelete = async () => {
                 Description
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {task.description}
-              </p>
-            </CardContent>
+           <CardContent>
+  <div 
+    className="text-sm text-foreground prose prose-sm max-w-none"
+    dangerouslySetInnerHTML={{ __html: task.description }}
+  />
+</CardContent>
           </Card>
 
           {/* Tabs */}
@@ -300,23 +306,58 @@ const handleDelete = async () => {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Status Actions */}
-          {isAssignedToMe && task.status === "pending" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full">
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Accept Task
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Decline Task
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {isAssignedToMe && task.status?.toLowerCase() === "pending" && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Actions</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-2">
+      <Button 
+        className="w-full"
+        onClick={async () => {
+          try {
+            await tasksApi.acceptTask(task.id || task._id);
+            toast.success("Task Accepted", {
+              description: "You've accepted this task and it's now in progress.",
+            });
+            // Refresh the task data
+            window.location.reload();
+          } catch (error) {
+            toast.error("Failed to accept task", {
+              description: error.response?.data?.message || "Please try again",
+            });
+          }
+        }}
+      >
+        <CheckCircle2 className="h-4 w-4 mr-2" />
+        Accept Task
+      </Button>
+      <Button 
+        variant="outline" 
+        className="w-full"
+        onClick={async () => {
+          const reason = prompt("Please provide a reason for declining:");
+          if (!reason) return;
+          
+          try {
+            await tasksApi.rejectTask(task.id || task._id, { reason });
+            toast.success("Task Declined", {
+              description: "You've declined this task.",
+            });
+            window.location.reload();
+          } catch (error) {
+            toast.error("Failed to decline task", {
+              description: error.response?.data?.message || "Please try again",
+            });
+          }
+        }}
+      >
+        <AlertCircle className="h-4 w-4 mr-2" />
+        Decline Task
+      </Button>
+    </CardContent>
+  </Card>
+)}
 
           {/* Details */}
           <Card>
@@ -341,18 +382,18 @@ const handleDelete = async () => {
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-2">Time Tracking</p>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Estimated:</span>
-                    <span>{task.estimatedHours}h</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Actual:</span>
-                    <span>{task.actualHours || 0}h</span>
-                  </div>
-                </div>
-              </div>
+  <p className="text-sm font-medium mb-2">Time Tracking</p>
+  <div className="space-y-1 text-sm">
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">Estimated:</span>
+      <span>{task.estimatedHours || 0}h</span>
+    </div>
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">Actual:</span>
+      <span>{task.actualHours || 0}h</span>
+    </div>
+  </div>
+</div>
             </CardContent>
           </Card>
 

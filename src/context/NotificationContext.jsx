@@ -15,79 +15,95 @@ export const NotificationProvider = ({ children }) => {
   const [hasFetchedOnMount, setHasFetchedOnMount] = useState(false);
   const MAX_RETRIES = 3;
 
-  // Helper: Generate title from type
-  const generateTitle = (type) => {
-    const titles = {
-      'TASK_ASSIGNED': 'New Task Assignment',
-      'TASK_RESPONSE': 'Task Response',
-      'EVENT_INVITE': 'Event Invitation',
-    };
-    return titles[type] || 'Notification';
+// Helper: Generate title from type
+const generateTitle = (notification) => {
+  // ✅ For MESSAGE/ANNOUNCEMENT types, use the title field from backend
+  if (notification.type === 'MESSAGE' || notification.type === 'ANNOUNCEMENT') {
+    return notification.title || 'Message';
+  }
+  
+  // For other types, use default titles
+  const titles = {
+    'TASK_ASSIGNED': 'New Task Assignment',
+    'TASK_RESPONSE': 'Task Response',
+    'EVENT_INVITE': 'Event Invitation',
   };
+  return titles[notification.type] || 'Notification';
+};
 
-  // Helper: Generate action URL
-  const generateActionUrl = (type, relatedId) => {
-    const routes = {
-      'TASK_ASSIGNED': `/tasks/${relatedId}`,
-      'TASK_RESPONSE': `/tasks/${relatedId}`,
-      'EVENT_INVITE': `/events/${relatedId}`,
-    };
-    return routes[type] || null;
+// Helper: Generate action URL
+const generateActionUrl = (type, relatedId) => {
+  const routes = {
+    'TASK_ASSIGNED': `/tasks/${relatedId}`,
+    'TASK_RESPONSE': `/tasks/${relatedId}`,
+    'EVENT_INVITE': `/events/${relatedId}`,
+    // ✅ MESSAGE and ANNOUNCEMENT don't have action URLs
+    'MESSAGE': null,
+    'ANNOUNCEMENT': null,
   };
+  return relatedId ? routes[type] : null;
+};
 
-  // ✅ Fetch notifications - NO useCallback needed
-  const fetchNotifications = async () => {
-    // ✅ CRITICAL FIX: Don't fetch if user is not logged in
-    if (!user) {
-      console.log('⏸️ Skipping notification fetch - user not logged in');
-      return;
-    }
+// ✅ Helper: Strip HTML tags for display
+const stripHtml = (html) => {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+};
 
-    try {
-      setNotifLoading(true);
-      const response = await notificationsApi.getNotifications();
+// ✅ Fetch notifications - Update transformation
+const fetchNotifications = async () => {
+  if (!user) {
+    console.log('⏸️ Skipping notification fetch - user not logged in');
+    return;
+  }
+
+  try {
+    setNotifLoading(true);
+    const response = await notificationsApi.getNotifications();
+    
+    if (response.success) {
+      const transformed = (response.data || []).map(notif => ({
+        id: notif._id,
+        type: notif.type,
+        title: generateTitle(notif), // ✅ Pass full notif object
+        message: notif.type === 'MESSAGE' || notif.type === 'ANNOUNCEMENT' 
+          ? stripHtml(notif.message) // ✅ Strip HTML for messages
+          : notif.message,
+        isRead: notif.isRead,
+        relatedId: notif.relatedId,
+        createdAt: notif.createdAt,
+        timestamp: notif.createdAt,
+        actionUrl: generateActionUrl(notif.type, notif.relatedId),
+        priority: notif.priority || 'normal', // ✅ Add priority
+        metadata: notif.metadata || {}, // ✅ Add metadata
+        isSystem: false,
+        actor: null,
+      }));
       
-      if (response.success) {
-        const transformed = (response.data || []).map(notif => ({
-          id: notif._id,
-          type: notif.type,
-          message: notif.message,
-          isRead: notif.isRead,
-          relatedId: notif.relatedId,
-          createdAt: notif.createdAt,
-          timestamp: notif.createdAt,
-          title: generateTitle(notif.type),
-          actionUrl: generateActionUrl(notif.type, notif.relatedId),
-          isSystem: false,
-          actor: null,
-        }));
-        
-        setNotifications(transformed);
-        setUnreadCount(response.unreadCount);
-        setRetryCount(0); // Reset retry count on success
-      }
-    } catch (error) {
-  console.error('Failed to fetch notifications:', error);
-  
-  // ✅ Don't retry on 401/403 - these are auth errors, not transient failures
-  const isAuthError = error?.message?.includes('auth token') || 
-                      error?.message?.includes('Access denied');
-  
-  // ✅ Only retry if we have a user, haven't exceeded max retries, AND it's not an auth error
-  if (user && retryCount < MAX_RETRIES && !isAuthError) {
-        setRetryCount(prev => prev + 1);
-        
-        // ✅ Use exponential backoff for retries
-        const retryDelay = Math.min(2000 * Math.pow(2, retryCount), 10000);
-        
-        setTimeout(() => {
-          fetchNotifications();
-        }, retryDelay);
-      }
-    } finally {
-      setNotifLoading(false);
+      setNotifications(transformed);
+      setUnreadCount(response.unreadCount);
+      setRetryCount(0);
     }
-  };
+  } catch (error) {
+    console.error('Failed to fetch notifications:', error);
+    
+    const isAuthError = error?.message?.includes('auth token') || 
+                        error?.message?.includes('Access denied');
+    
+    if (user && retryCount < MAX_RETRIES && !isAuthError) {
+      setRetryCount(prev => prev + 1);
+      const retryDelay = Math.min(2000 * Math.pow(2, retryCount), 10000);
+      
+      setTimeout(() => {
+        fetchNotifications();
+      }, retryDelay);
+    }
+  } finally {
+    setNotifLoading(false);
+  }
+};
 
   // Mark single notification as read
   const markAsRead = async (notificationId) => {

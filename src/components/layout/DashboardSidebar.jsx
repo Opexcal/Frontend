@@ -319,6 +319,7 @@ const showAdminSection = useMemo(
     </SidebarGroupContent>
   </SidebarGroup>
 )}
+
 {/* Reports Section - Admin/Manager only */}
 {showAdminSection && (
   <SidebarGroup>
@@ -334,6 +335,20 @@ const showAdminSection = useMemo(
             <Link to="/reports">
               <BarChart3 className="h-4 w-4" />
               <span>Reports</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        
+        {/* ✅ ADD THIS - Audit Logs for Admin/Manager only */}
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            asChild
+            isActive={isActive("/reports/audit-logs")}
+            tooltip="Audit Logs"
+          >
+            <Link to="/reports/audit-logs">
+              <BarChart3 className="h-4 w-4" />
+              <span>Audit Logs</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -412,7 +427,7 @@ const showAdminSection = useMemo(
           </SidebarMenuItem>
         ))}
         
-        {/* ✅ Only show Organization for SuperAdmin */}
+        {/* ✅ ONLY SuperAdmin sees Org Settings */}
         {isSuperAdmin(user?.role) && (
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -423,21 +438,6 @@ const showAdminSection = useMemo(
               <Link to="/admin/settings">
                 <Settings className="h-4 w-4" />
                 <span>Organization</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        )}
-        
-        {isSuperAdmin(user?.role) && (
-          <SidebarMenuItem>
-            <SidebarMenuButton 
-              asChild 
-              isActive={isActive("/admin/audit-logs")} 
-              tooltip="Audit Logs"
-            >
-              <Link to="/admin/audit-logs">
-                <BarChart3 className="h-4 w-4" />
-                <span>Audit Logs</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

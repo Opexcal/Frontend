@@ -32,6 +32,7 @@ const breadcrumbNameMap = {
   productivity: "Team Productivity",
   attendance: "Event Attendance",
   export: "Export Data",
+  "audit-logs": "Audit Logs",
   // Note: "tasks" under /reports/tasks will use the main "tasks" key above
 };
 

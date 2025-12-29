@@ -33,6 +33,8 @@ const NotificationItem = ({
     'TASK_ASSIGNED': CheckSquare,
     'TASK_RESPONSE': CheckCircle2,
     'EVENT_INVITE': Calendar,
+    'MESSAGE': AtSign, // ✅ Add this
+    'ANNOUNCEMENT': Bell, // ✅ Add this
     // Keep lowercase for backwards compatibility
     'task_assigned': CheckSquare,
     'task_response': CheckCircle2,
@@ -68,29 +70,47 @@ const relativeTime = formatDistanceToNow(
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
-              <p
-                className={cn(
-                  "text-sm",
-                  !notification.isRead && "font-semibold"
-                )}
-              >
-                {notification.title || notification.message}
-              </p>
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                {notification.message}
-              </p>
-              {notification.actor && variant === "default" && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  by {notification.actor.name}
-                </p>
-              )}
-            </div>
-            <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-              {relativeTime}
-            </span>
-          </div>
+  <div className="flex items-start justify-between gap-2">
+    <div className="flex-1">
+      {/* ✅ Show priority badge */}
+      <div className="flex items-center gap-2 mb-1">
+        <p
+          className={cn(
+            "text-sm",
+            !notification.isRead && "font-semibold"
+          )}
+        >
+          {notification.title || notification.message}
+        </p>
+        {notification.priority === 'urgent' && (
+          <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">
+            🔴 Urgent
+          </span>
+        )}
+        {notification.priority === 'important' && (
+          <span className="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded">
+            🟡 Important
+          </span>
+        )}
+      </div>
+      
+      {/* ✅ Only show message if different from title */}
+      {notification.message && notification.message !== notification.title && (
+        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+          {notification.message}
+        </p>
+      )}
+      
+      {notification.actor && variant === "default" && (
+        <p className="text-xs text-muted-foreground mt-1">
+          by {notification.actor.name}
+        </p>
+      )}
+    </div>
+    <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+      {relativeTime}
+    </span>
+  </div>
 
           {/* Actions - Default variant only */}
           {variant === "default" && (

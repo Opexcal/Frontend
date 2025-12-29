@@ -24,77 +24,82 @@ import { format, isToday, isPast, isThisWeek, isThisMonth, startOfWeek, endOfWee
 
 const StaffDashboard = () => {
   const { user } = useAuth();
-  const { data, loading, error } = useDashboard();
-  const [dateRange, setDateRange] = useState("today");
+const { data, loading, error } = useDashboard();
+const [dateRange, setDateRange] = useState("today");
+
+// ✅ Extract data from the nested structure
+const activeTasks = data?.activeTasks?.tasks || [];
+const upcomingEvents = data?.upcomingEvents?.events || [];
+const recentActivity = data?.recentActivity?.notifications || [];
+
+// ✅ Add date filtering function
+const filterByDateRange = (items, dateField = 'dueDate') => {
+  const now = new Date();
   
-  // ✅ Add date filtering function
-  const filterByDateRange = (items, dateField = 'dueDate') => {
-    const now = new Date();
+  return items.filter(item => {
+    if (!item[dateField]) return false;
+    const itemDate = new Date(item[dateField]);
     
-    return items.filter(item => {
-      if (!item[dateField]) return false;
-      const itemDate = new Date(item[dateField]);
-      
-      switch(dateRange) {
-        case 'today':
-          return isToday(itemDate);
-        case 'week':
-          return isThisWeek(itemDate, { weekStartsOn: 0 });
-        case 'month':
-          return isThisMonth(itemDate);
-        default:
-          return true;
-      }
-    });
-  };
+    switch(dateRange) {
+      case 'today':
+        return isToday(itemDate);
+      case 'week':
+        return isThisWeek(itemDate, { weekStartsOn: 0 });
+      case 'month':
+        return isThisMonth(itemDate);
+      default:
+        return true;
+    }
+  });
+};
 
-  const activeTasks = data.activeTasks.tasks || [];
-  
-  // ✅ Apply date filter to tasks based on due date
-  const filteredTasks = dateRange === 'today' || dateRange === 'week' || dateRange === 'month'
-    ? filterByDateRange(activeTasks, 'dueDate')
-    : activeTasks;
-  
-  // ✅ Calculate stats from filtered tasks
-  const stats = {
-    myTasks: {
-      total: filteredTasks.length,
-      completed: filteredTasks.filter(t => t.status === 'Completed').length,
-      pending: filteredTasks.filter(t => t.status === 'Pending').length,
-      inProgress: filteredTasks.filter(t => t.status === 'In-Progress').length
-    },
-    teamEvents: data.upcomingEvents.count || 0,
-    completionRate: filteredTasks.length > 0 
-      ? Math.round((filteredTasks.filter(t => t.status === 'Completed').length / filteredTasks.length) * 100)
-      : 0,
-    unreadNotifications: data.stats.unreadNotifications || 0
-  };
+// ✅ Apply date filter to tasks based on due date
+const filteredTasks = dateRange === 'today' || dateRange === 'week' || dateRange === 'month'
+  ? filterByDateRange(activeTasks, 'dueDate')
+  : activeTasks;
 
-  // ✅ Use filtered tasks
-  const myTasks = filteredTasks.filter(t => t.status !== 'Rejected');
-  const assignedToMe = filteredTasks.filter(t => t.status === 'Pending');
-  const overdueTasks = filteredTasks.filter(t => 
-    t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
-  );
+// ✅ CORRECT - Use backend-calculated stats
+// ✅ CORRECT - Stats should use ALL tasks, not filtered
+const stats = {
+  myTasks: {
+    total: data?.stats?.totalTasksAssigned || 0,
+    completed: data?.stats?.totalTasksCompleted || 0,
+    pending: data?.stats?.totalTasksPending || 0,
+    inProgress: data?.stats?.totalTasksInProgress || 0,
+    rejected: data?.stats?.totalTasksRejected || 0
+  },
+  teamEvents: upcomingEvents.length,
+  completionRate: data?.stats?.totalTasksAssigned > 0 
+    ? Math.round((data?.stats?.totalTasksCompleted / data?.stats?.totalTasksAssigned) * 100)
+    : 0,
+  unreadNotifications: data?.stats?.unreadNotifications || 0
+};
 
-  // ✅ Filter events by date range
-  const filteredEvents = dateRange === 'today' 
-    ? (data.upcomingEvents.events || []).filter(event => isToday(new Date(event.startDate)))
-    : dateRange === 'week'
-    ? (data.upcomingEvents.events || []).filter(event => isThisWeek(new Date(event.startDate), { weekStartsOn: 0 }))
-    : dateRange === 'month'
-    ? (data.upcomingEvents.events || []).filter(event => isThisMonth(new Date(event.startDate)))
-    : data.upcomingEvents.events || [];
+// ✅ Only filter the TASK LISTS, not the stats
+const myTasks = activeTasks;  // Use ALL active tasks
+const assignedToMe = activeTasks.filter(t => t.status === 'Pending');
+const overdueTasks = activeTasks.filter(t => 
+  t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'Completed'
+);
 
-  // ✅ Today's events (always show today regardless of filter)
-  const todaysEvents = (data.upcomingEvents.events || []).filter(event => 
-    isToday(new Date(event.startDate))
-  );
+// ✅ For the "Today's Focus" section, show filtered tasks
+const todaysTasks = filterByDateRange(activeTasks, 'dueDate');
 
-  // Recent activity (last 5 notifications)
-  const recentActivity = data.recentActivity.notifications || [];
+// ✅ Filter events by date range
+const filteredEvents = dateRange === 'today' 
+  ? upcomingEvents.filter(event => isToday(new Date(event.startDate)))
+  : dateRange === 'week'
+  ? upcomingEvents.filter(event => isThisWeek(new Date(event.startDate), { weekStartsOn: 0 }))
+  : dateRange === 'month'
+  ? upcomingEvents.filter(event => isThisMonth(new Date(event.startDate)))
+  : upcomingEvents;
+// ✅ Today's events
+const todaysEvents = upcomingEvents.filter(event => 
+  isToday(new Date(event.startDate))
+);
 
-  // Loading state
+
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -253,26 +258,26 @@ const StaffDashboard = () => {
       </div>
 
       {/* Tasks In Progress */}
-      <div>
-        <h3 className="font-medium mb-3 flex items-center">
-          <CheckSquare className="h-4 w-4 mr-2" />
-          In Progress ({stats.myTasks.inProgress})
-        </h3>
-        <div className="space-y-2">
-          {filteredTasks
-            .filter(t => t.status === 'In-Progress')
-            .slice(0, 3)
-            .map((task) => (
-              <div key={task._id} className="p-2 rounded bg-background/50">
-                <p className="text-sm font-medium">{task.title}</p>
-                <StatusBadge status={task.status} className="mt-1" />
-              </div>
-            ))}
-          {stats.myTasks.inProgress === 0 && (
-            <p className="text-sm text-muted-foreground">No tasks in progress</p>
-          )}
+<div>
+  <h3 className="font-medium mb-3 flex items-center">
+    <CheckSquare className="h-4 w-4 mr-2" />
+    In Progress ({stats.myTasks.inProgress})
+  </h3>
+  <div className="space-y-2">
+    {activeTasks
+      .filter(t => t.status === 'In-Progress')
+      .slice(0, 3)
+      .map((task) => (
+        <div key={task._id} className="p-2 rounded bg-background/50">
+          <p className="text-sm font-medium">{task.title}</p>
+          <StatusBadge status={task.status} className="mt-1" />
         </div>
-      </div>
+      ))}
+    {stats.myTasks.inProgress === 0 && (
+      <p className="text-sm text-muted-foreground">No tasks in progress</p>
+    )}
+  </div>
+</div>
 
       {/* Recent Activity - always show recent regardless of filter */}
       <div>
@@ -431,13 +436,13 @@ const StaffDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {data.upcomingEvents.events.length === 0 ? (
+                {upcomingEvents.length === 0 ? ( 
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p>No upcoming events</p>
                   </div>
                 ) : (
-                  data.upcomingEvents.events.slice(0, 5).map((event) => (
+                  upcomingEvents.slice(0, 5).map((event) => ( 
                     <div
                       key={event._id}
                       className="flex items-center gap-3 p-2 rounded-lg border border-border hover:bg-accent/50 transition-colors"

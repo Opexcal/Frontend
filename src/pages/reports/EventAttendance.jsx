@@ -37,10 +37,9 @@ const EventAttendance = () => {
     fetchAllData();
   }, [dateRange]);
 
-  const fetchAllData = async () => {
+const fetchAllData = async () => {
   setLoading(true);
   try {
-    // ✅ Fetch them individually with better error handling
     let overall, rsvp, byEvent, trend, top;
     
     try {
@@ -48,7 +47,7 @@ const EventAttendance = () => {
       console.log('✅ Overall stats:', overall.data);
     } catch (err) {
       console.error('❌ Overall stats failed:', err.response?.data || err.message);
-      overall = { data: { success: true, data: { overallStats: { totalEvents: 0, averageAttendance: 0, totalAttendees: 0, averageRSVP: 0 } } } };
+      overall = { data: { overallStats: { totalEvents: 0, averageAttendance: 0, totalAttendees: 0, averageRSVP: 0 } } };
     }
 
     try {
@@ -56,15 +55,16 @@ const EventAttendance = () => {
       console.log('✅ RSVP distribution:', rsvp.data);
     } catch (err) {
       console.error('❌ RSVP distribution failed:', err.response?.data || err.message);
-      rsvp = { data: { success: true, data: [] } };
+      rsvp = { data: [] };
     }
 
     try {
       byEvent = await analyticsApi.getAttendanceByEvent(dateRange, 5);
       console.log('✅ Attendance by event:', byEvent.data);
+       console.log('✅ Attendance by event RAW:', JSON.stringify(byEvent.data, null, 2)); // ✅ ADD THIS
     } catch (err) {
       console.error('❌ Attendance by event failed:', err.response?.data || err.message);
-      byEvent = { data: { success: true, data: [] } };
+      byEvent = { data: [] };
     }
 
     try {
@@ -72,7 +72,7 @@ const EventAttendance = () => {
       console.log('✅ Attendance trend:', trend.data);
     } catch (err) {
       console.error('❌ Attendance trend failed:', err.response?.data || err.message);
-      trend = { data: { success: true, data: [] } };
+      trend = { data: [] };
     }
 
     try {
@@ -80,21 +80,44 @@ const EventAttendance = () => {
       console.log('✅ Top events:', top.data);
     } catch (err) {
       console.error('❌ Top events failed:', err.response?.data || err.message);
-      top = { data: { success: true, data: [] } };
+      top = { data: [] };
     }
 
-    // ✅ Set state with safe access
-    setOverallStats(overall.data?.data?.overallStats || null);
-    setRsvpDistribution(rsvp.data?.data || []);
-    setAttendanceByEvent(byEvent.data?.data || []);
-    setAttendanceTrend(trend.data?.data || []);
-    setTopEvents(top.data?.data || []);
+    // ✅ FIX: Backend returns response.data directly (not response.data.data)
+    // Based on your console logs showing the arrays directly
+    // ✅ FIX: Map backend response to chart format
+const mappedByEvent = Array.isArray(byEvent.data) 
+  ? byEvent.data.map(event => ({
+      name: event.eventTitle || event.name || event.title || 'Unknown Event',
+      invited: event.totalInvited || event.invited || 0,
+      attended: event.totalAttended || event.attended || 0
+    }))
+  : [];
+
+setOverallStats(overall.data?.overallStats || overall.data || { totalEvents: 0, averageAttendance: 0, totalAttendees: 0, averageRSVP: 0 });
+setRsvpDistribution(Array.isArray(rsvp.data) ? rsvp.data : rsvp.data?.data || []);
+setAttendanceByEvent(mappedByEvent); // ✅ Use mapped data
+setAttendanceTrend(Array.isArray(trend.data) ? trend.data : trend.data?.data || []);
+setTopEvents(Array.isArray(top.data) ? top.data : top.data?.data || []);
+    setOverallStats(overall.data?.overallStats || overall.data || { totalEvents: 0, averageAttendance: 0, totalAttendees: 0, averageRSVP: 0 });
+    setRsvpDistribution(Array.isArray(rsvp.data) ? rsvp.data : rsvp.data?.data || []);
+    setAttendanceByEvent(Array.isArray(byEvent.data) ? byEvent.data : byEvent.data?.data || []);
+    setAttendanceTrend(Array.isArray(trend.data) ? trend.data : trend.data?.data || []);
+    setTopEvents(Array.isArray(top.data) ? top.data : top.data?.data || []);
+    
+    // ✅ Add debug logs to verify
+    console.log('📊 Final state:', {
+      overallStats: overall.data,
+      rsvpDistribution: rsvp.data,
+      attendanceByEvent: byEvent.data,
+      attendanceTrend: trend.data,
+      topEvents: top.data
+    });
 
   } catch (error) {
     console.error('Failed to fetch event attendance data:', error);
     toast.error(error.message || 'Failed to load event attendance data');
     
-    // ✅ Set safe defaults
     setOverallStats({ totalEvents: 0, averageAttendance: 0, totalAttendees: 0, averageRSVP: 0 });
     setRsvpDistribution([]);
     setAttendanceByEvent([]);
@@ -281,12 +304,12 @@ const EventAttendance = () => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="invited" fill="#e5e7eb" name="Invited" />
+          <Bar dataKey="invited" fill="#e5e7eb" name="Invited" className='mt-5' />
           <Bar dataKey="attended" fill="#10b981" name="Attended" />
         </BarChart>
       </ResponsiveContainer>
     ) : (
-      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+      <div className="flex items-center justify-center h-[300px] text-muted-foreground ">
         <p>No event attendance data available for this period</p>
       </div>
     )}

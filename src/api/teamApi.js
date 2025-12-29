@@ -54,15 +54,10 @@ export const teamApi = {
    * @returns {Promise} { event: {...} }
    */
   updateEvent: (eventId, eventData) => 
-    apiClient.put(`/team/events/${eventId}`, eventData),
+  apiClient.put(`/team/events/${eventId}`, eventData),
 
-  /**
-   * Delete team event
-   * @param {string} eventId
-   * @returns {Promise} { message }
-   */
-  deleteEvent: (eventId) => 
-    apiClient.delete(`/team/events/${eventId}`),
+deleteEvent: (eventId) => 
+  apiClient.delete(`/team/events/${eventId}`)
 };
 
 

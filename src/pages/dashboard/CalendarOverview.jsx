@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { startOfMonth, endOfMonth, parseISO, isSameDay } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Plus, Filter, List, LayoutGrid } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -21,6 +22,8 @@ const CalendarOverview = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   
   // ✅ Add filter state
   const [filters, setFilters] = useState({
@@ -165,12 +168,17 @@ const renderCalendarDays = () => {
         </div>
         <div className="space-y-1">
           {dayEvents.slice(0, 2).map((event) => (
-            <div
-              key={event.id}
-              className={`text-xs px-1.5 py-0.5 rounded text-primary-foreground truncate ${event.color}`}
-            >
-              {event.title}
-            </div>
+           <div
+  key={event.id}
+  onClick={(e) => {
+    e.stopPropagation(); // Prevent day click
+    setSelectedEvent(event);
+    setIsEventDialogOpen(true);
+  }}
+  className={`text-xs px-1.5 py-0.5 rounded text-primary-foreground truncate ${event.color} cursor-pointer hover:opacity-80 transition-opacity`}
+>
+  {event.title}
+</div>
           ))}
           {dayEvents.length > 2 && (
             <div className="text-xs text-muted-foreground">+{dayEvents.length - 2} more</div>
@@ -247,14 +255,15 @@ const renderWeekView = () => {
               ) : (
                 dayEvents.map((event) => (
                   <div
-                    key={event.id}
-                    className={`px-3 py-2 rounded text-white ${event.color}`}
-                    onClick={() => {
-                      // Handle event click if needed
-                    }}
-                  >
-                    <p className="font-medium text-sm">{event.title}</p>
-                  </div>
+  key={event.id}
+  className={`px-3 py-2 rounded text-white ${event.color} cursor-pointer hover:opacity-90 transition-opacity`}
+  onClick={() => {
+    setSelectedEvent(event);
+    setIsEventDialogOpen(true);
+  }}
+>
+  <p className="font-medium text-sm">{event.title}</p>
+</div>
                 ))
               )}
             </div>
@@ -458,6 +467,38 @@ const renderWeekView = () => {
 </CardContent>
         </Card>
       </div>
+      {/* Event Quick View Dialog */}
+<Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>{selectedEvent?.title}</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm text-muted-foreground">
+          {selectedEvent && new Date(selectedEvent.fullDate).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge variant="outline">{selectedEvent?.type}</Badge>
+      </div>
+      <Button 
+        className="w-full" 
+        onClick={() => {
+          setIsEventDialogOpen(false);
+          navigate(`/events/${selectedEvent?.id}`);
+        }}
+      >
+        View Event Details
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 };

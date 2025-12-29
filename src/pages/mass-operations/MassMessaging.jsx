@@ -25,7 +25,8 @@ const handleSend = async () => {
   setSending(true);
   try {
     const groupId = messageData.selectedGroups[0]?.id;
-    
+    console.log('🔍 Debug - groupId:', groupId); // ✅ Add this
+    console.log('🔍 Debug - selectedGroups:', messageData.selectedGroups);
     if (!groupId) {
       toast.error("Group Required", {
   description: "Mass messaging requires at least one group.",
@@ -33,11 +34,13 @@ const handleSend = async () => {
       return;
     }
     
-    await massOpsApi.sendMessage({
-      groupId,
-      message: messageData.message,
-      // subject not in backend yet
-    });
+
+await massOpsApi.sendMessage({
+  groupId,
+  message: messageData.message,
+  subject: messageData.subject, 
+  priority: messageData.priority, 
+});
 
     toast.success("Message Sent", {
       description: `Successfully sent to ${recipientCount} members.`,

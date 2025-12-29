@@ -66,7 +66,9 @@ const handleCreateEvent = async () => {
         startDate: new Date(eventData.startDateTime).toISOString(),
         endDate: new Date(eventData.endDateTime).toISOString(),
         type: 'Meeting',
-        visibility: 'Public', // Add visibility
+        visibility: 'GroupOnly', // Add visibility
+         location: eventData.location || null, // ✅ ADD location
+  conferencingLink: null, // ✅ ADD if you have meeting URLs
       });
       
       toast.success("Mass event created", {
