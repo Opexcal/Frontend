@@ -74,13 +74,13 @@ const ForgotPassword = () => {
           </form>
 
           {status === "success" && (
-            <Alert className="mt-4 border-success/30 bg-success/10">
-              <CheckCircle className="h-4 w-4 text-success" />
-              <AlertDescription className="text-success">
-                Password reset details sent to your email.
-              </AlertDescription>
-            </Alert>
-          )}
+  <Alert className="mt-4 border-success/30 bg-success/10">
+    <CheckCircle className="h-4 w-4 text-success" />
+    <AlertDescription className="text-success">
+      Password reset details sent to your email. Check your inbox and spam folder.
+    </AlertDescription>
+  </Alert>
+)}
 
           {status === "error" && (
             <Alert className="mt-4 border-destructive/30 bg-destructive/10">

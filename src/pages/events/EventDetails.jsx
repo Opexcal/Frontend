@@ -6,12 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, Edit, Trash2, Calendar, Clock, MapPin, Users,
+  ArrowLeft, Edit, Trash2, Calendar, Users,
   CheckCircle2, XCircle, AlertCircle, FileText, MessageSquare,
-  Plus, Video, Mail, ExternalLink, Share2
+  Video, Mail, ExternalLink, Share2
 } from "lucide-react";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
@@ -23,136 +21,154 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 
 const EventDetails = () => {
- const { id } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   
   const [event, setEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [commentText, setCommentText] = useState("");
-// With this
-const [rsvpStatus, setRsvpStatus] = useState("pending");
+  const [rsvpStatus, setRsvpStatus] = useState("pending");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRSVPDialogOpen, setIsRSVPDialogOpen] = useState(false);
 
-// In EventDetails.jsx - Add after fetching event
-useEffect(() => {
+  useEffect(() => {
   const fetchEvent = async () => {
     setIsLoading(true);
     try {
       const response = await eventsApi.getEvent(id);
       
+      console.log('📥 Full response:', response);
+      console.log('📦 response.data:', response.data);
+      
+      // ✅ FIX: Backend returns { success: true, data: eventObject }
+      // response.data IS the event object directly (not response.data.data)
+      const eventData = response.data; // ✅ Changed from response.data.data
+      
+      if (!eventData || !eventData._id) {
+        throw new Error('Event data not found in response');
+      }
+      
       const mappedEvent = {
-        ...response.data,
-        start: response.data.startDate,
-        end: response.data.endDate,
-        onlineLink: response.data.conferencingLink,
-        organizer: response.data.createdBy,
-        comments: response.data.comments || [],
-        attachments: response.data.attachments || [],
+        ...eventData,
+        _id: eventData._id,
+        start: eventData.startDate,
+        end: eventData.endDate,
+        onlineLink: eventData.conferencingLink,
+        organizer: eventData.createdBy,
+        attendees: (eventData.attendees || []).map(att => {
+          const userId = att.userId?._id || att.userId;
+          const userName = att.userId?.name || 'Unknown';
+          const userEmail = att.userId?.email || '';
+          const userAvatar = att.userId?.avatar || '';
+          
+          return {
+            _id: userId,
+            id: userId,
+            name: userName,
+            email: userEmail,
+            avatar: userAvatar,
+            rsvp: att.status || 'pending',
+            status: att.status || 'pending',
+            attended: att.attended || false,
+            respondedAt: att.respondedAt,
+            checkedInAt: att.checkedInAt
+          };
+        }),
+        comments: eventData.comments || [],
+        attachments: eventData.attachments || [],
         isRecurring: false
       };
       
       setEvent(mappedEvent);
       
-      // Set RSVP status after event loads
-      if (mappedEvent?.attendees) {
+      // Set current user's RSVP status
+      if (user?.id && mappedEvent.attendees) {
         const myRsvp = mappedEvent.attendees.find(
-          a => a.id === user?.id || a._id === user?.id
+          a => a.id === user.id || a._id === user.id
         );
         if (myRsvp?.rsvp) {
           setRsvpStatus(myRsvp.rsvp);
         }
       }
     } catch (error) {
+      console.error('❌ Failed to load event:', error);
       toast.error("Failed to Load Event", {
-  description: "Unable to load event details. Please try again."
-});
-
+        description: error.response?.data?.message || error.message || "Unable to load event details."
+      });
       navigate("/calendar");
     } finally {
       setIsLoading(false);
     }
   };
 
-  fetchEvent();
-}, [id, user]); // ✅ Add dependencies
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (id) {
+    fetchEvent();
   }
+}, [id, user?.id, navigate]);
 
-if (!event) {
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-center">
-        <p className="text-lg font-medium">Event not found</p>
-        <Button className="mt-4" onClick={() => navigate("/calendar")}>
-          Back to Calendar
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-const canEdit = event && (
-  user?.id === event?.createdBy?._id || 
-  user?._id === event?.createdBy?._id ||
-  ['SuperAdmin', 'Admin'].includes(user?.role)
-);
-
-  const myRSVP = event.attendees?.find(a => a.id === user?.id || a._id === user?.id);
-const acceptedCount = event?.attendees?.filter(a => a.rsvp === "accepted").length || 0;
-const declinedCount = event?.attendees?.filter(a => a.rsvp === "declined").length || 0;
-const pendingCount = event?.attendees?.filter(a => a.rsvp === "pending").length || 0;
-const isEventPast = event ? isPast(parseISO(event.end)) : false;
-const isEventToday = event ? isToday(parseISO(event.start)) : false;
-
-  const handleRSVP = (status) => {
-    // API call here
+const handleRSVP = async (status) => {
+  try {
+    await eventsApi.updateRSVP(id, status);
+    
     setRsvpStatus(status);
     setIsRSVPDialogOpen(false);
+    
     toast.success("RSVP Updated", {
-  description: `Your response has been set to ${status}.`
-});
+      description: `Your response has been set to ${status}.`
+    });
+    
+    // Refresh event data
+    const response = await eventsApi.getEvent(id);
+    const eventData = response.data; // ✅ Changed from response.data.data
+    
+    const mappedEvent = {
+      ...eventData,
+      start: eventData.startDate,
+      end: eventData.endDate,
+      onlineLink: eventData.conferencingLink,
+      organizer: eventData.createdBy,
+      attendees: (eventData.attendees || []).map(att => ({
+        _id: att.userId?._id || att.userId,
+        id: att.userId?._id || att.userId,
+        name: att.userId?.name || 'Unknown',
+        email: att.userId?.email || '',
+        avatar: att.userId?.avatar || '',
+        rsvp: att.status || 'pending',
+        status: att.status || 'pending',
+        attended: att.attended || false,
+        respondedAt: att.respondedAt,
+        checkedInAt: att.checkedInAt
+      })),
+    };
+    
+    setEvent(mappedEvent);
+    
+  } catch (error) {
+    console.error('❌ RSVP update failed:', error);
+    toast.error("RSVP Update Failed", {
+      description: error.response?.data?.message || "Unable to update RSVP."
+    });
+  }
+};
 
-  };
-
-  const handleAddComment = () => {
-    if (!commentText.trim()) return;
-    // API call here
-    console.log("Adding comment:", commentText);
-    setCommentText("");
-  };
-
-const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this event?")) return;
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
     
     try {
       await eventsApi.deleteEvent(id);
       toast.success("Event Deleted", {
-  description: "The event has been removed successfully."
-});
-
+        description: "The event has been removed successfully."
+      });
       navigate("/calendar");
     } catch (error) {
       toast.error("Delete Failed", {
-  description: error.message || "Unable to delete the event."
-});
-
+        description: error.message || "Unable to delete the event."
+      });
     }
   };
-  // Add to EventDetails.jsx
+
 const handleUpdateEvent = async (updates) => {
   setIsLoading(true);
   try {
@@ -167,36 +183,79 @@ const handleUpdateEvent = async (updates) => {
       attendees: updates.attendees || [],
     };
 
-    // Remove undefined fields
     Object.keys(updateData).forEach(key => 
       updateData[key] === undefined && delete updateData[key]
     );
 
     const response = await eventsApi.updateEvent(event._id, updateData);
+    const eventData = response.data; // ✅ Changed from response.data.data
     
-    setEvent(response.data);
+    const mappedEvent = {
+      ...eventData,
+      start: eventData.startDate,
+      end: eventData.endDate,
+      onlineLink: eventData.conferencingLink,
+      organizer: eventData.createdBy,
+      attendees: (eventData.attendees || []).map(att => ({
+        _id: att.userId?._id || att.userId,
+        id: att.userId?._id || att.userId,
+        name: att.userId?.name || 'Unknown',
+        email: att.userId?.email || '',
+        avatar: att.userId?.avatar || '',
+        rsvp: att.status || 'pending',
+        status: att.status || 'pending',
+        attended: att.attended || false,
+      })),
+    };
+    
+    setEvent(mappedEvent);
     setIsEditDialogOpen(false);
     
     toast.success("Event Updated", {
-  description: "Your changes have been saved successfully."
-});
+      description: "Your changes have been saved successfully."
+    });
 
-
-    // Trigger refresh in other components
-    window.dispatchEvent(new CustomEvent('eventUpdated', { detail: response.data }));
+    window.dispatchEvent(new CustomEvent('eventUpdated', { detail: mappedEvent }));
     
   } catch (error) {
+    console.error('❌ Update failed:', error);
     toast.error("Update Failed", {
-  description: error.message || "Unable to update the event."
-});
-
+      description: error.response?.data?.message || "Unable to update the event."
+    });
   } finally {
     setIsLoading(false);
   }
 };
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
 
+  if (!event) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-lg font-medium">Event not found</p>
+          <Button className="mt-4" onClick={() => navigate("/calendar")}>
+            Back to Calendar
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
+  const canEdit = event && (
+    user?.id === event?.createdBy?._id || 
+    user?._id === event?.createdBy?._id ||
+    ['SuperAdmin', 'Admin'].includes(user?.role)
+  );
+
+  const myRSVP = event.attendees?.find(a => a.id === user?.id || a._id === user?.id);
+  const acceptedCount = event?.attendees?.filter(a => a.rsvp === "accepted").length || 0;
+  const declinedCount = event?.attendees?.filter(a => a.rsvp === "declined").length || 0;
+  const pendingCount = event?.attendees?.filter(a => a.rsvp === "pending").length || 0;
+  const isEventPast = event ? isPast(parseISO(event.end)) : false;
+  const isEventToday = event ? isToday(parseISO(event.start)) : false;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -211,12 +270,8 @@ const handleUpdateEvent = async (updates) => {
               {event.title}
             </h1>
             <div className="flex items-center gap-3 mt-2">
-              <Badge variant="outline">
-                {event.type}
-              </Badge>
-              {event.isRecurring && (
-                <Badge variant="secondary">Recurring</Badge>
-              )}
+              <Badge variant="outline">{event.type}</Badge>
+              {event.isRecurring && <Badge variant="secondary">Recurring</Badge>}
               {isEventPast && <Badge variant="secondary">Past Event</Badge>}
               {isEventToday && !isEventPast && <Badge className="bg-green-500">Happening Today</Badge>}
             </div>
@@ -255,7 +310,7 @@ const handleUpdateEvent = async (updates) => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-foreground whitespace-pre-wrap">
-                {event.description}
+                {event.description || 'No description provided'}
               </p>
             </CardContent>
           </Card>
@@ -268,18 +323,16 @@ const handleUpdateEvent = async (updates) => {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge variant={
-                      rsvpStatus === "accepted" ? "default" :
-                      rsvpStatus === "declined" ? "destructive" :
-                      "outline"
-                    } className="text-base px-4 py-2">
-                      {rsvpStatus === "accepted" && <CheckCircle2 className="h-4 w-4 mr-2" />}
-                      {rsvpStatus === "declined" && <XCircle className="h-4 w-4 mr-2" />}
-                      {rsvpStatus === "pending" && <AlertCircle className="h-4 w-4 mr-2" />}
-                      {rsvpStatus.charAt(0).toUpperCase() + rsvpStatus.slice(1)}
-                    </Badge>
-                  </div>
+                  <Badge variant={
+                    rsvpStatus === "accepted" ? "default" :
+                    rsvpStatus === "declined" ? "destructive" :
+                    "outline"
+                  } className="text-base px-4 py-2">
+                    {rsvpStatus === "accepted" && <CheckCircle2 className="h-4 w-4 mr-2" />}
+                    {rsvpStatus === "declined" && <XCircle className="h-4 w-4 mr-2" />}
+                    {rsvpStatus === "pending" && <AlertCircle className="h-4 w-4 mr-2" />}
+                    {rsvpStatus.charAt(0).toUpperCase() + rsvpStatus.slice(1)}
+                  </Badge>
                   <Button onClick={() => setIsRSVPDialogOpen(true)}>
                     Update RSVP
                   </Button>
@@ -290,19 +343,19 @@ const handleUpdateEvent = async (updates) => {
 
           {/* Comments */}
           <Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <MessageSquare className="h-5 w-5" />
-      Comments
-      <Badge variant="secondary" className="ml-2">Coming Soon</Badge>
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <p className="text-sm text-muted-foreground text-center py-8">
-      Comment functionality will be available soon
-    </p>
-  </CardContent>
-</Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Comments
+                <Badge variant="secondary" className="ml-2">Coming Soon</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Comment functionality will be available soon
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -325,16 +378,6 @@ const handleUpdateEvent = async (updates) => {
                   </p>
                 </div>
               </div>
-
-              {event.location && (
-                <div>
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Location
-                  </p>
-                  <p className="text-sm">{event.location}</p>
-                </div>
-              )}
 
               {event.onlineLink && (
                 <div>
@@ -360,181 +403,121 @@ const handleUpdateEvent = async (updates) => {
             <CardContent>
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={event.organizer.avatar} />
-                  <AvatarFallback>{event.organizer.name[0]}</AvatarFallback>
+                  <AvatarImage src={event.organizer?.avatar} />
+                  <AvatarFallback>{event.organizer?.name?.[0] || 'U'}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium text-sm">{event.organizer.name}</p>
-                  <p className="text-xs text-muted-foreground">{event.organizer.email}</p>
+                  <p className="font-medium text-sm">{event.organizer?.name || 'Unknown'}</p>
+                  <p className="text-xs text-muted-foreground">{event.organizer?.email || ''}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Attendees */}
-          {/* Attendees */}
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <Users className="h-5 w-5" />
-      Attendees ({event.attendees?.length || 0})
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="space-y-3 mb-4">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Accepted</span>
-        <Badge className="bg-green-500">{acceptedCount}</Badge>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Pending</span>
-        <Badge variant="outline">{pendingCount}</Badge>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Declined</span>
-        <Badge variant="destructive">{declinedCount}</Badge>
-      </div>
-    </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Attendees ({event.attendees?.length || 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Accepted</span>
+                  <Badge className="bg-green-500">{acceptedCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Pending</span>
+                  <Badge variant="outline">{pendingCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Declined</span>
+                  <Badge variant="destructive">{declinedCount}</Badge>
+                </div>
+              </div>
 
-    <div className="space-y-3 max-h-96 overflow-y-auto">
-      {event.attendees && event.attendees.length > 0 ? (
-        event.attendees.map((attendee, index) => (
-          <div key={attendee._id || index} className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>
-                {attendee.name?.[0] || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-sm">
-                {attendee.name || attendee.email || 'User'}
-              </p>
-              {attendee.email && (
-                <p className="text-xs text-muted-foreground">{attendee.email}</p>
-              )}
-            </div>
-          </div>
-        ))
-      ) : (
-        <p className="text-sm text-muted-foreground">No attendees added yet</p>
-      )}
-    </div>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {event.attendees && event.attendees.length > 0 ? (
+                  event.attendees.map((attendee, index) => (
+                    <div key={attendee._id || index} className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{attendee.name || 'User'}</p>
+                        {attendee.email && (
+                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No attendees added yet</p>
+                )}
+              </div>
 
-    <Button variant="outline" className="w-full mt-4" asChild>
-      <Link to={`/events/${event._id}/rsvp`}>
-        Manage RSVPs
-      </Link>
-    </Button>
-  </CardContent>
-</Card>
+              <Button variant="outline" className="w-full mt-4" asChild>
+                <Link to={`/events/${event._id}/rsvp`}>
+                  Manage RSVPs
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
 
-          {/* Attachments */}
-          {event.attachments && event.attachments.length > 0 && (
-             <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        Attachments
-        <Badge variant="secondary">Coming Soon</Badge>
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <p className="text-sm text-muted-foreground text-center py-4">
-        File attachments coming soon
-      </p>
-    </CardContent>
-  </Card>
+          {/* Actions & Check-in - ✅ MERGED INTO ONE CARD */}
+          {!isEventPast && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{canEdit ? 'Actions & Check-in' : 'Actions'}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {event.onlineLink && (
+                  <Button className="w-full" asChild>
+                    <a href={event.onlineLink} target="_blank" rel="noopener noreferrer">
+                      <Video className="h-4 w-4 mr-2" />
+                      Join Meeting
+                    </a>
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Attendees
+                </Button>
+                
+                {/* ✅ Check-in section - only if canEdit */}
+                {canEdit && (
+                  <>
+                    <div className="border-t pt-2 mt-2">
+                      <p className="text-sm font-medium mb-2">Check-in Management</p>
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={async () => {
+                        try {
+                          await eventsApi.markAttendance(event._id, user.id, true);
+                          toast.success("Checked in successfully");
+                        } catch (error) {
+                          toast.error("Failed to check in");
+                        }
+                      }}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Check Myself In
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => navigate(`/events/${event._id}/checkin`)}
+                    >
+                      Manage All Check-ins
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           )}
-
-          {/* Actions */}
-{!isEventPast && (
-  <>
-    <Card>
-      <CardHeader>
-        <CardTitle>Actions</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {event.onlineLink && (
-          <Button className="w-full" asChild>
-            <a href={event.onlineLink} target="_blank" rel="noopener noreferrer">
-              <Video className="h-4 w-4 mr-2" />
-              Join Meeting
-            </a>
-          </Button>
-        )}
-        <Button variant="outline" className="w-full">
-          <Mail className="h-4 w-4 mr-2" />
-          Email Attendees
-        </Button>
-      </CardContent>
-    </Card>
-
-    {canEdit && (
-      <Card>
-        <CardHeader>
-          <CardTitle>Check-in Management</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button 
-            className="w-full" 
-            onClick={async () => {
-              try {
-                await eventsApi.markAttendance(event._id, user.id, true);
-                toast.success("Checked in successfully");
-              } catch (error) {
-                toast.error("Failed to check in");
-              }
-            }}
-          >
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Check Myself In
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={() => navigate(`/events/${event._id}/checkin`)}
-          >
-            Manage All Check-ins
-          </Button>
-        </CardContent>
-      </Card>
-    )}
-  </>
-)}
-{!isEventPast && canEdit && (
-  <Card>
-    <CardHeader>
-      <CardTitle>Check-in Management</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-2">
-      <Button 
-        className="w-full" 
-        onClick={async () => {
-          try {
-            await eventsApi.markAttendance(event._id, user.id, true);
-            toast.success("Checked in successfully");
-            // Refresh event data
-          } catch (error) {
-            toast.error("Failed to check in");
-          }
-        }}
-      >
-        <CheckCircle2 className="h-4 w-4 mr-2" />
-        Check Myself In
-      </Button>
-      
-      {canEdit && (
-        <Button 
-          variant="outline" 
-          className="w-full"
-          onClick={() => navigate(`/events/${event._id}/checkin`)}
-        >
-          Manage All Check-ins
-        </Button>
-      )}
-    </CardContent>
-  </Card>
-)}
         </div>
       </div>
 
@@ -587,4 +570,3 @@ const handleUpdateEvent = async (updates) => {
 };
 
 export default EventDetails;
-

@@ -23,58 +23,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { eventsApi } from '@/api';
+import { eventsApi } from '@/api/eventsApi';
 import { toast } from 'sonner';
-// Mock data
-// const mockEvent = {
-//   id: 1,
-//   title: "Sprint Planning Meeting",
-//   start: "2025-12-23T10:00:00",
-//   end: "2025-12-23T12:00:00",
-// };
-
-// const mockAttendees = [
-//   {
-//     id: "2",
-//     name: "Mike Chen",
-//     avatar: "",
-//     email: "mike@example.com",
-//     rsvp: "accepted",
-//     respondedAt: "2025-12-21T09:00:00",
-//     notes: "Will arrive 5 minutes early"
-//   },
-//   {
-//     id: "3",
-//     name: "Alex Rivera",
-//     avatar: "",
-//     email: "alex@example.com",
-//     rsvp: "accepted",
-//     respondedAt: "2025-12-21T10:15:00",
-//   },
-//   {
-//     id: "4",
-//     name: "Emma Wilson",
-//     avatar: "",
-//     email: "emma@example.com",
-//     rsvp: "pending",
-//   },
-//   {
-//     id: "5",
-//     name: "David Kim",
-//     avatar: "",
-//     email: "david@example.com",
-//     rsvp: "declined",
-//     respondedAt: "2025-12-21T14:30:00",
-//     notes: "Out of office that day"
-//   },
-//   {
-//     id: "6",
-//     name: "Lisa Park",
-//     avatar: "",
-//     email: "lisa@example.com",
-//     rsvp: "pending",
-//   },
-// ];
 
 const EventRSVP = () => {
   const { id } = useParams();
@@ -95,9 +45,29 @@ const EventRSVP = () => {
     setLoading(true);
     try {
       const response = await eventsApi.getRSVPManagement(id);
-      setEvent(response.data.data.event);
-      setAttendees(response.data.data.attendees);
-      setStats(response.data.data.stats);
+      
+      console.log('📥 RSVP Response:', response.data);
+      
+      // ✅ Backend returns { success: true, data: { event, attendees, stats } }
+      const responseData = response.data.data || response.data;
+      
+      const eventData = responseData.event;
+      const attendeesData = (responseData.attendees || []).map(att => ({
+        id: att.id,
+        name: att.name,
+        email: att.email,
+        avatar: att.avatar,
+        rsvp: att.status || 'pending',
+        status: att.status || 'pending',
+        respondedAt: att.respondedAt,
+        attended: att.attended || false,
+        checkedInAt: att.checkedInAt,
+        notes: att.notes || ''
+      }));
+      
+      setEvent(eventData);
+      setAttendees(attendeesData);
+      setStats(responseData.stats);
     } catch (error) {
       console.error('Failed to load RSVP data:', error);
       toast.error('Failed to load RSVP data');
@@ -107,11 +77,18 @@ const EventRSVP = () => {
     }
   };
 
+  const filteredAttendees = attendees.filter(attendee => {
+    const matchesSearch = attendee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      attendee.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = rsvpFilter === "all" || attendee.rsvp === rsvpFilter;
+    return matchesSearch && matchesFilter;
+  });
+
   const handleRSVPChange = async (userId, newStatus) => {
     try {
       await eventsApi.updateAttendeeRSVP(id, userId, newStatus);
       toast.success('RSVP updated successfully');
-      fetchRSVPData(); // Refresh data
+      fetchRSVPData();
     } catch (error) {
       console.error('Failed to update RSVP:', error);
       toast.error('Failed to update RSVP');
@@ -125,7 +102,7 @@ const EventRSVP = () => {
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `rsvp-list-${event.title.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `rsvp-list-${event?.title?.replace(/\s+/g, '-') || 'event'}-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -139,30 +116,8 @@ const EventRSVP = () => {
     }
   };
 
-  const filteredAttendees = attendees.filter(attendee => {
-    const matchesSearch = attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      attendee.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = rsvpFilter === "all" || attendee.status === rsvpFilter;
-    return matchesSearch && matchesFilter;
-  });
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading RSVP data...</div>;
-  }
-
-  if (!event) {
-    return <div className="flex items-center justify-center h-screen">Event not found</div>;
-  }
-
-  const stats = {
-    total: attendees.length,
-    accepted: attendees.filter(a => a.rsvp === "accepted").length,
-    declined: attendees.filter(a => a.rsvp === "declined").length,
-    pending: attendees.filter(a => a.rsvp === "pending").length,
-  };
-
-  const getRSVPBadge = (rsvp) => {
-    switch (rsvp) {
+  const getRSVPBadge = (status) => {
+    switch (status) {
       case "accepted":
         return <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Accepted</Badge>;
       case "declined":
@@ -172,24 +127,33 @@ const EventRSVP = () => {
     }
   };
 
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading RSVP data...</div>;
+  }
+
+  if (!event) {
+    return <div className="flex items-center justify-center h-screen">Event not found</div>;
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
-  <CardContent className="p-4">
-    <div className="flex items-center gap-2">
-      <AlertCircle className="h-5 w-5 text-orange-600" />
-      <div>
-        <p className="font-medium text-orange-900 dark:text-orange-100">
-          RSVP Tracking 
-        </p>
-        <p className="text-sm text-orange-700 dark:text-orange-300">
-          Backend support for RSVP tracking is coming soon. Current data is for demonstration only.
-        </p>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+      <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-blue-600" />
+            <div>
+              <p className="font-medium text-blue-900 dark:text-blue-100">
+                RSVP Management
+              </p>
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Manage attendee responses and track event attendance.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -200,9 +164,11 @@ const EventRSVP = () => {
               RSVP Management
             </h1>
             <p className="text-muted-foreground mt-1">{event.title}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {format(parseISO(event.start), "EEEE, MMMM d, yyyy 'at' h:mm a")}
-            </p>
+            {event.startDate && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {format(parseISO(event.startDate), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -210,9 +176,9 @@ const EventRSVP = () => {
             <Mail className="h-4 w-4 mr-2" />
             Email Attendees
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
             <Download className="h-4 w-4 mr-2" />
-            Export List
+            {exporting ? 'Exporting...' : 'Export List'}
           </Button>
           <Button variant="outline" asChild>
             <Link to={`/events/${id}`}>
@@ -229,7 +195,7 @@ const EventRSVP = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Invited</p>
-                <p className="text-2xl font-semibold mt-1">{stats.total}</p>
+                <p className="text-2xl font-semibold mt-1">{stats.total || 0}</p>
               </div>
               <Users className="h-8 w-8 text-muted-foreground opacity-50" />
             </div>
@@ -241,7 +207,7 @@ const EventRSVP = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Accepted</p>
-                <p className="text-2xl font-semibold mt-1 text-green-600">{stats.accepted}</p>
+                <p className="text-2xl font-semibold mt-1 text-green-600">{stats.accepted || 0}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-500 opacity-50" />
             </div>
@@ -253,7 +219,7 @@ const EventRSVP = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Declined</p>
-                <p className="text-2xl font-semibold mt-1 text-red-600">{stats.declined}</p>
+                <p className="text-2xl font-semibold mt-1 text-red-600">{stats.declined || 0}</p>
               </div>
               <XCircle className="h-8 w-8 text-red-500 opacity-50" />
             </div>
@@ -265,7 +231,7 @@ const EventRSVP = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-2xl font-semibold mt-1 text-orange-600">{stats.pending}</p>
+                <p className="text-2xl font-semibold mt-1 text-orange-600">{stats.pending || 0}</p>
               </div>
               <AlertCircle className="h-8 w-8 text-orange-500 opacity-50" />
             </div>
@@ -318,7 +284,63 @@ const EventRSVP = () => {
 
             <TabsContent value="all" className="mt-4">
               <div className="space-y-3">
-                {filteredAttendees.map(attendee => (
+                {filteredAttendees.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No attendees found</p>
+                  </div>
+                ) : (
+                  filteredAttendees.map(attendee => (
+                    <div
+                      key={attendee.id}
+                      className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={attendee.avatar} />
+                          <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{attendee.name}</p>
+                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
+                          {attendee.respondedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Responded: {format(parseISO(attendee.respondedAt), "MMM d, yyyy")}
+                            </p>
+                          )}
+                          {attendee.notes && (
+                            <p className="text-sm text-muted-foreground mt-1 italic">
+                              "{attendee.notes}"
+                            </p>
+                          )}
+                        </div>
+                        {getRSVPBadge(attendee.rsvp)}
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRSVPChange(attendee.id, "accepted")}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRSVPChange(attendee.id, "declined")}
+                        >
+                          Decline
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="accepted" className="mt-4">
+              <div className="space-y-3">
+                {filteredAttendees.filter(a => a.rsvp === "accepted").map(attendee => (
                   <div
                     key={attendee.id}
                     className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
@@ -326,28 +348,68 @@ const EventRSVP = () => {
                     <div className="flex items-center gap-4 flex-1">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={attendee.avatar} />
-                        <AvatarFallback>{attendee.name[0]}</AvatarFallback>
+                        <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
+                      <div>
                         <p className="font-medium text-sm">{attendee.name}</p>
                         <p className="text-xs text-muted-foreground">{attendee.email}</p>
-                        {attendee.respondedAt && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Responded: {format(parseISO(attendee.respondedAt), "MMM d, yyyy 'at' h:mm a")}
-                          </p>
-                        )}
+                      </div>
+                    </div>
+                    {getRSVPBadge(attendee.rsvp)}
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="declined" className="mt-4">
+              <div className="space-y-3">
+                {filteredAttendees.filter(a => a.rsvp === "declined").map(attendee => (
+                  <div
+                    key={attendee.id}
+                    className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={attendee.avatar} />
+                        <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{attendee.name}</p>
+                        <p className="text-xs text-muted-foreground">{attendee.email}</p>
                         {attendee.notes && (
                           <p className="text-sm text-muted-foreground mt-1 italic">
                             "{attendee.notes}"
                           </p>
                         )}
                       </div>
-                      {getRSVPBadge(attendee.rsvp)}
                     </div>
-                    <div className="flex items-center gap-2 ml-4">
+                    {getRSVPBadge(attendee.rsvp)}
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="pending" className="mt-4">
+              <div className="space-y-3">
+                {filteredAttendees.filter(a => a.rsvp === "pending").map(attendee => (
+                  <div
+                    key={attendee.id}
+                    className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors border-orange-500/50"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={attendee.avatar} />
+                        <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{attendee.name}</p>
+                        <p className="text-xs text-muted-foreground">{attendee.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getRSVPBadge(attendee.rsvp)}
                       <Button
                         size="sm"
-                        variant="outline"
                         onClick={() => handleRSVPChange(attendee.id, "accepted")}
                       >
                         Accept
@@ -364,101 +426,6 @@ const EventRSVP = () => {
                 ))}
               </div>
             </TabsContent>
-
-            <TabsContent value="accepted" className="mt-4">
-              <div className="space-y-3">
-                {filteredAttendees
-                  .filter(a => a.rsvp === "accepted")
-                  .map(attendee => (
-                    <div
-                      key={attendee.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={attendee.avatar} />
-                          <AvatarFallback>{attendee.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-sm">{attendee.name}</p>
-                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
-                        </div>
-                      </div>
-                      {getRSVPBadge(attendee.rsvp)}
-                    </div>
-                  ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="declined" className="mt-4">
-              <div className="space-y-3">
-                {filteredAttendees
-                  .filter(a => a.rsvp === "declined")
-                  .map(attendee => (
-                    <div
-                      key={attendee.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={attendee.avatar} />
-                          <AvatarFallback>{attendee.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-sm">{attendee.name}</p>
-                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
-                          {attendee.notes && (
-                            <p className="text-sm text-muted-foreground mt-1 italic">
-                              "{attendee.notes}"
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {getRSVPBadge(attendee.rsvp)}
-                    </div>
-                  ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="pending" className="mt-4">
-              <div className="space-y-3">
-                {filteredAttendees
-                  .filter(a => a.rsvp === "pending")
-                  .map(attendee => (
-                    <div
-                      key={attendee.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors border-orange-500/50"
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={attendee.avatar} />
-                          <AvatarFallback>{attendee.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-sm">{attendee.name}</p>
-                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getRSVPBadge(attendee.rsvp)}
-                        <Button
-                          size="sm"
-                          onClick={() => handleRSVPChange(attendee.id, "accepted")}
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRSVPChange(attendee.id, "declined")}
-                        >
-                          Decline
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -467,4 +434,3 @@ const EventRSVP = () => {
 };
 
 export default EventRSVP;
-

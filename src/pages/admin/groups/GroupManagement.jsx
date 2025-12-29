@@ -8,7 +8,7 @@ import CreateGroupModal from "./CreateGroupModal"; // Add this import
 
 const GroupCard = ({ group }) => {
   // Calculate member count safely
-  const memberCount = Array.isArray(group.members) ? group.members.length : 0;
+  const memberCount = group.members?.length || 0;
   
   return (
     <Card className="p-4 hover:shadow-md transition">

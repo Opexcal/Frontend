@@ -12,6 +12,7 @@ import Landing from "@/pages/Home/Landing";
 import Login from "@/pages/authentication/Login";
 import Signup from './pages/authentication/Signup';
 import ForgotPassword from './pages/authentication/ForgotPassword';
+import ResetPassword from './pages/authentication/ResetPassword';
 import HelpCenter from "@/pages/help/HelpCenter";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +40,7 @@ const TaskTimeline = lazy(() => import("./pages/tasks/TaskTimeline"));
 const EventDetails = lazy(() => import("./pages/events/EventDetails"));
 const EventRSVP = lazy(() => import("./pages/events/EventRSVP"));
 const RecurringEvents = lazy(() => import("./pages/events/RecurringEvents"));
+const EventCheckin = lazy(() => import("./pages/events/EventCheckin"));
 
 // Lazy load admin components
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -92,6 +94,7 @@ function AppRoutes() {
           <Route element={<AuthLayout showSignUp showLogin={false} />}>
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:resettoken" element={<ResetPassword />} />
           </Route>
           <Route element={<AuthLayout showSignUp={false} showLogin />}>
             <Route path="/signup" element={<Signup />} />
@@ -118,6 +121,7 @@ function AppRoutes() {
   <Route path="/tasks/:id/timeline" element={<TaskTimeline />} />
   <Route path="/events/:id" element={<EventDetails />} />
   <Route path="/events/:id/rsvp" element={<EventRSVP />} />
+<Route path="/events/:id/checkin" element={<EventCheckin />} />
   <Route path="/events/recurring/:id" element={<RecurringEvents />} />
   {/* Reports - Main page and sub-pages */}
 <Route path="/reports" element={<Reports />} />

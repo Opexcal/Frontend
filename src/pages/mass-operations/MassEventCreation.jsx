@@ -22,33 +22,78 @@ const MassEventCreation = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
 
+
+
+
+// MassEventCreation.jsx - Update handleCreateEvent
 const handleCreateEvent = async () => {
-  setSending(true);
-  try {
-    const groupId = eventData.selectedGroups[0]?.id;
-    
-    if (!groupId) {
-      toast.error("Group Required", {
-  description: "Mass event creation requires at least one group.",
-});
-
-      return;
-    }
-    
-    await massOpsApi.createMassEvent({
-      groupId,
-      title: eventData.title,
-      description: eventData.description,
-      startDate: new Date(eventData.startDateTime).toISOString(),
-      endDate: new Date(eventData.endDateTime).toISOString(),
-      type: 'Meeting',
-      // location not in backend yet
+  // Validation
+  if (!eventData.title.trim()) {
+    toast.error("Missing title", {
+      description: "Please enter an event title",
     });
-    
-    toast.success("Event Created", {
-  description: `Successfully created the event for ${recipientCount} members.`,
-});
+    return;
+  }
 
+  if (!eventData.startDateTime || !eventData.endDateTime) {
+    toast.error("Missing dates", {
+      description: "Please select start and end times",
+    });
+    return;
+  }
+
+  if (eventData.selectedGroups.length === 0 && eventData.selectedUsers.length === 0) {
+    toast.error("No recipients", {
+      description: "Please select at least one group or user",
+    });
+    return;
+  }
+
+  setSending(true);
+
+  try {
+    // If groups are selected, use mass event API
+    if (eventData.selectedGroups.length > 0) {
+      const groupId = eventData.selectedGroups[0].id;
+      
+      console.log('🎯 Creating mass event for group:', groupId);
+      
+      // ✅ FIX: Send proper payload to backend
+      await massOpsApi.createMassEvent({
+        groupId,
+        title: eventData.title,
+        description: eventData.description,
+        startDate: new Date(eventData.startDateTime).toISOString(),
+        endDate: new Date(eventData.endDateTime).toISOString(),
+        type: 'Meeting',
+        visibility: 'Public', // Add visibility
+      });
+      
+      toast.success("Mass event created", {
+        description: `Successfully created event for ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}.`,
+      });
+    } 
+    // If only individual users, create individual events
+    else if (eventData.selectedUsers.length > 0) {
+      const { eventsApi } = await import('../../api/eventsApi');
+      
+      console.log('📝 Creating individual events for users:', eventData.selectedUsers);
+      
+      // ✅ Create single event with all users as attendees
+      await eventsApi.createEvent({
+        title: eventData.title,
+        description: eventData.description,
+        startDate: new Date(eventData.startDateTime).toISOString(),
+        endDate: new Date(eventData.endDateTime).toISOString(),
+        type: 'Meeting',
+        visibility: 'Private',
+        attendees: eventData.selectedUsers.map(u => u.id) // ✅ Send array of IDs
+      });
+      
+      toast.success("Event created", {
+        description: `Successfully created event for ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}.`,
+      });
+    }
 
     // Reset form
     setEventData({
@@ -61,17 +106,15 @@ const handleCreateEvent = async () => {
       selectedUsers: [],
     });
     setRecipientCount(0);
+    setShowPreview(false);
     
   } catch (error) {
+    console.error('❌ Event creation error:', error);
     toast.error("Event Creation Failed", {
-  description:
-    error?.response?.data?.message ||
-    "Something went wrong while creating the event.",
-});
-
+      description: error?.message || "Something went wrong",
+    });
   } finally {
     setSending(false);
-    setShowPreview(false);
   }
 };
 
@@ -83,17 +126,18 @@ const handleCreateEvent = async () => {
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Select Attendees</h2>
         <RecipientSelector
-          mode="event"
-          onSelect={(recipients) => {
-            setEventData(prev => ({
-              ...prev,
-              selectedGroups: recipients.groups,
-              selectedUsers: recipients.users,
-            }));
-            setRecipientCount(recipients.count);
-          }}
-          allowOrganizationWide={user.role === 'manager'}
-        />
+  mode="event"
+  onSelect={(recipients) => {
+    console.log('📥 Received recipients:', recipients);
+    setEventData(prev => ({
+      ...prev,
+      selectedGroups: recipients.groups || [],
+      selectedUsers: recipients.users || [],
+    }));
+    setRecipientCount(recipients.count || 0);
+  }}
+  allowOrganizationWide={user?.role === 'manager'}
+/>
         <p className="mt-4 text-sm text-gray-600">
           Total attendees: <strong>{recipientCount}</strong>
         </p>

@@ -16,40 +16,47 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadCurrentUser = useCallback(async () => {
-    const publicRoutes = ['/login', '/register', '/forgot-password', '/signup'];
+const loadCurrentUser = useCallback(async () => {
+  const publicRoutes = ['/login', '/register', '/forgot-password', '/signup', '/reset-password'];
+  
+  // ✅ Fix: Use startsWith() to match routes with parameters
+  const isPublicRoute = publicRoutes.some(route => 
+    window.location.pathname.startsWith(route)
+  );
+  
+  if (isPublicRoute) {
+    setLoading(false);
+    return;
+  }
+  
+  try {
+    const res = await authApi.getMe();
+    const apiUser = res.data?.user || res.user || res.data || res;
     
-    if (publicRoutes.includes(window.location.pathname)) {
-      setLoading(false);
-      return;
+    if (!apiUser || !apiUser.email) {
+      throw new Error('Invalid user data received');
     }
     
-    try {
-      const res = await authApi.getMe();
-      const apiUser = res.data?.user || res.user || res.data || res;
-      
-      if (!apiUser || !apiUser.email) {
-        throw new Error('Invalid user data received');
-      }
-      
-      const normalizedUser = {
-        ...apiUser,
-        role: backendToFrontendRole[apiUser.role] || "wanderer",
-      };
-      
-      setUser(normalizedUser);
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('loadCurrentUser error:', err);
-      }
-      
-      // Clear token on auth failure
+    const normalizedUser = {
+      ...apiUser,
+      role: backendToFrontendRole[apiUser.role] || "wanderer",
+    };
+    
+    setUser(normalizedUser);
+  } catch (err) {
+    if (import.meta.env.DEV) {
+      console.error('loadCurrentUser error:', err);
+    }
+    
+    // ✅ Only clear token if not on a public route
+    if (!isPublicRoute) {
       localStorage.removeItem('authToken');
-      setUser(null);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     loadCurrentUser();

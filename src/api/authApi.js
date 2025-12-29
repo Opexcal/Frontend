@@ -1,4 +1,3 @@
-
 import apiClient from './client';
 
 export const authApi = {
@@ -8,33 +7,41 @@ export const authApi = {
    * @returns {Promise} { token, user }
    */
   register: (data) => apiClient.post('/auth/register', data),
-
+  
   /**
    * Login user
    * @param {Object} credentials - { email, password }
    * @returns {Promise} { token, user }
    */
   login: (credentials) => apiClient.post('/auth/login', credentials),
-
+  
   /**
    * Get current user profile
    * @returns {Promise} { user }
    */
   getMe: () => apiClient.get('/auth/me'),
-
+  
   /**
-   * Request password reset link (backend must expose this route)
+   * Request password reset link
    * @param {Object} data - { email }
    * @returns {Promise}
    */
   forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
-
+  
   /**
-   * Logout (client-side only - clear token)
+   * Reset password with token
+   * @param {string} resetToken - Token from email link
+   * @param {Object} data - { password }
+   * @returns {Promise}
    */
-logout: async () => {
-  return await apiClient.post('/auth/logout');
-},
+  resetPassword: (resetToken, data) => 
+    apiClient.put(`/auth/reset-password/${resetToken}`, data),  // ✅ Fixed: Changed template literal from backticks to regular string
+  
+  /**
+   * Logout user
+   * @returns {Promise}
+   */
+  logout: async () => {
+    return await apiClient.post('/auth/logout');
+  },
 };
-
-
