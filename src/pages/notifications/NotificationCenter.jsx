@@ -7,7 +7,9 @@ import {
   Filter,
   Trash2,
   CheckCheck,
-  Loader2
+  Loader2,
+  Bell as BellIcon,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +21,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/context/NotificationContext";
 import NotificationItem from "@/components/notifications/NotificationItem";
 import { groupNotificationsByDate } from "@/lib/mockNotifications";
+
+const REMINDER_NOTIFICATION_TYPES = [
+  "EVENT_REMINDER",
+  "TASK_REMINDER",
+  "EVENT_STARTING",
+];
 
 /**
  * NotificationCenter - Main notifications page
@@ -31,6 +46,13 @@ import { groupNotificationsByDate } from "@/lib/mockNotifications";
  */
 const NotificationCenter = () => {
   const navigate = useNavigate();
+  const reminderHighlights = useMemo(() => {
+    return notifications
+      .filter((notification) =>
+        REMINDER_NOTIFICATION_TYPES.includes(notification.type)
+      )
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }, [notifications]);
   const {
     notifications,
     unreadCount,
@@ -187,6 +209,13 @@ const NotificationCenter = () => {
     return "No notifications yet";
   };
 
+  const getReminderBadgeLabel = (type) => {
+    if (type === "EVENT_REMINDER") return "Event Reminder";
+    if (type === "TASK_REMINDER") return "Task Reminder";
+    if (type === "EVENT_STARTING") return "Starting Now";
+    return "Reminder";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -241,6 +270,58 @@ const NotificationCenter = () => {
         </div>
       </div>
 
+      {/* Reminder highlights */}
+      {reminderHighlights.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <Card className="border border-primary/30 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BellIcon className="h-5 w-5 text-primary" />
+                Upcoming Reminder Alerts
+              </CardTitle>
+              <CardDescription>
+                Reminders will also send in-app alerts — tap “View” to jump in.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {reminderHighlights.slice(0, 3).map((notification) => (
+                <div
+                  key={notification.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3 bg-background"
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        {notification.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({getReminderBadgeLabel(notification.type)})
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {notification.message}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {getReminderBadgeLabel(notification.type)}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      navigate(notification.actionUrl || `/notifications`)
+                    }
+                  >
+                    View
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-6">
         {loading && (
@@ -283,6 +364,9 @@ const NotificationCenter = () => {
     <SelectItem value="all">All Types</SelectItem>
     <SelectItem value="TASK_ASSIGNED">Task Assignments</SelectItem>
     <SelectItem value="TASK_RESPONSE">Task Responses</SelectItem>
+    <SelectItem value="TASK_REMINDER">Task Reminders</SelectItem>
+    <SelectItem value="EVENT_REMINDER">Event Reminders</SelectItem>
+    <SelectItem value="EVENT_STARTING">Events Starting Now</SelectItem>
     <SelectItem value="EVENT_INVITE">Event Invites</SelectItem>
   </SelectContent>
 </Select>

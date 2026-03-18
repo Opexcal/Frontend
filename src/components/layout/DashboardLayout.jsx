@@ -89,7 +89,7 @@ const DashboardLayout = () => {
                 <SidebarTrigger />
                 <Breadcrumbs />
                 
-                <div className="relative hidden md:block">
+                {/* <div className="relative hidden md:block">
                   <form onSubmit={handleSearch} className="relative hidden md:block">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input 
@@ -99,18 +99,9 @@ const DashboardLayout = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </form>
-                </div>
+                </div> */}
               </div>
               <div className="flex items-center gap-2">
-  {/* Mobile Search Toggle */}
-  <Button 
-    variant="ghost" 
-    size="icon" 
-    className="md:hidden"
-    onClick={() => {/* Toggle mobile search modal/drawer */}}
-  >
-    <Search className="h-4 w-4" />
-  </Button>
 
   <NotificationErrorBoundary>
     <NotificationDropdown />

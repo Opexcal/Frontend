@@ -23,5 +23,11 @@ export const tasksApi = {
   
   updateTask: (taskId, updates) => apiClient.patch(`/tasks/${taskId}`, updates),
   
-  deleteTask: (taskId) => apiClient.delete(`/tasks/${taskId}`)
+  deleteTask: (taskId) => apiClient.delete(`/tasks/${taskId}`),
+  // Add this method
+setTaskReminder: (taskId, type, minutesBefore) =>
+  apiClient.post(`/tasks/${taskId}/reminder`, { type, minutesBefore }),
+
+removeTaskReminder: (taskId, reminderIndex) =>
+  apiClient.delete(`/tasks/${taskId}/reminder/${reminderIndex}`),
 };

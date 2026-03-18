@@ -23,7 +23,7 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
 
-  // Track if user wants to create "Unassigned" (Wanderer)
+  // Track if user wants to create "Unassigned" (Viewer / read-only)
   const [isUnassigned, setIsUnassigned] = useState(false);
 
   useEffect(() => {
@@ -100,19 +100,18 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        // ✅ Always send backend-compatible role
-        role: isUnassigned ? "Staff" : role, // Backend will auto-assign "Unassigned" if no groups
-        groups: isUnassigned ? [] : selectedGroups, // Empty groups for wanderers
+        role: isUnassigned ? "Unassigned" : role,
+        groups: isUnassigned ? [] : selectedGroups,
         sendWelcomeEmail
       };
 
       const response = await usersApi.create(userData);
 
-     toast.success("User created successfully", {
-  description: isUnassigned 
-    ? `${name} has been added as an unassigned user (Wanderer)`
-    : `${name} has been added to your organization`,
-});
+      toast.success("User created successfully", {
+        description: isUnassigned
+          ? `${name} has been added as a Viewer (read-only)`
+          : `${name} has been added to your organization`,
+      });
 
       onSuccess(response.data || response.user);
       onOpenChange(false);
@@ -188,7 +187,7 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
               onChange={(e) => handleRoleChange(e.target.value)}
               disabled={loading}
             >
-              <option value="Unassigned">Unassigned (Wanderer)</option>
+              <option value="Unassigned">Unassigned (Viewer)</option>
               <option value="Staff">Staff</option>
               <option value="Admin">Admin</option>
               <option value="SuperAdmin">SuperAdmin</option>
@@ -197,8 +196,8 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
               <Alert className="mt-2">
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  Unassigned users can only manage personal tasks until assigned to a group.
-                  They will not have access to team features.
+                  Viewers are read-only by default: they can view items they have access to,
+                  but cannot create tasks/events or use team/admin features.
                 </AlertDescription>
               </Alert>
             )}
@@ -208,7 +207,7 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
           {groups.length > 0 && (
             <div>
               <Label className={isUnassigned ? "text-muted-foreground" : ""}>
-                Assign to Groups {isUnassigned && "(Disabled for Unassigned)"}
+                Assign to Groups {isUnassigned && "(Disabled for Viewer)"}
               </Label>
               {loadingGroups ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -240,7 +239,7 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }) => {
               )}
               {isUnassigned && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  Unassigned users cannot be in groups
+                  Viewers cannot be in groups
                 </p>
               )}
             </div>

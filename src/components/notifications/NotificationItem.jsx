@@ -12,6 +12,7 @@ import {
   Trash2,
   Check,
   ArrowRight,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNotificationTypeConfig } from "@/lib/mockNotifications";
@@ -39,6 +40,9 @@ const NotificationItem = ({
     'task_assigned': CheckSquare,
     'task_response': CheckCircle2,
     'event_invite': Calendar,
+    'EVENT_REMINDER': Clock,      // ✅ NEW
+    'TASK_REMINDER': Clock,       // ✅ NEW
+    'EVENT_STARTING': AlertCircle // ✅ NEW
   };
 
     const IconComponent = iconMap[type] || iconMap[normalizedType] || Info;

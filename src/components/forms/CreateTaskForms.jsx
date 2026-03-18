@@ -31,7 +31,7 @@ const CreateTaskForm = ({ onClose }) => {
   const { user } = useAuth();
 
 // Add this helper to check if user can assign tasks
-const canAssignTasks = ['admin', 'manager'].includes(user?.role);
+const canAssignTasks = ['Admin', 'SuperAdmin'].includes(user?.role);
 
   // ✅ Fetch team members on mount
 // ✅ Only fetch users if user can assign tasks
@@ -84,11 +84,15 @@ const handleSubmit = async (e) => {
     // Only include assignees if user can assign tasks
     if (canAssignTasks) {
       taskData.assignees = formData.assignees;
+    } else {
+      // Backend requires at least one assignee; default to "me" for personal tasks.
+      taskData.assignees = [user?.id || user?._id].filter(Boolean);
     }
     const response = await tasksApi.createTask(taskData);
     toast.success("Task created", {
       description: "Your task has been created and assignees notified.",
     });
+    window.dispatchEvent(new Event('opexcal:refresh-notifications'));
     onClose();
     navigate(`/tasks/${response.data.task._id}`);
   } catch (error) {

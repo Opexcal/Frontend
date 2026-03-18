@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi } from "@/api/authApi";
-import { roleDisplayMap, backendToFrontendRole } from '@/constant/roleMapDisplay';
-import apiClient from '@/api/client';
 import { LoadingScreen } from '@/components/LoadingScreen';
 
 const AuthContext = createContext();
@@ -39,7 +37,7 @@ const loadCurrentUser = useCallback(async () => {
     
     const normalizedUser = {
       ...apiUser,
-      role: backendToFrontendRole[apiUser.role] || "wanderer",
+      role: apiUser.role,
     };
     
     setUser(normalizedUser);
@@ -88,7 +86,7 @@ const loadCurrentUser = useCallback(async () => {
       
       const normalizedUser = {
         ...userData,
-        role: backendToFrontendRole[userData.role] || "wanderer",
+        role: userData.role,
       };
       setUser(normalizedUser);
       
@@ -118,7 +116,7 @@ const loadCurrentUser = useCallback(async () => {
       
       const normalizedUser = {
         ...userData,
-        role: backendToFrontendRole[userData.role] || "wanderer",
+        role: userData.role,
       };
       setUser(normalizedUser);
       
@@ -147,13 +145,13 @@ const loadCurrentUser = useCallback(async () => {
     if (!user?.role) return false;
 
     const permissions = {
-      manager: ["all"],
-      admin: ["manage_groups", "assign_tasks", "view_team", "create_events"],
-      staff: ["view_tasks", "update_own_tasks", "accept_decline_tasks"],
-      wanderer: ["view_own_tasks", "create_personal_tasks"],
+      SuperAdmin: ["all"],
+      Admin: ["manage_users", "manage_groups", "assign_tasks", "view_team", "create_events", "mass_ops"],
+      Staff: ["view_tasks", "update_own_tasks", "accept_decline_tasks", "create_personal_tasks", "create_personal_events"],
+      Unassigned: ["view_only"],
     };
 
-    if (user.role === "manager") return true;
+    if (user.role === "SuperAdmin") return true;
     return permissions[user.role]?.includes(permission) ?? false;
   };
 

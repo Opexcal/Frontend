@@ -72,12 +72,12 @@ const formatRole = useCallback((role) => {
 }, []);
 
 const isSuperAdmin = useCallback(
-  (role) => ["manager", "SuperAdmin"].includes(role),
+  (role) => ["SuperAdmin"].includes(role),
   []
 );
 
 const isUnassigned = useCallback(
-  (role) => ["wanderer", "Unassigned"].includes(role),
+  (role) => ["Unassigned"].includes(role),
   []
 );
 

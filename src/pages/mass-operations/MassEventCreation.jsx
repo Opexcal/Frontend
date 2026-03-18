@@ -17,6 +17,8 @@ const MassEventCreation = () => {
     location: '',
     selectedGroups: [],
     selectedUsers: [],
+    userIds: [],
+    groupMemberIds: [],
   });
   const [recipientCount, setRecipientCount] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
@@ -52,28 +54,56 @@ const handleCreateEvent = async () => {
   setSending(true);
 
   try {
+    const startIso = new Date(eventData.startDateTime).toISOString();
+    const endIso = new Date(eventData.endDateTime).toISOString();
+
     // If groups are selected, use mass event API
     if (eventData.selectedGroups.length > 0) {
-      const groupId = eventData.selectedGroups[0].id;
+      const groupIds = eventData.selectedGroups.map((g) => g.id).filter(Boolean);
       
-      console.log('🎯 Creating mass event for group:', groupId);
+      // Creating mass event for selected groups
       
-      // ✅ FIX: Send proper payload to backend
-      await massOpsApi.createMassEvent({
-        groupId,
-        title: eventData.title,
-        description: eventData.description,
-        startDate: new Date(eventData.startDateTime).toISOString(),
-        endDate: new Date(eventData.endDateTime).toISOString(),
-        type: 'Meeting',
-        visibility: 'GroupOnly', // Add visibility
-         location: eventData.location || null, // ✅ ADD location
-  conferencingLink: null, // ✅ ADD if you have meeting URLs
-      });
+      // ✅ Send proper payload to backend (supports multiple groups)
+      await Promise.all(
+        groupIds.map((groupId) =>
+          massOpsApi.createMassEvent({
+            groupId,
+            title: eventData.title,
+            description: eventData.description,
+            startDate: startIso,
+            endDate: endIso,
+            type: 'Meeting',
+            visibility: 'GroupOnly',
+            location: eventData.location || null,
+            conferencingLink: null,
+          })
+        )
+      );
       
+      // Also handle individually-selected users that are NOT in the selected groups.
+      const groupMemberIds = Array.isArray(eventData.groupMemberIds) ? eventData.groupMemberIds : [];
+      const userIds = Array.isArray(eventData.userIds) ? eventData.userIds : [];
+      const individualOnlyIds = userIds.filter((id) => !groupMemberIds.includes(id));
+
+      if (individualOnlyIds.length > 0) {
+        const { eventsApi } = await import('../../api/eventsApi');
+        await eventsApi.createEvent({
+          title: eventData.title,
+          description: eventData.description,
+          startDate: startIso,
+          endDate: endIso,
+          type: 'Meeting',
+          visibility: 'Private',
+          attendees: individualOnlyIds,
+          location: eventData.location || null,
+          conferencingLink: null,
+        });
+      }
+
       toast.success("Mass event created", {
         description: `Successfully created event for ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}.`,
       });
+      window.dispatchEvent(new Event('opexcal:refresh-notifications'));
     } 
     // If only individual users, create individual events
     else if (eventData.selectedUsers.length > 0) {
@@ -85,16 +115,19 @@ const handleCreateEvent = async () => {
       await eventsApi.createEvent({
         title: eventData.title,
         description: eventData.description,
-        startDate: new Date(eventData.startDateTime).toISOString(),
-        endDate: new Date(eventData.endDateTime).toISOString(),
+        startDate: startIso,
+        endDate: endIso,
         type: 'Meeting',
         visibility: 'Private',
-        attendees: eventData.selectedUsers.map(u => u.id) // ✅ Send array of IDs
+        attendees: eventData.selectedUsers.map(u => u.id),
+        location: eventData.location || null,
+        conferencingLink: null,
       });
       
       toast.success("Event created", {
         description: `Successfully created event for ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}.`,
       });
+      window.dispatchEvent(new Event('opexcal:refresh-notifications'));
     }
 
     // Reset form
@@ -106,6 +139,8 @@ const handleCreateEvent = async () => {
       location: '',
       selectedGroups: [],
       selectedUsers: [],
+      userIds: [],
+      groupMemberIds: [],
     });
     setRecipientCount(0);
     setShowPreview(false);
@@ -135,10 +170,12 @@ const handleCreateEvent = async () => {
       ...prev,
       selectedGroups: recipients.groups || [],
       selectedUsers: recipients.users || [],
+      userIds: recipients.userIds || [],
+      groupMemberIds: recipients.groupMemberIds || [],
     }));
     setRecipientCount(recipients.count || 0);
   }}
-  allowOrganizationWide={user?.role === 'manager'}
+  allowOrganizationWide={user?.role === 'SuperAdmin'}
 />
         <p className="mt-4 text-sm text-gray-600">
           Total attendees: <strong>{recipientCount}</strong>

@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import CreateEventForm from "@/components/forms/CreateEventForms";
 import {
   eachDayOfInterval,
   startOfMonth,
@@ -37,12 +38,13 @@ import { toast } from "sonner";
 
 
 const TeamCalendar = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 20));
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState("month");
   const [selectedMember, setSelectedMember] = useState("all");
   const [eventTypeFilter, setEventTypeFilter] = useState("both");
   const [selectedDate, setSelectedDate] = useState(null);
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState([]);
@@ -70,7 +72,7 @@ const TeamCalendar = () => {
     setMembersLoading(true);
     try {
       const response = await teamApi.getMembers();
-      const membersList = response.members || response.data?.members || [];
+      const membersList = response.data?.members || response.members || [];
       setMembers(membersList);
     } catch (error) {
   console.error("Error fetching members:", error);
@@ -93,7 +95,7 @@ const TeamCalendar = () => {
       startDate: e.startDate,
       endDate: e.endDate,
       type: e.type || 'event',
-      conferenceLink: e.conferenceLink,
+        conferenceLink: e.conferencingLink || e.conferenceLink,
       attendees: (e.attendees || []).map(a => ({
         id: a._id || a.id,
         name: a.name,
@@ -236,18 +238,9 @@ const TeamCalendar = () => {
     setShowEventDialog(true);
   };
 
-  const handleCreateEvent = async (eventData) => {
-    try {
-      await teamApi.createEvent(eventData);
-      toast.success("Event created", {
-        description: "The event has been added to the calendar",
-      });
-      fetchEvents();
-    } catch (error) {
-      toast.error("Failed to create event", {
-        description: error?.message || "Please try again"
-      });
-    }
+  const handleCreated = () => {
+    setShowCreateDialog(false);
+    fetchEvents();
   };
 
   if (loading && events.length === 0) {
@@ -271,7 +264,7 @@ const TeamCalendar = () => {
             View team events and task deadlines
           </p>
         </div>
-        <Button className="gap-2" onClick={() => handleCreateEvent({})}>
+        <Button className="gap-2" onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4" />
           New Event
         </Button>
@@ -588,6 +581,17 @@ const TeamCalendar = () => {
               </p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Event Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Event</DialogTitle>
+            <DialogDescription>Add a new event to the team calendar</DialogDescription>
+          </DialogHeader>
+          <CreateEventForm onClose={handleCreated} />
         </DialogContent>
       </Dialog>
     </div>

@@ -104,7 +104,11 @@ useEffect(() => {
       const user = members.find(m => m.id === id);
       return user ? { id: user.id, name: user.name, email: user.email } : null;
     }).filter(Boolean),
-    count
+    // Useful for mass operations to avoid duplicates when mixing groups + individuals
+    userIds: Array.from(allSelectedUserIds),
+    groupMemberIds: Array.from(groupMemberIds),
+    selectedUserIds: [...selectedUsers],
+    count,
   };
   
   // ✅ Call parent callback

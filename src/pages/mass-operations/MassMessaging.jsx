@@ -87,7 +87,7 @@ await massOpsApi.sendMessage({
             }));
             setRecipientCount(recipients.count);
           }}
-          allowOrganizationWide={user.role === 'manager'}
+          allowOrganizationWide={user.role === 'SuperAdmin'}
         />
         <p className="mt-4 text-sm text-gray-600">
           Total recipients: <strong>{recipientCount}</strong>

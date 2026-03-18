@@ -21,6 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ReminderManager from '@/components/ReminderManager';
+import LocationManager from '@/components/LocationManager';
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -32,6 +34,8 @@ const EventDetails = () => {
   const [rsvpStatus, setRsvpStatus] = useState("pending");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isRSVPDialogOpen, setIsRSVPDialogOpen] = useState(false);
+const [reminders, setReminders] = useState(event?.reminders || []);
+
 
   useEffect(() => {
   const fetchEvent = async () => {
@@ -257,6 +261,30 @@ const handleUpdateEvent = async (updates) => {
   const isEventPast = event ? isPast(parseISO(event.end)) : false;
   const isEventToday = event ? isToday(parseISO(event.start)) : false;
 
+
+  const handleAddReminder = async (reminderData) => {
+  try {
+    await eventsApi.setEventReminder(id, reminderData.type, reminderData.minutesBefore);
+    toast.success("Reminder set successfully");
+    // Refresh event data
+    const response = await eventsApi.getEvent(id);
+    setReminders(response.data.reminders || []);
+  } catch (error) {
+    toast.error("Failed to set reminder");
+  }
+};
+
+const handleUpdateLocation = async (locationData) => {
+  try {
+    await eventsApi.updateEventLocation(id, locationData);
+    toast.success("Location updated successfully");
+    // Refresh event data
+    const response = await eventsApi.getEvent(id);
+    setEvent(prev => ({ ...prev, location: response.data.location }));
+  } catch (error) {
+    toast.error("Failed to update location");
+  }
+};
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -420,59 +448,59 @@ const handleUpdateEvent = async (updates) => {
           </Card>
 
           {/* Attendees */}
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <Users className="h-5 w-5" />
-      Attendees ({event.attendees?.length || 0})
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="space-y-3 mb-4">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Accepted</span>
-        <Badge className="bg-green-500">{acceptedCount}</Badge>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Pending</span>
-        <Badge variant="outline">{pendingCount}</Badge>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Declined</span>
-        <Badge variant="destructive">{declinedCount}</Badge>
-      </div>
-    </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Attendees ({event.attendees?.length || 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Accepted</span>
+                  <Badge className="bg-green-500">{acceptedCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Pending</span>
+                  <Badge variant="outline">{pendingCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Declined</span>
+                  <Badge variant="destructive">{declinedCount}</Badge>
+                </div>
+              </div>
 
-    <div className="space-y-3 max-h-96 overflow-y-auto">
-      {event.attendees && event.attendees.length > 0 ? (
-        event.attendees.map((attendee, index) => (
-          <div key={attendee._id || index} className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-sm">{attendee.name || 'User'}</p>
-              {attendee.email && (
-                <p className="text-xs text-muted-foreground">{attendee.email}</p>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {event.attendees && event.attendees.length > 0 ? (
+                  event.attendees.map((attendee, index) => (
+                    <div key={attendee._id || index} className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{attendee.name?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{attendee.name || 'User'}</p>
+                        {attendee.email && (
+                          <p className="text-xs text-muted-foreground">{attendee.email}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No attendees added yet</p>
+                )}
+              </div>
+
+              {/* ✅ FIX: Only show "Manage RSVPs" for organizers and admins */}
+              {canEdit && (
+                <Button variant="outline" className="w-full mt-4" asChild>
+                  <Link to={`/events/${event._id}/rsvp`}>
+                    Manage RSVPs
+                  </Link>
+                </Button>
               )}
-            </div>
-          </div>
-        ))
-      ) : (
-        <p className="text-sm text-muted-foreground">No attendees added yet</p>
-      )}
-    </div>
-
-    {/* ✅ FIX: Only show "Manage RSVPs" for organizers and admins */}
-    {canEdit && (
-      <Button variant="outline" className="w-full mt-4" asChild>
-        <Link to={`/events/${event._id}/rsvp`}>
-          Manage RSVPs
-        </Link>
-      </Button>
-    )}
-  </CardContent>
-</Card>
+            </CardContent>
+          </Card>
 
           {/* Actions & Check-in - ✅ MERGED INTO ONE CARD */}
           {!isEventPast && (
@@ -551,6 +579,21 @@ const handleUpdateEvent = async (updates) => {
               </CardContent>
             </Card>
           )}
+          {/* Location */}
+          <LocationManager 
+            location={event.location}
+            onUpdate={handleUpdateLocation}
+          />
+
+          {/* Reminders */}
+          <ReminderManager
+            reminders={reminders}
+            onAdd={handleAddReminder}
+            onRemove={(index) => {
+              // Handle removal if needed
+            }}
+            type="event"
+          />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +11,31 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { eventsApi } from "../../api/eventsApi";
+import { usersApi } from "@/api/usersApi";
+import UserMultiSelect from "@/components/UserMultiSelect";
+import { useAuth } from "@/context/AuthContext";
 
 const CreateEventForm = ({ onClose, eventData, isEditMode }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  const canInvite = ['Admin', 'SuperAdmin'].includes(user?.role);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedAttendees, setSelectedAttendees] = useState([]);
+
+  useEffect(() => {
+    if (!canInvite) return;
+
+    const fetchUsers = async () => {
+      try {
+        const response = await usersApi.getUsers();
+        setTeamMembers(response.data?.users || []);
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+      }
+    };
+
+    fetchUsers();
+  }, [canInvite]);
   
   // Initialize dates from eventData if editing
   const [startDate, setStartDate] = useState(
@@ -23,6 +45,10 @@ const CreateEventForm = ({ onClose, eventData, isEditMode }) => {
     isEditMode && eventData?.end ? new Date(eventData.end) : undefined
   );
   
+  const existingReminder = isEditMode && eventData?.reminders?.length
+    ? eventData.reminders[0].minutesBefore?.toString()
+    : undefined;
+
   const [formData, setFormData] = useState({
     title: isEditMode && eventData ? eventData.title : "",
     description: isEditMode && eventData ? eventData.description || "" : "",
@@ -32,7 +58,7 @@ const CreateEventForm = ({ onClose, eventData, isEditMode }) => {
     location: isEditMode && eventData ? eventData.location || "" : "",
     meetingUrl: isEditMode && eventData ? eventData.onlineLink || "" : "",
     participants: "",
-    reminder: "30",
+    reminder: existingReminder || "30",
     visibility: isEditMode && eventData ? eventData.visibility : "Public",
   });
 
@@ -54,27 +80,35 @@ const handleSubmit = async (e) => {
     const startDateTime = new Date(startDate);
     if (formData.startTime) {
       const [hours, minutes] = formData.startTime.split(':');
-      startDateTime.setHours(parseInt(hours), parseInt(minutes));
+      startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0); // ✅ Added seconds/ms
     }
     
     const endDateTime = new Date(endDate);
     if (formData.endTime) {
       const [hours, minutes] = formData.endTime.split(':');
-      endDateTime.setHours(parseInt(hours), parseInt(minutes));
+      endDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0); // ✅ Added seconds/ms
     }
 
     // Map frontend fields to backend schema
+    const reminderMinutes = Number(formData.reminder) || 30;
+
     const eventPayload = {
       title: formData.title,
       description: formData.description,
       startDate: startDateTime.toISOString(),
       endDate: endDateTime.toISOString(),
       type: formData.eventType || 'Meeting',
-      visibility: formData.visibility,
+      // Backend requires a `groupId` for `GroupOnly` events; the form doesn't collect it yet.
+      visibility: formData.visibility === 'GroupOnly' ? 'Public' : formData.visibility,
       conferencingLink: formData.meetingUrl || null,
+      reminders: [{
+        type: 'notification',
+        minutesBefore: reminderMinutes
+      }],
       location: formData.location || null,
-      attendees: [],
+      attendees: canInvite ? selectedAttendees : [],
     };
+    console.log('📤 Sending event payload:', eventPayload); // ✅ Add debug log
 
     let response;
     if (isEditMode && eventData) {
@@ -92,12 +126,17 @@ const handleSubmit = async (e) => {
       });
       window.dispatchEvent(new CustomEvent('eventCreated', { detail: response.data }));
     }
+
+    window.dispatchEvent(new Event('opexcal:refresh-notifications'));
     
     onClose();
     
   } catch (error) {
     toast.error("Error", {
-      description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} event.`,
+      description:
+        error.response?.data?.message ||
+        error.message ||
+        `Failed to ${isEditMode ? 'update' : 'create'} event.`,
     });
   } finally {
     setIsLoading(false);
@@ -148,6 +187,18 @@ const handleSubmit = async (e) => {
 </SelectContent>
           </Select>
         </div>
+
+        {canInvite && (
+          <div className="space-y-2">
+            <Label htmlFor="attendees">Invite Attendees</Label>
+            <UserMultiSelect
+              users={teamMembers}
+              selectedUsers={selectedAttendees}
+              onChange={setSelectedAttendees}
+              placeholder="Select users to invite..."
+            />
+          </div>
+        )}
       </div>
 
       {/* Date & Time */}

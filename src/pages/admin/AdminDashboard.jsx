@@ -31,7 +31,7 @@ const AdminDashboard = () => {
   const { adminStats, groupsOverview, loading: adminLoading } = useAdminDashboard();
   const { user } = useAuth();
 
-  const isSuperAdmin = user?.role === "manager" || user?.role === "admin";
+  const isSuperAdmin = user?.role === "SuperAdmin" || user?.role === "Admin";
 
   if (dashboardLoading || adminLoading) {
     return (

@@ -27,6 +27,9 @@ const generateTitle = (notification) => {
     'TASK_ASSIGNED': 'New Task Assignment',
     'TASK_RESPONSE': 'Task Response',
     'EVENT_INVITE': 'Event Invitation',
+    'EVENT_REMINDER': '⏰ Event Reminder',        // ✅ NEW
+    'TASK_REMINDER': '⏰ Task Reminder',          // ✅ NEW
+    'EVENT_STARTING': '🔴 Event Starting Now!',  // ✅ NEW
   };
   return titles[notification.type] || 'Notification';
 };
@@ -267,6 +270,17 @@ const fetchNotifications = async () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    const handler = () => {
+      if (!authLoading && user) {
+        fetchNotifications();
+      }
+    };
+
+    window.addEventListener('opexcal:refresh-notifications', handler);
+    return () => window.removeEventListener('opexcal:refresh-notifications', handler);
   }, [user, authLoading]);
 
   return (

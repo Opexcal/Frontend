@@ -23,10 +23,10 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   // Check role permissions if specified
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     const roleRoutes = {
-      manager: "/dashboard/manager",
-      admin: "/dashboard/admin",
-      staff: "/dashboard/staff",
-      wanderer: "/dashboard/wanderer",
+      SuperAdmin: "/dashboard/manager",
+      Admin: "/admin/dashboard",
+      Staff: "/dashboard/staff",
+      Unassigned: "/dashboard/wanderer",
     };
 
     const defaultRoute = roleRoutes[user.role] || "/dashboard/wanderer";

@@ -16,6 +16,8 @@ const MassTaskCreation = () => {
     dueDate: '',
     selectedGroups: [],
     selectedUsers: [],
+    userIds: [],
+    groupMemberIds: [],
   });
   const [recipientCount, setRecipientCount] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
@@ -32,6 +34,13 @@ const MassTaskCreation = () => {
       return;
     }
 
+    if (!taskData.dueDate) {
+      toast.error("Missing due date", {
+        description: "Please select a due date/time for the task",
+      });
+      return;
+    }
+
     if (taskData.selectedGroups.length === 0 && taskData.selectedUsers.length === 0) {
       toast.error("No recipients selected", {
         description: "Please select at least one group or user",
@@ -42,17 +51,43 @@ const MassTaskCreation = () => {
     setSending(true);
 
     try {
+      const dueDateIso = new Date(taskData.dueDate).toISOString();
+
       // If groups are selected, use mass task API
       if (taskData.selectedGroups.length > 0) {
-        const groupId = taskData.selectedGroups[0].id;
-        
-        await massOpsApi.createMassTasks({
-          title: taskData.title,
-          description: taskData.description,
-          priority: taskData.priority,
-          dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : undefined,
-          groupId,
-        });
+        const groupIds = taskData.selectedGroups.map((g) => g.id).filter(Boolean);
+
+        await Promise.all(
+          groupIds.map((groupId) =>
+            massOpsApi.createMassTasks({
+              title: taskData.title,
+              description: taskData.description,
+              priority: taskData.priority,
+              dueDate: dueDateIso,
+              groupId,
+            })
+          )
+        );
+
+        // Also handle individually-selected users that are NOT in the selected groups.
+        const groupMemberIds = Array.isArray(taskData.groupMemberIds) ? taskData.groupMemberIds : [];
+        const userIds = Array.isArray(taskData.userIds) ? taskData.userIds : [];
+        const individualOnlyIds = userIds.filter((id) => !groupMemberIds.includes(id));
+
+        if (individualOnlyIds.length > 0) {
+          const { tasksApi } = await import('../../api/taskApi');
+          await Promise.all(
+            individualOnlyIds.map((userId) =>
+              tasksApi.createTask({
+                title: taskData.title,
+                description: taskData.description,
+                priority: taskData.priority,
+                dueDate: dueDateIso,
+                assignees: [userId],
+              })
+            )
+          );
+        }
       } 
       // If only individual users, create individual tasks
       else if (taskData.selectedUsers.length > 0) {
@@ -64,9 +99,8 @@ const MassTaskCreation = () => {
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
-            dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : undefined,
+            dueDate: dueDateIso,
             assignees: [user.id],
-            status: 'Not Started'
           })
         );
         
@@ -76,6 +110,7 @@ const MassTaskCreation = () => {
       toast.success("Mass tasks created", {
         description: `Successfully created tasks for ${recipientCount} assignee${recipientCount !== 1 ? 's' : ''}.`,
       });
+      window.dispatchEvent(new Event('opexcal:refresh-notifications'));
 
       // Reset form
       setTaskData({
@@ -85,6 +120,8 @@ const MassTaskCreation = () => {
         dueDate: "",
         selectedGroups: [],
         selectedUsers: [],
+        userIds: [],
+        groupMemberIds: [],
       });
       setRecipientCount(0);
       setShowPreview(false);
@@ -132,10 +169,12 @@ const MassTaskCreation = () => {
               ...prev,
               selectedGroups: recipients.groups || [],
               selectedUsers: recipients.users || [],
+              userIds: recipients.userIds || [],
+              groupMemberIds: recipients.groupMemberIds || [],
             }));
             setRecipientCount(recipients.count || 0);
           }}
-          allowOrganizationWide={user?.role === 'manager'}
+          allowOrganizationWide={user?.role === 'SuperAdmin'}
         />
         <p className="mt-4 text-sm text-gray-600">
           Total assignees: <strong>{recipientCount}</strong>

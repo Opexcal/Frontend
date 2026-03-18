@@ -340,11 +340,11 @@ const handleSaveChanges = async () => {
                 </p>
               </div>
               <Badge 
-  variant={user.role === 'manager' ? 'default' : 'secondary'}
+  variant={user.role === 'SuperAdmin' ? 'default' : 'secondary'}
   className={
-    user.role === 'manager'
+    user.role === 'SuperAdmin'
       ? 'bg-purple-600 hover:bg-purple-700'
-      : user.role === 'admin'
+      : user.role === 'Admin'
       ? 'bg-blue-600 hover:bg-blue-700'
       : ''
   }

@@ -100,7 +100,10 @@ useEffect(() => {
 
 
 
-  const canEdit = user?.id === task.createdBy.id || user?.role === "admin" || user?.role === "manager";
+  const canEdit =
+    user?.id === task.createdBy.id ||
+    user?.role === "Admin" ||
+    user?.role === "SuperAdmin";
 const isAssignedToMe = Array.isArray(task.assignedTo)
   ? task.assignedTo.some(a => {
       const assigneeId = a._id || a.id;

@@ -132,7 +132,7 @@ function AppRoutes() {
 
 {/* ✅ ADD Audit Logs under Reports with Admin/Manager protection */}
 <Route path="/reports/audit-logs" element={
-  <ProtectedRoute allowedRoles={["admin", "manager"]}>
+  <ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}>
     <AuditLogs />
   </ProtectedRoute>
 } />
@@ -143,29 +143,29 @@ function AppRoutes() {
   <Route path="/notifications/settings" element={<NotificationSettings />} />
 
   {/* Team Management (Admin/Manager only) */}
-  <Route path="/team/dashboard" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamDashboard /></ProtectedRoute>} />
-  <Route path="/team/calendar" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamCalendar /></ProtectedRoute>} />
-  <Route path="/team/tasks" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamTasks /></ProtectedRoute>} />
-  <Route path="/team/reports" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><TeamReports /></ProtectedRoute>} />
+  <Route path="/team/dashboard" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><TeamDashboard /></ProtectedRoute>} />
+  <Route path="/team/calendar" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><TeamCalendar /></ProtectedRoute>} />
+  <Route path="/team/tasks" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><TeamTasks /></ProtectedRoute>} />
+  <Route path="/team/reports" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><TeamReports /></ProtectedRoute>} />
 
   {/* Task Assignments (all authenticated users) */}
   <Route path="/assignments" element={<TaskDelegation />} />
   <Route path="/assignments/pending" element={<PendingAssignments />} />
 
   {/* Mass Operations (Admin/Manager only) */}
-  <Route path="/mass/message" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassMessaging /></ProtectedRoute>} />
-  <Route path="/mass/task" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassTaskCreation /></ProtectedRoute>} />
-  <Route path="/mass/event" element={<ProtectedRoute allowedRoles={["admin", "manager"]}><MassEventCreation /></ProtectedRoute>} />
+  <Route path="/mass/message" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><MassMessaging /></ProtectedRoute>} />
+  <Route path="/mass/task" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><MassTaskCreation /></ProtectedRoute>} />
+  <Route path="/mass/event" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><MassEventCreation /></ProtectedRoute>} />
 
   {/* Admin routes grouped under /admin and protected */}
-  <Route path="/admin" element={<ProtectedRoute allowedRoles={["manager", "admin"]} />}>
+  <Route path="/admin" element={<ProtectedRoute allowedRoles={["SuperAdmin", "Admin"]} />}>
     <Route path="dashboard" element={<AdminDashboard />} />
     <Route path="users" element={<UserManagement />} />
     <Route path="users/:id" element={<UserDetails />} />
     <Route path="groups" element={<GroupManagement />} />
     <Route path="groups/:id" element={<GroupDetails />} />
      <Route path="settings" element={
-    <ProtectedRoute allowedRoles={["manager"]}>
+    <ProtectedRoute allowedRoles={["SuperAdmin"]}>
       <OrganizationSettings />
     </ProtectedRoute>
   } />

@@ -7,10 +7,10 @@ const Dashboard = () => {
   if (!user) return <Navigate to="/login" replace />;
 
   const roleRoutes = {
-    manager: "/dashboard/manager",
-    admin: "/dashboard/admin",
-    staff: "/dashboard/staff",
-    wanderer: "/dashboard/wanderer",
+    SuperAdmin: "/dashboard/manager",
+    Admin: "/admin/dashboard",
+    Staff: "/dashboard/staff",
+    Unassigned: "/dashboard/wanderer",
   };
 
   const defaultRoute = roleRoutes[user.role] || "/dashboard/wanderer";
